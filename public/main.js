@@ -1,44 +1,35 @@
-// firebase.jsからdb（データベース本体）を読み込む
-import { db } from "./firebase.js";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { auth, provider, db } from "./firebase.js";
+import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.x.x/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.x.x/firebase-firestore.js";
 
-// HTMLのボタンとリストを取得する
-const addBtn = document.getElementById("add-btn");
-const getBtn = document.getElementById("get-btn");
-const dataList = document.getElementById("data-list");
+const loginBtn = document.getElementById("login-btn");
 
-// --- データの書き込み（保存） ---
-addBtn.addEventListener("click", async () => {
-  try {
-    // 'testData'というコレクション（フォルダのようなもの）にデータを追加
-    const docRef = await addDoc(collection(db, "testData"), {
-      name: "KARAKIDA APP",
-      message: "ブラウザからのテスト送信です！",
-      timestamp: new Date()
-    });
-    alert("データの保存に成功しました！ ID: " + docRef.id);
-  } catch (e) {
-    console.error("保存エラー: ", e);
-    alert("エラーが発生しました。コンソールを確認してください。");
-  }
+// ログインボタンの処理
+loginBtn.addEventListener("click", () => {
+  signInWithPopup(auth, provider).catch(err => alert("ログイン失敗: " + err.message));
 });
 
-// --- データの呼び出し（表示） ---
-getBtn.addEventListener("click", async () => {
-  dataList.innerHTML = "読み込み中..."; // 取得前に一度リセット
-  
-  try {
-    const querySnapshot = await getDocs(collection(db, "testData"));
-    dataList.innerHTML = ""; // リセット
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      // リストの項目（<li>）を作成してHTMLに追加する
-      const li = document.createElement("li");
-      li.textContent = `名前: ${data.name} | メッセージ: ${data.message}`;
-      dataList.appendChild(li);
-    });
-  } catch (e) {
-    console.error("読み込みエラー: ", e);
+// ログイン状態を監視する
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // 1. USER_LISTにこのユーザー（メールアドレス）が存在するか確認
+    // ※USER_LISTコレクションのドキュメントIDがメールアドレスであると仮定
+    const userRef = doc(db, "USER_LIST", user.email);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      // 2. 許可されたユーザーならコンテンツを表示
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("app-content").style.display = "block";
+      document.getElementById("user-info").innerText = `${user.displayName} さんとしてログイン中`;
+    } else {
+      // 3. 許可されていないユーザーの場合
+      alert("アクセス権限がありません。管理者にお問い合わせください。");
+      auth.signOut();
+    }
+  } else {
+    // ログアウト状態ならログイン画面を表示
+    document.getElementById("login-screen").style.display = "block";
+    document.getElementById("app-content").style.display = "none";
   }
 });

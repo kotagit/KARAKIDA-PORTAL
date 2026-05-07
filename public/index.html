@@ -1,18 +1,11 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>唐木田PORTAL テスト</title>
-</head>
 <body>
-  <h1>唐木田PORTAL データベーステスト</h1>
-  
-  <button id="add-btn">Firestoreにデータを保存する</button>
-  <button id="get-btn">Firestoreからデータを呼び出す</button>
-  
-  <h2>保存されたデータ：</h2>
-  <ul id="data-list"></ul>
+  <div id="login-screen">
+    <h1>唐木田PORTAL</h1>
+    <button id="login-btn">Googleアカウントでログイン</button>
+  </div>
 
-  <script type="module" src="main.js"></script>
+  <div id="app-content" style="display: none;">
+    <h1>ようこそ！</h1>
+    <p id="user-info"></p>
+    </div>
 </body>
-</html>
