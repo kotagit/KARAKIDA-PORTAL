@@ -6,16 +6,16 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
-  collection, doc, getDoc, getDocs,
+  collection, doc, getDocs, getDoc,
   addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, Timestamp
+  query, where, orderBy, limit, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 // ── 状態 ──────────────────────────────────────
-let currentUser = null;
-let isAdmin = false;
-let currentTab = "meeting";
-let editingId = null;
+let currentUser  = null;
+let isAdmin      = false;
+let currentTab   = "meeting";
+let editingId    = null;
 let deleteTargetId = null;
 
 // ── DOM ──────────────────────────────────────
@@ -27,7 +27,6 @@ const userNameEl   = document.getElementById("user-name");
 const scheduleList = document.getElementById("schedule-list");
 const fab          = document.getElementById("fab");
 const adminModal   = document.getElementById("admin-modal");
-const deleteModal  = document.getElementById("delete-modal");
 const scheduleForm = document.getElementById("schedule-form");
 const modalTitle   = document.getElementById("modal-title");
 const tabs         = document.querySelectorAll(".tab");
@@ -43,16 +42,28 @@ getRedirectResult(auth).catch(err => {
 // ── 認証状態 ──────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    const snap = await getDoc(doc(db, "USER_LIST", user.email.toLowerCase()));
-    if (!snap.exists()) {
+    const email = user.email.toLowerCase();
+
+    // USER_LIST を mail フィールドで検索
+    const q = query(
+      collection(db, "USER_LIST"),
+      where("mail", "==", email),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
       alert("アクセス権限がありません。");
       await signOut(auth);
       return;
     }
-    const data = snap.data();
+
+    const userData = snap.docs[0].data();
     currentUser = user;
-    isAdmin = data.isAdmin === true;
-    userNameEl.textContent = data.name || user.displayName || "";
+    // dev フィールドが "WEB" のユーザーが管理者
+    isAdmin = userData.dev === "WEB";
+
+    userNameEl.textContent = userData.name || user.displayName || "";
     if (isAdmin) fab.classList.remove("hidden");
 
     loginScreen.classList.add("hidden");
@@ -60,7 +71,7 @@ onAuthStateChanged(auth, async (user) => {
     loadSchedule();
   } else {
     currentUser = null;
-    isAdmin = false;
+    isAdmin     = false;
     loginScreen.classList.remove("hidden");
     mainScreen.classList.add("hidden");
     fab.classList.add("hidden");
@@ -94,7 +105,7 @@ async function loadSchedule() {
 }
 
 // ── スケジュール描画 ──────────────────────────
-const WEEKDAYS  = ["日","月","火","水","木","金","土"];
+const WEEKDAYS    = ["日","月","火","水","木","金","土"];
 const TYPE_LABELS = { meeting:"集会", circuit:"巡回訪問", convention:"大会" };
 
 function renderSchedule(docs) {
@@ -109,11 +120,9 @@ function renderSchedule(docs) {
 
   scheduleList.innerHTML = "";
   docs.forEach(docSnap => {
-    const d = docSnap.data();
+    const d    = docSnap.data();
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
-    const month = date.getMonth() + 1;
-    const day   = date.getDate();
-    const wday  = WEEKDAYS[date.getDay()];
+    const wday = WEEKDAYS[date.getDay()];
 
     let dateRange = "";
     if (d.endDate) {
@@ -125,8 +134,8 @@ function renderSchedule(docs) {
     card.className = "schedule-card";
     card.innerHTML = `
       <div class="schedule-date-block">
-        <div class="schedule-date-month">${month}月</div>
-        <div class="schedule-date-day">${day}</div>
+        <div class="schedule-date-month">${date.getMonth()+1}月</div>
+        <div class="schedule-date-day">${date.getDate()}</div>
         <div class="schedule-date-weekday">${wday}</div>
       </div>
       <div class="schedule-info">
@@ -165,7 +174,7 @@ function esc(str) {
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// ── 追加モーダル ──────────────────────────────
+// ── 追加・編集モーダル ────────────────────────
 fab.addEventListener("click", openAddModal);
 
 function openAddModal() {
@@ -233,11 +242,11 @@ scheduleForm.addEventListener("submit", async (e) => {
 // ── 削除 ──────────────────────────────────────
 function openDeleteModal(id) {
   deleteTargetId = id;
-  deleteModal.classList.remove("hidden");
+  document.getElementById("delete-modal").classList.remove("hidden");
 }
 
 function closeDeleteModal() {
-  deleteModal.classList.add("hidden");
+  document.getElementById("delete-modal").classList.add("hidden");
   deleteTargetId = null;
 }
 
