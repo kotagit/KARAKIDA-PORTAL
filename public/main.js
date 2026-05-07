@@ -1,21 +1,21 @@
+// バージョンは 10.13.2 に合わせています
 import { auth, provider, db } from "./firebase.js";
-import { signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { signInWithRedirect, getRedirectResult, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 const loginBtn = document.getElementById("login-btn");
 
-// ボタンクリック時の処理
+// ログインボタンの処理（リダイレクト方式に変更）
 loginBtn.addEventListener("click", () => {
-  console.log("ログインボタンが押されました"); // 動作確認用
-  signInWithPopup(auth, provider).catch(err => {
-    console.error("ログインエラー:", err);
-    alert("ログイン失敗: " + err.message);
-  });
+  console.log("ログインを開始します（画面を切り替えます）");
+  signInWithRedirect(auth, provider);
 });
 
 // ログイン状態の監視
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    console.log("ログイン中:", user.email);
+    // USER_LISTのチェック
     const userRef = doc(db, "USER_LIST", user.email);
     const userSnap = await getDoc(userRef);
 
@@ -24,7 +24,7 @@ onAuthStateChanged(auth, async (user) => {
       document.getElementById("app-content").style.display = "block";
       document.getElementById("user-info").innerText = `${user.displayName} さんとしてログイン中`;
     } else {
-      alert("USER_LISTに登録されていません。");
+      alert("アクセス権限がありません。USER_LISTを確認してください。");
       auth.signOut();
     }
   } else {
