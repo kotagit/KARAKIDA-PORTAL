@@ -1,8 +1,7 @@
 import { auth, portalAuth, provider, db, portalDb } from "./firebase.js";
 import {
-  signInWithRedirect, signInWithCredential,
-  getRedirectResult, onAuthStateChanged,
-  GoogleAuthProvider, signOut
+  signInWithPopup, signInWithCredential,
+  onAuthStateChanged, GoogleAuthProvider, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   collection, doc, getDocs, getDoc,
@@ -31,20 +30,23 @@ const modalTitle   = document.getElementById("modal-title");
 const tabs         = document.querySelectorAll(".tab");
 
 // ── ログイン ──────────────────────────────────
-loginBtn.addEventListener("click", () => signInWithRedirect(auth, provider));
+loginBtn.addEventListener("click", async () => {
+  loginBtn.disabled = true;
+  document.getElementById("login-error").textContent = "";
+  try {
+    // アプリ側でGoogleサインイン（ポップアップ）
+    const result = await signInWithPopup(auth, provider);
+    // 同じGoogleクレデンシャルでポータル側にもサインイン
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential) await signInWithCredential(portalAuth, credential);
+  } catch (err) {
+    document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
+    loginBtn.disabled = false;
+  }
+});
 
 logoutBtn.addEventListener("click", async () => {
   await Promise.all([signOut(auth), signOut(portalAuth)]);
-});
-
-// リダイレクト後：Googleクレデンシャルを使ってポータル側にもサインイン
-getRedirectResult(auth).then(async (result) => {
-  if (result) {
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential) await signInWithCredential(portalAuth, credential);
-  }
-}).catch(err => {
-  document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
 });
 
 // ── 認証状態 ──────────────────────────────────
@@ -72,8 +74,8 @@ onAuthStateChanged(auth, async (user) => {
     // ポータル側にもサインインしていなければpopupで実施
     if (!portalAuth.currentUser) {
       try {
-        await signInWithRedirect(portalAuth, provider);
-      } catch (_) { /* リダイレクト中 */ }
+        await signInWithPopup(portalAuth, provider);
+      } catch (_) { /* 無視 */ }
     }
 
     if (isAdmin) fab.classList.remove("hidden");
