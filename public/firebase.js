@@ -12,7 +12,7 @@ const appConfig = {
   appId: "1:784037102811:web:8173578b319adc6596f8fe"
 };
 
-// ポータル側（SCHEDULE など情報系データ）
+// ポータル側（情報系データ専用）
 const portalConfig = {
   apiKey: "AIzaSyBdGcOzwARKZdgVFv7nO9M5GNa-LCf0c5Y",
   authDomain: "karakida-portal.firebaseapp.com",
@@ -25,8 +25,7 @@ const portalConfig = {
 const appFirebase    = initializeApp(appConfig,    "app");
 const portalFirebase = initializeApp(portalConfig, "portal");
 
-export const auth       = getAuth(appFirebase);       // 認証 & USER_LIST用
-export const portalAuth = getAuth(portalFirebase);    // ポータルFirestore用
-export const db         = getFirestore(appFirebase);  // USER_LIST
-export const portalDb   = getFirestore(portalFirebase); // SCHEDULE等
-export const provider   = new GoogleAuthProvider();
+export const auth     = getAuth(appFirebase);         // 認証 + USER_LIST用
+export const db       = getFirestore(appFirebase);    // USER_LIST
+export const portalDb = getFirestore(portalFirebase); // SCHEDULE等
+export const provider = new GoogleAuthProvider();

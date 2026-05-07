@@ -1,10 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // SCHEDULE: 認証済みユーザーのみ読み書き可
-    match /SCHEDULE/{docId} {
-      allow read, write: if request.auth != null;
+    // アクセス制御はアプリ側（USER_LIST認証）で実施済み
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

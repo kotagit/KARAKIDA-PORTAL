@@ -1,7 +1,7 @@
-import { auth, portalAuth, provider, db, portalDb } from "./firebase.js";
+import { auth, provider, db, portalDb } from "./firebase.js";
 import {
-  signInWithPopup, signInWithCredential,
-  onAuthStateChanged, GoogleAuthProvider, signOut
+  signInWithRedirect, getRedirectResult,
+  onAuthStateChanged, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   collection, doc, getDocs, getDoc,
@@ -29,64 +29,54 @@ const scheduleForm = document.getElementById("schedule-form");
 const modalTitle   = document.getElementById("modal-title");
 const tabs         = document.querySelectorAll(".tab");
 
-// ── ログイン ──────────────────────────────────
-loginBtn.addEventListener("click", async () => {
-  loginBtn.disabled = true;
-  document.getElementById("login-error").textContent = "";
-  try {
-    // アプリ側でGoogleサインイン（ポップアップ）
-    const result = await signInWithPopup(auth, provider);
-    // 同じGoogleクレデンシャルでポータル側にもサインイン
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (credential) await signInWithCredential(portalAuth, credential);
-  } catch (err) {
-    document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
-    loginBtn.disabled = false;
-  }
+// ── ログイン（リダイレクト方式・ポップアップなし）──
+loginBtn.addEventListener("click", () => {
+  signInWithRedirect(auth, provider);
 });
 
-logoutBtn.addEventListener("click", async () => {
-  await Promise.all([signOut(auth), signOut(portalAuth)]);
+logoutBtn.addEventListener("click", () => signOut(auth));
+
+// リダイレクト結果処理（エラーのみ表示）
+getRedirectResult(auth).catch(err => {
+  document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
 });
 
 // ── 認証状態 ──────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // USER_LISTをmail フィールドで検索（アプリ側Firestore）
-    const q = query(
-      collection(db, "USER_LIST"),
-      where("mail", "==", user.email.toLowerCase()),
-      limit(1)
-    );
-    const snap = await getDocs(q);
+    const email = user.email.toLowerCase();
+    try {
+      const q = query(
+        collection(db, "USER_LIST"),
+        where("mail", "==", email),
+        limit(1)
+      );
+      const snap = await getDocs(q);
 
-    if (snap.empty) {
-      alert("アクセス権限がありません。");
-      await Promise.all([signOut(auth), signOut(portalAuth)]);
-      return;
+      if (snap.empty) {
+        await signOut(auth);
+        document.getElementById("login-error").textContent = "アクセス権限がありません。";
+        return;
+      }
+
+      const userData = snap.docs[0].data();
+      currentUser = user;
+      isAdmin     = userData.dev === "WEB";
+      userNameEl.textContent = userData.name || user.displayName || "";
+
+      if (isAdmin) fab.classList.remove("hidden");
+      loginScreen.classList.add("hidden");
+      mainScreen.classList.remove("hidden");
+      loadSchedule();
+    } catch (e) {
+      document.getElementById("login-error").textContent = "エラー: " + e.message;
+      await signOut(auth);
     }
-
-    const userData = snap.docs[0].data();
-    currentUser = user;
-    isAdmin     = userData.dev === "WEB";
-    userNameEl.textContent = userData.name || user.displayName || "";
-
-    // ポータル側にもサインインしていなければpopupで実施
-    if (!portalAuth.currentUser) {
-      try {
-        await signInWithPopup(portalAuth, provider);
-      } catch (_) { /* 無視 */ }
-    }
-
-    if (isAdmin) fab.classList.remove("hidden");
-    loginScreen.classList.add("hidden");
-    mainScreen.classList.remove("hidden");
-    loadSchedule();
   } else {
     currentUser = null;
     isAdmin     = false;
-    loginScreen.classList.remove("hidden");
     mainScreen.classList.add("hidden");
+    loginScreen.classList.remove("hidden");
     fab.classList.add("hidden");
   }
 });
@@ -187,7 +177,7 @@ function esc(str) {
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// ── 追加・編集モーダル ────────────────────────
+// ── モーダル ──────────────────────────────────
 fab.addEventListener("click", openAddModal);
 
 function openAddModal() {
@@ -226,7 +216,7 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("form-cancel").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
 
-// ── フォーム保存（ポータルFirestore）──────────
+// ── フォーム保存 ──────────────────────────────
 scheduleForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const endVal = document.getElementById("form-end-date").value;
