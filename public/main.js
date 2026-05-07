@@ -1,4 +1,4 @@
-import { auth, provider, db, portalDb } from "./firebase.js";
+import { auth, provider, db } from "./firebase.js";
 import {
   signInWithRedirect, getRedirectResult,
   onAuthStateChanged, signOut
@@ -96,7 +96,7 @@ async function loadSchedule() {
   scheduleList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     const q = query(
-      collection(portalDb, "SCHEDULE"),
+      collection(db, "SCHEDULE"),
       where("type", "==", currentTab),
       orderBy("date", "asc")
     );
@@ -191,7 +191,7 @@ function openAddModal() {
 async function openEditModal(id) {
   editingId = id;
   modalTitle.textContent = "スケジュール編集";
-  const snap = await getDoc(doc(portalDb, "SCHEDULE", id));
+  const snap = await getDoc(doc(db, "SCHEDULE", id));
   const d = snap.data();
   document.getElementById("form-type").value     = d.type;
   document.getElementById("form-title").value    = d.title || "";
@@ -230,10 +230,10 @@ scheduleForm.addEventListener("submit", async (e) => {
   };
   try {
     if (editingId) {
-      await updateDoc(doc(portalDb, "SCHEDULE", editingId), data);
+      await updateDoc(doc(db, "SCHEDULE", editingId), data);
     } else {
       data.createdAt = Timestamp.now();
-      await addDoc(collection(portalDb, "SCHEDULE"), data);
+      await addDoc(collection(db, "SCHEDULE"), data);
     }
     closeModal();
     loadSchedule();
@@ -258,7 +258,7 @@ document.getElementById("delete-overlay").addEventListener("click", closeDeleteM
 document.getElementById("delete-confirm").addEventListener("click", async () => {
   if (!deleteTargetId) return;
   try {
-    await deleteDoc(doc(portalDb, "SCHEDULE", deleteTargetId));
+    await deleteDoc(doc(db, "SCHEDULE", deleteTargetId));
     closeDeleteModal();
     loadSchedule();
   } catch (err) {
