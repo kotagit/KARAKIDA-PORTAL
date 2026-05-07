@@ -5,7 +5,7 @@ import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/
 // アプリ側（認証 + USER_LIST）
 const appConfig = {
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
-  authDomain: "karakida-app-7bbc0.firebaseapp.com",
+  authDomain: "karakida-portal.web.app",
   projectId: "karakida-app-7bbc0",
   storageBucket: "karakida-app-7bbc0.appspot.com",
   messagingSenderId: "784037102811",
