@@ -1,9 +1,8 @@
-import { auth, provider, db } from "./firebase.js";
+import { auth, portalAuth, provider, db, portalDb } from "./firebase.js";
 import {
-  signInWithRedirect,
-  getRedirectResult,
-  onAuthStateChanged,
-  signOut
+  signInWithRedirect, signInWithCredential,
+  getRedirectResult, onAuthStateChanged,
+  GoogleAuthProvider, signOut
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import {
   collection, doc, getDocs, getDoc,
@@ -12,10 +11,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
 // ── 状態 ──────────────────────────────────────
-let currentUser  = null;
-let isAdmin      = false;
-let currentTab   = "meeting";
-let editingId    = null;
+let currentUser    = null;
+let isAdmin        = false;
+let currentTab     = "meeting";
+let editingId      = null;
 let deleteTargetId = null;
 
 // ── DOM ──────────────────────────────────────
@@ -33,39 +32,51 @@ const tabs         = document.querySelectorAll(".tab");
 
 // ── ログイン ──────────────────────────────────
 loginBtn.addEventListener("click", () => signInWithRedirect(auth, provider));
-logoutBtn.addEventListener("click", () => signOut(auth));
 
-getRedirectResult(auth).catch(err => {
+logoutBtn.addEventListener("click", async () => {
+  await Promise.all([signOut(auth), signOut(portalAuth)]);
+});
+
+// リダイレクト後：Googleクレデンシャルを使ってポータル側にもサインイン
+getRedirectResult(auth).then(async (result) => {
+  if (result) {
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (credential) await signInWithCredential(portalAuth, credential);
+  }
+}).catch(err => {
   document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
 });
 
 // ── 認証状態 ──────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    const email = user.email.toLowerCase();
-
-    // USER_LIST を mail フィールドで検索
+    // USER_LISTをmail フィールドで検索（アプリ側Firestore）
     const q = query(
       collection(db, "USER_LIST"),
-      where("mail", "==", email),
+      where("mail", "==", user.email.toLowerCase()),
       limit(1)
     );
     const snap = await getDocs(q);
 
     if (snap.empty) {
       alert("アクセス権限がありません。");
-      await signOut(auth);
+      await Promise.all([signOut(auth), signOut(portalAuth)]);
       return;
     }
 
     const userData = snap.docs[0].data();
     currentUser = user;
-    // dev フィールドが "WEB" のユーザーが管理者
-    isAdmin = userData.dev === "WEB";
-
+    isAdmin     = userData.dev === "WEB";
     userNameEl.textContent = userData.name || user.displayName || "";
-    if (isAdmin) fab.classList.remove("hidden");
 
+    // ポータル側にもサインインしていなければpopupで実施
+    if (!portalAuth.currentUser) {
+      try {
+        await signInWithRedirect(portalAuth, provider);
+      } catch (_) { /* リダイレクト中 */ }
+    }
+
+    if (isAdmin) fab.classList.remove("hidden");
     loginScreen.classList.add("hidden");
     mainScreen.classList.remove("hidden");
     loadSchedule();
@@ -88,12 +99,12 @@ tabs.forEach(tab => {
   });
 });
 
-// ── スケジュール読み込み ──────────────────────
+// ── スケジュール読み込み（ポータルFirestore）──
 async function loadSchedule() {
   scheduleList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     const q = query(
-      collection(db, "SCHEDULE"),
+      collection(portalDb, "SCHEDULE"),
       where("type", "==", currentTab),
       orderBy("date", "asc")
     );
@@ -188,7 +199,7 @@ function openAddModal() {
 async function openEditModal(id) {
   editingId = id;
   modalTitle.textContent = "スケジュール編集";
-  const snap = await getDoc(doc(db, "SCHEDULE", id));
+  const snap = await getDoc(doc(portalDb, "SCHEDULE", id));
   const d = snap.data();
   document.getElementById("form-type").value     = d.type;
   document.getElementById("form-title").value    = d.title || "";
@@ -213,7 +224,7 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("form-cancel").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", closeModal);
 
-// ── フォーム保存 ──────────────────────────────
+// ── フォーム保存（ポータルFirestore）──────────
 scheduleForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const endVal = document.getElementById("form-end-date").value;
@@ -227,10 +238,10 @@ scheduleForm.addEventListener("submit", async (e) => {
   };
   try {
     if (editingId) {
-      await updateDoc(doc(db, "SCHEDULE", editingId), data);
+      await updateDoc(doc(portalDb, "SCHEDULE", editingId), data);
     } else {
       data.createdAt = Timestamp.now();
-      await addDoc(collection(db, "SCHEDULE"), data);
+      await addDoc(collection(portalDb, "SCHEDULE"), data);
     }
     closeModal();
     loadSchedule();
@@ -255,7 +266,7 @@ document.getElementById("delete-overlay").addEventListener("click", closeDeleteM
 document.getElementById("delete-confirm").addEventListener("click", async () => {
   if (!deleteTargetId) return;
   try {
-    await deleteDoc(doc(db, "SCHEDULE", deleteTargetId));
+    await deleteDoc(doc(portalDb, "SCHEDULE", deleteTargetId));
     closeDeleteModal();
     loadSchedule();
   } catch (err) {

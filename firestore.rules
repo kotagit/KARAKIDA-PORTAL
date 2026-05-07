@@ -2,15 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // SCHEDULE: 認証済みユーザーは閲覧可
-    //           dev="WEB" の判定はクライアント側で実施（Firestoreのクエリ制限のため）
+    // SCHEDULE: 認証済みユーザーのみ読み書き可
     match /SCHEDULE/{docId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null;
-    }
-
-    // その他すべてのコレクション: 認証済みユーザーのみ
-    match /{document=**} {
       allow read, write: if request.auth != null;
     }
   }
