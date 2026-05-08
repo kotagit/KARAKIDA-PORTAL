@@ -1,23 +1,3 @@
-// ── アクセス制御 ──────────────────────────────
-(function checkAccess() {
-  var ua = navigator.userAgent;
-  var isSmartphone = /iPhone|Android/i.test(ua) && !/iPad/i.test(ua);
-  if (isSmartphone && !ua.includes('KarakidaApp')) {
-    document.body.innerHTML =
-      '<div style="text-align:center;padding:80px 24px;font-family:sans-serif;">' +
-      '<h2 style="margin-bottom:16px;">唐木田APPから開いてください</h2>' +
-      '<p style="color:#666;">このページはアプリ専用です。</p>' +
-      '</div>';
-    throw new Error('access denied');
-  }
-  // KarakidaApp WebViewはログイン画面を即座に非表示
-  if (ua.includes('KarakidaApp')) {
-    document.addEventListener('DOMContentLoaded', function() {
-      var ls = document.getElementById('login-screen');
-      if (ls) ls.classList.add('hidden');
-    });
-  }
-})();
 
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
@@ -50,8 +30,7 @@ function esc(str) {
 }
 
 function isMobile() {
-  var ua = navigator.userAgent;
-  return /Android|iPhone|iPad|iPod/i.test(ua) || ua.includes('KarakidaApp');
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 // ── ページタイトル ────────────────────────────
@@ -73,42 +52,8 @@ const backBtn       = document.getElementById('back-btn');
 const headerTitle   = document.getElementById('header-title');
 const headerHomeBtn = document.getElementById('header-home-btn');
 
-// ── アプリ内WebViewの自動ログイン ────────────
-async function tryAppAutoLogin() {
-  const ua = navigator.userAgent;
-  if (!ua.includes('KarakidaApp')) return false;
-
-  const appUser = new URLSearchParams(location.search).get('appUser') || '';
-  currentUser = { email: appUser };
-  userNameEl.textContent = appUser;
-
-  // 即座にアプリを表示
-  loginScreen.classList.add('hidden');
-  app.classList.remove('hidden');
-  navigate('home');
-
-  // バックグラウンドでUSER_LIST情報を取得
-  if (appUser) {
-    db.collection('USER_LIST')
-      .where('mail', '==', appUser.toLowerCase()).limit(1).get()
-      .then(snap => {
-        if (!snap.empty) {
-          const userData = snap.docs[0].data();
-          const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-          isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
-          userNameEl.textContent = userData.name || appUser;
-        }
-      }).catch(e => console.error('USER_LIST error:', e));
-  }
-
-  return true;
-}
-
 // ── 認証状態の監視と初期化 ──────────────────
 async function initApp() {
-  // アプリ内WebViewの場合は自動ログイン
-  if (await tryAppAutoLogin()) return;
-
   // リダイレクト結果の処理
   try {
     const result = await auth.getRedirectResult();
