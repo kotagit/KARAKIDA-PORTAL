@@ -10,6 +10,13 @@ firebase.initializeApp({
 var auth     = firebase.auth();
 var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
+console.log("Firebase initialized");
+
+auth.getRedirectResult().then(function(result) {
+  console.log("getRedirectResult:", result);
+}).catch(function(error) {
+  console.error("getRedirectResult error:", error);
+});
 
 // ── 状態 ──────────────────────────────────────
 let currentUser    = null;
@@ -43,32 +50,12 @@ logoutBtn.addEventListener("click", () => auth.signOut());
 // ── 認証状態 ──────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    loginError.textContent = "ユーザー確認中...";
-    try {
-      const snap = await db.collection("USER_LIST")
-        .where("mail", "==", user.email.toLowerCase())
-        .limit(1)
-        .get();
-
-      if (snap.empty) {
-        loginError.textContent = "アクセス権限がありません。";
-        await auth.signOut();
-        return;
-      }
-
-      const userData = snap.docs[0].data();
-      currentUser = user;
-      isAdmin     = userData.dev === "WEB";
-      userNameEl.textContent = userData.name || user.displayName || "";
-
-      if (isAdmin) fab.classList.remove("hidden");
-      loginScreen.classList.add("hidden");
-      mainScreen.classList.remove("hidden");
-      loadSchedule();
-    } catch (e) {
-      loginError.textContent = "エラー: " + e.message;
-      await auth.signOut();
-    }
+    currentUser = user;
+    isAdmin     = false;
+    userNameEl.textContent = user.displayName || user.email || "";
+    loginScreen.classList.add("hidden");
+    mainScreen.classList.remove("hidden");
+    loadSchedule();
   } else {
     currentUser = null;
     isAdmin     = false;
