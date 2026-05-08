@@ -102,7 +102,28 @@ async function initAssignmentPage() {
     if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
 
+  document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
   document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
+}
+
+function awGenerateAll() {
+  if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
+  awWeeks.forEach(week => {
+    const slots = awLiveSlots[week.id];
+    if (!slots) return;
+    const items = week.items || [];
+    const allCodes = [...new Set(items.flatMap(i => i.codes || []))];
+    const result = awRunGeneration(allCodes, awMembers, awHistory);
+    Object.entries(result).forEach(([code, name]) => {
+      if (name && name !== '（該当者なし）') slots[code] = name;
+    });
+    const section = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"]`);
+    if (!section) return;
+    section.querySelectorAll('.aw-slot-select').forEach(sel => {
+      sel.value = slots[sel.dataset.code] || '';
+    });
+    awUpdateClosingNoteIn(section.querySelector('.aw-week-table'), slots);
+  });
 }
 
 async function awConfirmAll() {
@@ -325,9 +346,6 @@ function awBuildWeekSection(week, container) {
   const actions = document.createElement('div');
   actions.className = 'aw-week-actions';
   actions.innerHTML = `
-    <button class="btn-secondary aw-btn-gen">
-      <span class="material-icons" style="font-size:18px;vertical-align:middle">auto_fix_high</span> 自動生成
-    </button>
     <button class="btn-secondary aw-btn-save">
       <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
     </button>
@@ -344,20 +362,6 @@ function awBuildWeekSection(week, container) {
 
   // ── ボタンイベント ──
   const badge = hdr.querySelector('.aw-status-badge');
-
-  actions.querySelector('.aw-btn-gen').addEventListener('click', () => {
-    const result = awRunGeneration(
-      [...new Set(items.flatMap(i => i.codes || []))],
-      awMembers, awHistory
-    );
-    Object.entries(result).forEach(([code, name]) => {
-      if (name && name !== '（該当者なし）') slots[code] = name;
-    });
-    table.querySelectorAll('.aw-slot-select').forEach(sel => {
-      sel.value = slots[sel.dataset.code] || '';
-    });
-    awUpdateClosingNoteIn(table, slots);
-  });
 
   actions.querySelector('.aw-btn-save').addEventListener('click', async () => {
     try {
