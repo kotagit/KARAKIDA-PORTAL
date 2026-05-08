@@ -1,14 +1,3 @@
-import { auth, provider, db } from "./firebase.js";
-import {
-  signInWithRedirect, getRedirectResult,
-  onAuthStateChanged, signOut
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import {
-  collection, doc, getDocs, getDoc,
-  addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, Timestamp
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-
 // ── 状態 ──────────────────────────────────────
 let currentUser    = null;
 let isAdmin        = false;
@@ -27,37 +16,30 @@ const fab          = document.getElementById("fab");
 const adminModal   = document.getElementById("admin-modal");
 const scheduleForm = document.getElementById("schedule-form");
 const modalTitle   = document.getElementById("modal-title");
+const loginError   = document.getElementById("login-error");
 const tabs         = document.querySelectorAll(".tab");
 
-// ── ログイン（リダイレクト方式・ポップアップなし）──
+// ── ログイン ──────────────────────────────────
 loginBtn.addEventListener("click", () => {
-  document.getElementById("login-error").textContent = "Googleへ移動中...";
-  console.log("login btn clicked");
-  signInWithRedirect(auth, provider);
+  loginError.textContent = "Googleへ移動中...";
+  auth.signInWithRedirect(provider);
 });
 
-logoutBtn.addEventListener("click", () => signOut(auth));
-
-// リダイレクト結果処理（エラーのみ表示）
-getRedirectResult(auth).catch(err => {
-  document.getElementById("login-error").textContent = "ログインに失敗しました: " + err.message;
-});
+logoutBtn.addEventListener("click", () => auth.signOut());
 
 // ── 認証状態 ──────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
+auth.onAuthStateChanged(async (user) => {
   if (user) {
-    const email = user.email.toLowerCase();
+    loginError.textContent = "ユーザー確認中...";
     try {
-      const q = query(
-        collection(db, "USER_LIST"),
-        where("mail", "==", email),
-        limit(1)
-      );
-      const snap = await getDocs(q);
+      const snap = await db.collection("USER_LIST")
+        .where("mail", "==", user.email.toLowerCase())
+        .limit(1)
+        .get();
 
       if (snap.empty) {
-        await signOut(auth);
-        document.getElementById("login-error").textContent = "アクセス権限がありません。";
+        loginError.textContent = "アクセス権限がありません。";
+        await auth.signOut();
         return;
       }
 
@@ -71,8 +53,8 @@ onAuthStateChanged(auth, async (user) => {
       mainScreen.classList.remove("hidden");
       loadSchedule();
     } catch (e) {
-      document.getElementById("login-error").textContent = "エラー: " + e.message;
-      await signOut(auth);
+      loginError.textContent = "エラー: " + e.message;
+      await auth.signOut();
     }
   } else {
     currentUser = null;
@@ -93,16 +75,14 @@ tabs.forEach(tab => {
   });
 });
 
-// ── スケジュール読み込み（ポータルFirestore）──
+// ── スケジュール読み込み ──────────────────────
 async function loadSchedule() {
   scheduleList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    const q = query(
-      collection(db, "SCHEDULE"),
-      where("type", "==", currentTab),
-      orderBy("date", "asc")
-    );
-    const snap = await getDocs(q);
+    const snap = await db.collection("SCHEDULE")
+      .where("type", "==", currentTab)
+      .orderBy("date", "asc")
+      .get();
     renderSchedule(snap.docs);
   } catch (e) {
     scheduleList.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
@@ -193,7 +173,7 @@ function openAddModal() {
 async function openEditModal(id) {
   editingId = id;
   modalTitle.textContent = "スケジュール編集";
-  const snap = await getDoc(doc(db, "SCHEDULE", id));
+  const snap = await db.collection("SCHEDULE").doc(id).get();
   const d = snap.data();
   document.getElementById("form-type").value     = d.type;
   document.getElementById("form-title").value    = d.title || "";
@@ -225,17 +205,17 @@ scheduleForm.addEventListener("submit", async (e) => {
   const data = {
     type:     document.getElementById("form-type").value,
     title:    document.getElementById("form-title").value.trim(),
-    date:     Timestamp.fromDate(new Date(document.getElementById("form-date").value)),
-    endDate:  endVal ? Timestamp.fromDate(new Date(endVal)) : null,
+    date:     firebase.firestore.Timestamp.fromDate(new Date(document.getElementById("form-date").value)),
+    endDate:  endVal ? firebase.firestore.Timestamp.fromDate(new Date(endVal)) : null,
     location: document.getElementById("form-location").value.trim(),
     note:     document.getElementById("form-note").value.trim(),
   };
   try {
     if (editingId) {
-      await updateDoc(doc(db, "SCHEDULE", editingId), data);
+      await db.collection("SCHEDULE").doc(editingId).update(data);
     } else {
-      data.createdAt = Timestamp.now();
-      await addDoc(collection(db, "SCHEDULE"), data);
+      data.createdAt = firebase.firestore.Timestamp.now();
+      await db.collection("SCHEDULE").add(data);
     }
     closeModal();
     loadSchedule();
@@ -260,7 +240,7 @@ document.getElementById("delete-overlay").addEventListener("click", closeDeleteM
 document.getElementById("delete-confirm").addEventListener("click", async () => {
   if (!deleteTargetId) return;
   try {
-    await deleteDoc(doc(db, "SCHEDULE", deleteTargetId));
+    await db.collection("SCHEDULE").doc(deleteTargetId).delete();
     closeDeleteModal();
     loadSchedule();
   } catch (err) {
