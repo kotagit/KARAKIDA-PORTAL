@@ -35,7 +35,9 @@ const tabs         = document.querySelectorAll(".tab");
 // ── ログイン ──────────────────────────────────
 loginBtn.addEventListener("click", () => {
   loginError.textContent = "Googleへ移動中...";
-  auth.signInWithRedirect(provider);
+  auth.signInWithPopup(provider).catch((err) => {
+    loginError.textContent = "エラー: " + err.message;
+  });
 });
 
 logoutBtn.addEventListener("click", () => auth.signOut());
