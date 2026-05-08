@@ -44,6 +44,10 @@ function isMobile() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+auth.getRedirectResult().catch((err) => {
+  document.getElementById('login-error').textContent = 'エラー: ' + err.message;
+});
+
 loginBtn.addEventListener('click', () => {
   loginError.textContent = 'Googleへ移動中...';
   if (isMobile()) {
