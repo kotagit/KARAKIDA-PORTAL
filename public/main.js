@@ -43,7 +43,8 @@ function esc(str) {
 }
 
 function isMobile() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var ua = navigator.userAgent;
+  return /Android|iPhone|iPad|iPod/i.test(ua) || ua.includes('KarakidaApp');
 }
 
 // ── ページタイトル ────────────────────────────
