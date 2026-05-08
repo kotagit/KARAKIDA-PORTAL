@@ -259,7 +259,7 @@ function renderAnnouncements(docs) {
       itemsHtml += `
         <div class="announce-item">
           ${item.title ? `<div class="announce-item-title">${esc(item.title)}</div>` : ''}
-          ${item.body  ? `<div class="announce-item-body">${esc(item.body)}</div>` : ''}
+          ${item.body  ? `<div class="announce-item-body">${item.body.replace(/\n/g, '<br>')}</div>` : ''}
           <div class="announce-item-links">
             ${links.map(l => `<a class="announce-item-link" href="${esc(l.url)}" target="_blank" rel="noopener">
               <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
