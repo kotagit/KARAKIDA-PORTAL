@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -121,7 +122,16 @@
             <h3>発表管理</h3>
             <p>発表の追加・編集・削除を行います。</p>
           </div>
-          <!-- 他の管理機能が必要な場合はここに追加 -->
+          <div class="admin-card" id="admin-manage-assignment">
+            <span class="material-icons">event_seat</span>
+            <h3>割当管理</h3>
+            <p>週ごとの割当を自動生成・管理します。</p>
+          </div>
+          <div class="admin-card" id="admin-manage-members">
+            <span class="material-icons">people</span>
+            <h3>メンバー管理</h3>
+            <p>割当メンバーの追加・編集・削除を行います。</p>
+          </div>
         </div>
       </div>
     </section>
@@ -250,7 +260,108 @@
       </div>
     </section>
 
+    <!-- 割当管理（週一覧） -->
+    <section id="page-admin-assignment" class="page">
+      <div class="page-banner banner-admin">
+        <h2>割当管理</h2>
+      </div>
+      <div class="page-content">
+        <div class="admin-actions-bar">
+          <button class="btn-secondary" id="aw-import-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
+          </button>
+          <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+        </div>
+        <div id="assignment-week-list" class="admin-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 割当管理（週の詳細） -->
+    <section id="page-admin-assignment-week" class="page">
+      <div class="page-banner banner-admin">
+        <h2 id="aw-week-title">割当編集</h2>
+      </div>
+      <div class="page-content">
+        <div class="aw-week-actions">
+          <button class="btn-secondary" id="aw-generate-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">auto_fix_high</span> 自動生成
+          </button>
+          <button class="btn-secondary" id="aw-save-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
+          </button>
+          <button class="btn-primary" id="aw-confirm-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 確定
+          </button>
+        </div>
+        <div id="aw-week-table"></div>
+      </div>
+    </section>
+
+    <!-- メンバー管理 -->
+    <section id="page-admin-members" class="page">
+      <div class="page-banner banner-admin">
+        <h2>メンバー管理</h2>
+      </div>
+      <div class="page-content">
+        <div class="admin-actions-bar">
+          <button class="btn-primary" id="am-add-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 追加
+          </button>
+        </div>
+        <div id="members-list" class="admin-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
   </main>
+</div>
+
+<!-- メンバー追加・編集モーダル -->
+<div id="member-modal" class="modal hidden">
+  <div class="modal-overlay" id="member-overlay"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="member-modal-title">メンバーを追加</h2>
+      <button class="icon-btn" id="member-modal-close"><span class="material-icons">close</span></button>
+    </div>
+    <form id="member-form">
+      <div class="form-group">
+        <label>名前</label>
+        <input type="text" id="mf-name" required placeholder="山田 太郎">
+      </div>
+      <div class="form-group">
+        <label>性別</label>
+        <select id="mf-gender">
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>役職</label>
+        <select id="mf-position">
+          <option value="長老">長老</option>
+          <option value="援助奉仕者">援助奉仕者</option>
+          <option value="生徒男">生徒（男性）</option>
+          <option value="生徒女">生徒（女性）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>家族グループ（任意）</label>
+        <input type="text" id="mf-family" placeholder="例: 家A">
+      </div>
+      <div class="form-group">
+        <label>担当可能コード</label>
+        <div id="mf-codes-grid" class="aw-codes-grid"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="mf-cancel">キャンセル</button>
+        <button type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- 発表追加・編集モーダル -->
@@ -346,5 +457,6 @@
 </div>
 
 <script src="main.js?v=7"></script>
+<script src="assignment.js?v=1"></script>
 </body>
 </html>

@@ -382,3 +382,77 @@ body {
   color: var(--text-light);
   margin-bottom: 16px;
 }
+
+/* ── 割当管理 ── */
+.aw-week-row { cursor: pointer; transition: background 0.15s; }
+.aw-week-row:hover { background: var(--primary-light); }
+
+.aw-status-badge {
+  display: inline-block; font-size: 11px; font-weight: bold;
+  padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+}
+.aw-badge-none      { background: #f5f5f5; color: #888; }
+.aw-badge-draft     { background: #fff3e0; color: #e65100; }
+.aw-badge-confirmed { background: #e8f5e9; color: #2e7d32; }
+
+.aw-week-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.aw-section-header {
+  color: white; font-size: 13px; font-weight: bold;
+  padding: 6px 12px; margin-top: 8px; border-radius: 4px;
+}
+
+.aw-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 4px; border-bottom: 1px solid var(--border);
+  background: white;
+}
+.aw-row:last-child { border-bottom: none; }
+
+.aw-row-time {
+  font-size: 11px; color: var(--text-light);
+  min-width: 36px; padding-top: 4px; flex-shrink: 0;
+}
+.aw-row-info {
+  flex: 1; display: flex; align-items: baseline;
+  flex-wrap: wrap; gap: 4px;
+}
+.aw-row-num   { font-size: 12px; color: var(--text-light); }
+.aw-row-title { font-size: 14px; font-weight: 500; }
+.aw-row-min   { font-size: 12px; color: var(--text-light); }
+
+.aw-row-assignees {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 180px; flex-shrink: 0;
+}
+
+.aw-slot { display: flex; flex-direction: column; gap: 2px; }
+.aw-slot-label {
+  font-size: 10px; color: var(--text-light); font-weight: bold;
+}
+.aw-slot-select {
+  width: 100%; padding: 4px 6px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: white;
+}
+.aw-slot-select:focus { border-color: var(--primary); outline: none; }
+
+.aw-closing-note {
+  font-size: 12px; color: var(--text-light); font-style: italic;
+  padding: 4px 0;
+}
+
+.aw-codes-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; max-height: 220px; overflow-y: auto;
+  padding: 8px; background: #f9f9f9; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.aw-code-check {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; cursor: pointer;
+}
+.aw-code-check input { cursor: pointer; }

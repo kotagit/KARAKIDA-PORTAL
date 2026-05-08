@@ -39,7 +39,9 @@ const PAGE_TITLES = {
   senkyo: '宣教', shukai: '集会', shinsei: '申請',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
   admin: '管理画面', 'admin-announcements': '発表管理',
-  'member-info': '成員情報登録'
+  'member-info': '成員情報登録',
+  'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
+  'admin-members': 'メンバー管理',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -154,7 +156,9 @@ function navigate(page) {
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'admin-announcements') loadAdminAnnouncements();
-  if (page === 'member-info') loadMemberInfoForm();
+  if (page === 'member-info')           loadMemberInfoForm();
+  if (page === 'admin-assignment')      initAssignmentPage();
+  if (page === 'admin-members')         initMembersPage();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
