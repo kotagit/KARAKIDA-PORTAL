@@ -152,7 +152,7 @@ function navigate(page) {
   if (page === 'hatsuhy')  loadAnnouncements();
   if (page === 'keikaku')  loadLinks('keikaku');
   if (page === 'senkyo')   loadLinks('senkyo');
-  if (page === 'shukai')   { loadLinks('shukai'); loadSchedule(); loadAssignmentWeekDisplay(); }
+  if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
   if (page === 'shinsei')  loadLinks('shinsei');
   if (page === 'soshiki')  loadLinks('soshiki');
   if (page === 'gyoji')    loadLinks('gyoji');
