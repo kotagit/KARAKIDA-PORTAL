@@ -437,7 +437,7 @@ function awOpenHistoryDetail(date, records) {
         label   = leadLabel.replace(' — 担当', '');
         nameStr = `${esc(byCode[code][0])} / ${esc(byCode[partnerCode][0])}`;
       } else {
-        nameStr = esc((byCode[code] || []).join('、'));
+        nameStr = esc((byCode[code] || []).join(' / '));
       }
 
       const row = document.createElement('div');
