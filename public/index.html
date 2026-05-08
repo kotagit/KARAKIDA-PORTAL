@@ -87,6 +87,10 @@
           <span class="menu-icon material-icons">crisis_alert</span>
           <span class="menu-label">災害対応</span>
         </div>
+        <div class="menu-item hidden" id="menu-admin" data-page="admin">
+          <span class="menu-icon material-icons">admin_panel_settings</span>
+          <span class="menu-label">管理画面</span>
+        </div>
       </div>
     </section>
 
@@ -103,6 +107,40 @@
       <button id="add-announce-btn" class="fab hidden">
         <span class="material-icons">add</span>
       </button>
+    </section>
+
+    <!-- 管理画面 -->
+    <section id="page-admin" class="page">
+      <div class="page-banner banner-admin">
+        <h2>管理画面</h2>
+      </div>
+      <div class="page-content">
+        <div class="admin-dashboard">
+          <div class="admin-card" id="admin-manage-announcements">
+            <span class="material-icons">article</span>
+            <h3>発表管理</h3>
+            <p>発表の追加・編集・削除を行います。</p>
+          </div>
+          <!-- 他の管理機能が必要な場合はここに追加 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 発表管理（リスト形式） -->
+    <section id="page-admin-announcements" class="page">
+      <div class="page-banner banner-admin">
+        <h2>発表管理</h2>
+      </div>
+      <div class="page-content">
+        <div class="admin-actions-bar">
+          <button id="admin-add-announce-btn" class="btn-primary">
+            <span class="material-icons">add</span> 新規作成
+          </button>
+        </div>
+        <div id="admin-announce-list" class="admin-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
     </section>
 
     <!-- 計画 -->
@@ -224,22 +262,12 @@
         <label>本文（任意）</label>
         <textarea id="af-body" rows="3" placeholder="内容を入力..."></textarea>
       </div>
-      <div class="form-group">
-        <label>リンク1タイトル</label>
-        <input type="text" id="af-link1-title" placeholder="例：巡回訪問の予定表">
+      <div id="af-links-container">
+        <!-- リンク入力がここに追加される -->
       </div>
-      <div class="form-group">
-        <label>リンク1 URL</label>
-        <input type="url" id="af-link1-url" placeholder="https://...">
-      </div>
-      <div class="form-group">
-        <label>リンク2タイトル</label>
-        <input type="text" id="af-link2-title" placeholder="例：座席表">
-      </div>
-      <div class="form-group">
-        <label>リンク2 URL</label>
-        <input type="url" id="af-link2-url" placeholder="https://...">
-      </div>
+      <button type="button" class="btn-secondary" id="af-add-link-btn" style="width:100%; margin-bottom:20px;">
+        <span class="material-icons" style="font-size:18px; vertical-align:middle;">add</span> リンクを追加
+      </button>
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="af-cancel">キャンセル</button>
         <button type="submit" class="btn-primary">保存</button>

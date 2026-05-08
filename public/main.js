@@ -25,7 +25,8 @@ let deleteTargetType   = null;
 const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
   senkyo: '宣教', shukai: '集会', shinsei: '申請',
-  soshiki: '組織', gyoji: '行事', saigai: '災害対応'
+  soshiki: '組織', gyoji: '行事', saigai: '災害対応',
+  admin: '管理画面', 'admin-announcements': '発表管理'
 };
 
 // ── DOM ──────────────────────────────────────
@@ -64,29 +65,45 @@ logoutBtn.addEventListener('click', () => auth.signOut());
 // ── 認証状態 ──────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    loginError.textContent = 'ユーザー確認中...';
+    currentUser = user;
+    
+    // 初期状態は非管理者としてUIを表示
+    isAdmin = false;
+    userNameEl.textContent = user.displayName || 'ユーザー';
+    loginScreen.classList.add('hidden');
+    app.classList.remove('hidden');
+    navigate('home');
+
+    // Firestoreから権限(status5)を確認
     try {
       const snap = await db.collection('USER_LIST')
         .where('mail', '==', user.email.toLowerCase())
         .limit(1).get();
+      
+      if (!snap.empty) {
+        const userData = snap.docs[0].data();
+        userNameEl.textContent = userData.name || user.displayName || '';
+        
+        // status5 フィールドが 'WEB' の場合に管理者権限を付与
+        isAdmin = (userData.status5 === 'WEB');
+        
+        console.log('User authorized:', user.email, 'isAdmin:', isAdmin);
 
-      if (snap.empty) {
-        loginError.textContent = 'アクセス権限がありません。';
-        await auth.signOut();
-        return;
+        const adminMenu = document.getElementById('menu-admin');
+        if (adminMenu) {
+          adminMenu.classList.toggle('hidden', !isAdmin);
+        }
+        
+        // 管理者でないのに管理画面にいた場合はホームへ戻す
+        if (!isAdmin && (currentPage === 'admin' || currentPage === 'admin-announcements')) {
+          navigate('home');
+        }
+      } else {
+        console.warn('User not found in USER_LIST:', user.email);
+        // 権限がない場合はログアウトさせる等の処理が必要な場合はここに追加
       }
-
-      const userData = snap.docs[0].data();
-      currentUser = user;
-      isAdmin = userData.dev === 'WEB';
-      userNameEl.textContent = userData.name || user.displayName || '';
-
-      loginScreen.classList.add('hidden');
-      app.classList.remove('hidden');
-      navigate('home');
     } catch (e) {
-      loginError.textContent = 'エラー: ' + e.message;
-      await auth.signOut();
+      console.error('Auth Check Error:', e);
     }
   } else {
     currentUser = null;
@@ -117,16 +134,26 @@ function navigate(page) {
   if (page === 'soshiki')  loadLinks('soshiki');
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
+  if (page === 'admin-announcements') loadAdminAnnouncements();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
     const sfab = document.getElementById('add-schedule-btn');
-    if (fab)  fab.classList.toggle('hidden', page !== 'hatsuhy');
+    if (fab)  fab.classList.toggle('hidden', page !== 'hatsuhy' && page !== 'admin');
     if (sfab) sfab.classList.toggle('hidden', page !== 'shukai');
   }
 
   window.scrollTo(0, 0);
 }
+
+// 管理画面のカード
+document.getElementById('admin-manage-announcements')?.addEventListener('click', () => {
+  navigate('admin-announcements');
+});
+
+document.getElementById('admin-add-announce-btn')?.addEventListener('click', () => {
+  openAnnounceModal(null);
+});
 
 // メニューグリッドのクリック
 document.querySelectorAll('.menu-item').forEach(item => {
@@ -149,6 +176,55 @@ async function loadAnnouncements() {
   }
 }
 
+async function loadAdminAnnouncements() {
+  const list = document.getElementById('admin-announce-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('ANNOUNCEMENT')
+      .orderBy('date', 'desc').limit(100).get();
+    renderAdminAnnouncements(snap.docs);
+  } catch (e) {
+    list.innerHTML = '<div class="loading">読み込みエラー: ' + e.message + '</div>';
+  }
+}
+
+function renderAdminAnnouncements(docs) {
+  const list = document.getElementById('admin-announce-list');
+  if (docs.length === 0) {
+    list.innerHTML = '<div class="empty-state">発表データがありません</div>';
+    return;
+  }
+  list.innerHTML = '';
+  docs.forEach(docSnap => {
+    const d = docSnap.data();
+    const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+    const dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}`;
+    
+    const item = document.createElement('div');
+    item.className = 'admin-list-item';
+    item.innerHTML = `
+      <div class="admin-list-info">
+        <div class="admin-list-date">${esc(dateStr)}</div>
+        <div class="admin-list-title">${esc(d.title || '(タイトルなし)')}</div>
+      </div>
+      <div class="admin-list-actions">
+        <button class="btn-edit icon-btn" data-id="${docSnap.id}" style="color:var(--primary)">
+          <span class="material-icons">edit</span>
+        </button>
+        <button class="btn-delete icon-btn" data-id="${docSnap.id}" data-type="announce" style="color:#d32f2f">
+          <span class="material-icons">delete</span>
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.btn-edit').forEach(btn =>
+    btn.addEventListener('click', () => openAnnounceModal(btn.dataset.id)));
+  list.querySelectorAll('.btn-delete').forEach(btn =>
+    btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, 'announce')));
+}
+
 const WD = ['日','月','火','水','木','金','土'];
 
 function renderAnnouncements(docs) {
@@ -158,32 +234,51 @@ function renderAnnouncements(docs) {
     return;
   }
   list.innerHTML = '';
+
+  // 日付でグループ化
+  const groups = {};
   docs.forEach(docSnap => {
     const d = docSnap.data();
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
-    const dateStr = `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日（${WD[date.getDay()]}）`;
+    const dateKey = `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日（${WD[date.getDay()]}）`;
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push({ id: docSnap.id, ...d });
+  });
 
-    const links = [
-      d.link1_title && d.link1_url ? { title: d.link1_title, url: d.link1_url } : null,
-      d.link2_title && d.link2_url ? { title: d.link2_title, url: d.link2_url } : null,
-    ].filter(Boolean);
+  Object.keys(groups).forEach(dateKey => {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'announce-group';
+    
+    let itemsHtml = '';
+    groups[dateKey].forEach(item => {
+      const links = item.links || [];
+      // 互換性のため古い形式のリンクもチェック
+      if (item.link1_title && item.link1_url) links.push({ title: item.link1_title, url: item.link1_url });
+      if (item.link2_title && item.link2_url) links.push({ title: item.link2_title, url: item.link2_url });
 
-    const card = document.createElement('div');
-    card.className = 'announce-card';
-    card.innerHTML = `
-      <div class="announce-date">${esc(dateStr)}</div>
-      ${d.title ? `<div class="announce-title">${esc(d.title)}</div>` : ''}
-      ${d.body  ? `<div class="announce-body">${esc(d.body)}</div>` : ''}
-      <div class="announce-links">
-        ${links.map(l => `<a class="announce-link" href="${esc(l.url)}" target="_blank" rel="noopener">
-          <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
+      itemsHtml += `
+        <div class="announce-item">
+          ${item.title ? `<div class="announce-item-title">${esc(item.title)}</div>` : ''}
+          ${item.body  ? `<div class="announce-item-body">${esc(item.body)}</div>` : ''}
+          <div class="announce-item-links">
+            ${links.map(l => `<a class="announce-item-link" href="${esc(l.url)}" target="_blank" rel="noopener">
+              <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
+          </div>
+          ${isAdmin ? `<div class="announce-actions">
+            <button class="btn-edit" data-id="${item.id}"><span class="material-icons">edit</span>編集</button>
+            <button class="btn-delete" data-id="${item.id}" data-type="announce"><span class="material-icons">delete</span>削除</button>
+          </div>` : ''}
+        </div>
+      `;
+    });
+
+    groupDiv.innerHTML = `
+      <div class="announce-group-date">${esc(dateKey)}</div>
+      <div class="announce-items-container">
+        ${itemsHtml}
       </div>
-      ${isAdmin ? `<div class="announce-actions">
-        <button class="btn-edit" data-id="${docSnap.id}"><span class="material-icons">edit</span>編集</button>
-        <button class="btn-delete" data-id="${docSnap.id}" data-type="announce"><span class="material-icons">delete</span>削除</button>
-      </div>` : ''}
     `;
-    list.appendChild(card);
+    list.appendChild(groupDiv);
   });
 
   if (isAdmin) {
@@ -197,18 +292,39 @@ function renderAnnouncements(docs) {
 // ── 発表モーダル ──────────────────────────────
 const announceModal = document.getElementById('announce-modal');
 const announceForm  = document.getElementById('announce-form');
+const linksContainer = document.getElementById('af-links-container');
+const addLinkBtn = document.getElementById('af-add-link-btn');
 
 document.getElementById('add-announce-btn').addEventListener('click', () => openAnnounceModal(null));
 document.getElementById('announce-modal-close').addEventListener('click', closeAnnounceModal);
 document.getElementById('announce-overlay').addEventListener('click', closeAnnounceModal);
 document.getElementById('af-cancel').addEventListener('click', closeAnnounceModal);
 
+addLinkBtn.addEventListener('click', () => addLinkInput('', ''));
+
+function addLinkInput(title = '', url = '') {
+  const row = document.createElement('div');
+  row.className = 'link-input-row';
+  row.innerHTML = `
+    <div class="link-input-fields">
+      <input type="text" class="link-title" placeholder="リンクのタイトル" value="${esc(title)}">
+      <input type="url" class="link-url" placeholder="URL (https://...)" value="${esc(url)}">
+    </div>
+    <button type="button" class="btn-remove-link"><span class="material-icons">delete</span></button>
+  `;
+  row.querySelector('.btn-remove-link').addEventListener('click', () => row.remove());
+  linksContainer.appendChild(row);
+}
+
 function openAnnounceModal(id) {
   editingAnnounceId = id;
   document.getElementById('announce-modal-title').textContent = id ? '発表を編集' : '発表を追加';
+  linksContainer.innerHTML = '';
+  
   if (!id) {
     announceForm.reset();
     document.getElementById('af-date').value = new Date().toISOString().split('T')[0];
+    addLinkInput('', ''); // 初期状態で1つ入力欄を出す
   } else {
     db.collection('ANNOUNCEMENT').doc(id).get().then(snap => {
       const d = snap.data();
@@ -216,10 +332,16 @@ function openAnnounceModal(id) {
       document.getElementById('af-date').value = date.toISOString().split('T')[0];
       document.getElementById('af-title').value = d.title || '';
       document.getElementById('af-body').value  = d.body  || '';
-      document.getElementById('af-link1-title').value = d.link1_title || '';
-      document.getElementById('af-link1-url').value   = d.link1_url   || '';
-      document.getElementById('af-link2-title').value = d.link2_title || '';
-      document.getElementById('af-link2-url').value   = d.link2_url   || '';
+      
+      const links = d.links || [];
+      if (d.link1_title && d.link1_url) links.push({ title: d.link1_title, url: d.link1_url });
+      if (d.link2_title && d.link2_url) links.push({ title: d.link2_title, url: d.link2_url });
+      
+      if (links.length > 0) {
+        links.forEach(l => addLinkInput(l.title, l.url));
+      } else {
+        addLinkInput('', '');
+      }
     });
   }
   announceModal.classList.remove('hidden');
@@ -232,14 +354,21 @@ function closeAnnounceModal() {
 
 announceForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  
+  const links = [];
+  linksContainer.querySelectorAll('.link-input-row').forEach(row => {
+    const title = row.querySelector('.link-title').value.trim();
+    const url = row.querySelector('.link-url').value.trim();
+    if (title && url) links.push({ title, url });
+  });
+
   const data = {
     date:        firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('af-date').value)),
     title:       document.getElementById('af-title').value.trim(),
     body:        document.getElementById('af-body').value.trim(),
-    link1_title: document.getElementById('af-link1-title').value.trim(),
-    link1_url:   document.getElementById('af-link1-url').value.trim(),
-    link2_title: document.getElementById('af-link2-title').value.trim(),
-    link2_url:   document.getElementById('af-link2-url').value.trim(),
+    links:       links,
+    // 互換性のための空文字（必要なければ削除可）
+    link1_title: '', link1_url: '', link2_title: '', link2_url: ''
   };
   try {
     if (editingAnnounceId) {
@@ -249,7 +378,8 @@ announceForm.addEventListener('submit', async (e) => {
       await db.collection('ANNOUNCEMENT').add(data);
     }
     closeAnnounceModal();
-    loadAnnouncements();
+    if (currentPage === 'admin-announcements') loadAdminAnnouncements();
+    else loadAnnouncements();
   } catch (err) {
     alert('保存エラー: ' + err.message);
   }
