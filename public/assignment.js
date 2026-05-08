@@ -627,11 +627,10 @@ function awParseWeekLines(lines) {
     if (isBlockEnd) { inInserted = false; continue; }
     if (inInserted) continue;
 
-    // セクション
-    if (raw === '神の言葉の宝')             { currentSection = '神の言葉の宝'; continue; }
-    if (raw === '野外奉仕に励む')            { currentSection = '野外奉仕に励む'; continue; }
-    if (raw === '伝道を楽しもう')            { currentSection = '野外奉仕に励む'; continue; }
-    if (raw === 'クリスチャンとして生活する') { currentSection = 'クリスチャンとして生活する'; continue; }
+    // セクション（部分一致・正規化済み文字列で判定）
+    if (s.includes('神の言葉の宝'))             { currentSection = '神の言葉の宝'; continue; }
+    if (s.includes('野外奉仕に励む') || s.includes('伝道を楽しもう')) { currentSection = '野外奉仕に励む'; continue; }
+    if (s.includes('クリスチャンとして生活する')) { currentSection = 'クリスチャンとして生活する'; continue; }
 
     // 歌
     let m = s.match(/^(\d+)番の歌と祈り/);
