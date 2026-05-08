@@ -76,8 +76,9 @@ auth.onAuthStateChanged(async (user) => {
 
     // Firestoreから権限(status5)を確認
     try {
+      console.log('Checking permissions for:', user.email);
       const snap = await db.collection('USER_LIST')
-        .where('mail', '==', user.email.toLowerCase())
+        .where('mail', '==', user.email.toLowerCase().trim())
         .limit(1).get();
       
       if (!snap.empty) {
@@ -87,11 +88,15 @@ auth.onAuthStateChanged(async (user) => {
         // status5 フィールドが 'WEB' の場合に管理者権限を付与
         isAdmin = (userData.status5 === 'WEB');
         
-        console.log('User authorized:', user.email, 'isAdmin:', isAdmin);
+        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status5:', userData.status5);
 
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) {
           adminMenu.classList.toggle('hidden', !isAdmin);
+          // デバッグ用: 管理者の場合は背景色を少し変えるなどして視覚的に確認
+          if (isAdmin) {
+            console.log('Admin menu should be visible now');
+          }
         }
         
         // 管理者でないのに管理画面にいた場合はホームへ戻す
