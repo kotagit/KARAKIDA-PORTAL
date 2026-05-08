@@ -40,11 +40,19 @@ const headerTitle   = document.getElementById('header-title');
 const headerHomeBtn = document.getElementById('header-home-btn');
 
 // ── ログイン ──────────────────────────────────
+function isMobile() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 loginBtn.addEventListener('click', () => {
   loginError.textContent = 'Googleへ移動中...';
-  auth.signInWithPopup(provider).catch((err) => {
-    loginError.textContent = 'エラー: ' + err.message;
-  });
+  if (isMobile()) {
+    auth.signInWithRedirect(provider);
+  } else {
+    auth.signInWithPopup(provider).catch((err) => {
+      loginError.textContent = 'エラー: ' + err.message;
+    });
+  }
 });
 
 logoutBtn.addEventListener('click', () => auth.signOut());
