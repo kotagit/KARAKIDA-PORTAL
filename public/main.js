@@ -12,124 +12,304 @@ var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
 
 // ── 状態 ──────────────────────────────────────
-let currentUser    = null;
-let isAdmin        = false;
-let currentTab     = "meeting";
-let editingId      = null;
-let deleteTargetId = null;
+let currentUser   = null;
+let isAdmin       = false;
+let currentPage   = 'home';
+let scheduleType  = 'meeting';
+let editingAnnounceId  = null;
+let editingScheduleId  = null;
+let deleteTargetId     = null;
+let deleteTargetType   = null;
+
+// ── ページタイトル ────────────────────────────
+const PAGE_TITLES = {
+  home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
+  senkyo: '宣教', shukai: '集会', shinsei: '申請',
+  soshiki: '組織', gyoji: '行事', saigai: '災害対応'
+};
 
 // ── DOM ──────────────────────────────────────
-const loginScreen  = document.getElementById("login-screen");
-const mainScreen   = document.getElementById("main-screen");
-const loginBtn     = document.getElementById("login-btn");
-const logoutBtn    = document.getElementById("logout-btn");
-const userNameEl   = document.getElementById("user-name");
-const scheduleList = document.getElementById("schedule-list");
-const fab          = document.getElementById("fab");
-const adminModal   = document.getElementById("admin-modal");
-const scheduleForm = document.getElementById("schedule-form");
-const modalTitle   = document.getElementById("modal-title");
-const loginError   = document.getElementById("login-error");
-const tabs         = document.querySelectorAll(".tab");
+const loginScreen   = document.getElementById('login-screen');
+const app           = document.getElementById('app');
+const loginBtn      = document.getElementById('login-btn');
+const loginError    = document.getElementById('login-error');
+const logoutBtn     = document.getElementById('logout-btn');
+const userNameEl    = document.getElementById('user-name');
+const backBtn       = document.getElementById('back-btn');
+const headerTitle   = document.getElementById('header-title');
+const headerHomeBtn = document.getElementById('header-home-btn');
 
 // ── ログイン ──────────────────────────────────
-loginBtn.addEventListener("click", () => {
-  loginError.textContent = "Googleへ移動中...";
-  auth.signInWithRedirect(provider);
+loginBtn.addEventListener('click', () => {
+  loginError.textContent = 'Googleへ移動中...';
+  auth.signInWithPopup(provider).catch((err) => {
+    loginError.textContent = 'エラー: ' + err.message;
+  });
 });
 
-logoutBtn.addEventListener("click", () => auth.signOut());
+logoutBtn.addEventListener('click', () => auth.signOut());
 
 // ── 認証状態 ──────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    loginError.textContent = "ユーザー確認中...";
+    loginError.textContent = 'ユーザー確認中...';
     try {
-      const snap = await db.collection("USER_LIST")
-        .where("mail", "==", user.email.toLowerCase())
-        .limit(1)
-        .get();
+      const snap = await db.collection('USER_LIST')
+        .where('mail', '==', user.email.toLowerCase())
+        .limit(1).get();
 
       if (snap.empty) {
-        loginError.textContent = "アクセス権限がありません。";
+        loginError.textContent = 'アクセス権限がありません。';
         await auth.signOut();
         return;
       }
 
       const userData = snap.docs[0].data();
       currentUser = user;
-      isAdmin     = userData.dev === "WEB";
-      userNameEl.textContent = userData.name || user.displayName || "";
+      isAdmin = userData.dev === 'WEB';
+      userNameEl.textContent = userData.name || user.displayName || '';
 
-      if (isAdmin) fab.classList.remove("hidden");
-      loginScreen.classList.add("hidden");
-      mainScreen.classList.remove("hidden");
-      loadSchedule();
+      loginScreen.classList.add('hidden');
+      app.classList.remove('hidden');
+      navigate('home');
     } catch (e) {
-      loginError.textContent = "エラー: " + e.message;
+      loginError.textContent = 'エラー: ' + e.message;
       await auth.signOut();
     }
   } else {
     currentUser = null;
-    isAdmin     = false;
-    mainScreen.classList.add("hidden");
-    loginScreen.classList.remove("hidden");
-    fab.classList.add("hidden");
+    isAdmin = false;
+    app.classList.add('hidden');
+    loginScreen.classList.remove('hidden');
   }
 });
 
-// ── タブ切り替え ──────────────────────────────
-tabs.forEach(tab => {
-  tab.addEventListener("click", () => {
-    tabs.forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
-    currentTab = tab.dataset.tab;
-    loadSchedule();
-  });
+// ── ルーティング ──────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  currentPage = page;
+  headerTitle.textContent = PAGE_TITLES[page] || page;
+
+  if (page === 'home') {
+    backBtn.classList.add('hidden');
+  } else {
+    backBtn.classList.remove('hidden');
+  }
+
+  if (page === 'hatsuhy')  loadAnnouncements();
+  if (page === 'keikaku')  loadLinks('keikaku');
+  if (page === 'senkyo')   loadLinks('senkyo');
+  if (page === 'shukai')   { loadLinks('shukai'); loadSchedule(); }
+  if (page === 'shinsei')  loadLinks('shinsei');
+  if (page === 'soshiki')  loadLinks('soshiki');
+  if (page === 'gyoji')    loadLinks('gyoji');
+  if (page === 'saigai')   loadLinks('saigai');
+
+  if (isAdmin) {
+    const fab = document.getElementById('add-announce-btn');
+    const sfab = document.getElementById('add-schedule-btn');
+    if (fab)  fab.classList.toggle('hidden', page !== 'hatsuhy');
+    if (sfab) sfab.classList.toggle('hidden', page !== 'shukai');
+  }
+
+  window.scrollTo(0, 0);
+}
+
+// メニューグリッドのクリック
+document.querySelectorAll('.menu-item').forEach(item => {
+  item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
-// ── スケジュール読み込み ──────────────────────
-async function loadSchedule() {
-  scheduleList.innerHTML = '<div class="loading">読み込み中...</div>';
+backBtn.addEventListener('click', () => navigate('home'));
+headerHomeBtn.addEventListener('click', () => navigate('home'));
+
+// ── 発表 ──────────────────────────────────────
+async function loadAnnouncements() {
+  const list = document.getElementById('announce-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    const snap = await db.collection("SCHEDULE")
-      .where("type", "==", currentTab)
-      .orderBy("date", "asc")
-      .get();
-    renderSchedule(snap.docs);
+    const snap = await db.collection('ANNOUNCEMENT')
+      .orderBy('date', 'desc').limit(50).get();
+    renderAnnouncements(snap.docs);
   } catch (e) {
-    scheduleList.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
+    list.innerHTML = '<div class="loading">読み込みエラー: ' + e.message + '</div>';
   }
 }
 
-// ── スケジュール描画 ──────────────────────────
-const WEEKDAYS    = ["日","月","火","水","木","金","土"];
-const TYPE_LABELS = { meeting:"集会", circuit:"巡回訪問", convention:"大会" };
+const WD = ['日','月','火','水','木','金','土'];
 
-function renderSchedule(docs) {
+function renderAnnouncements(docs) {
+  const list = document.getElementById('announce-list');
   if (docs.length === 0) {
-    scheduleList.innerHTML = `
-      <div class="empty-state">
-        <span class="material-icons">event_busy</span>
-        スケジュールはありません
-      </div>`;
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">article</span>発表はありません</div>';
     return;
   }
-
-  scheduleList.innerHTML = "";
+  list.innerHTML = '';
   docs.forEach(docSnap => {
-    const d    = docSnap.data();
+    const d = docSnap.data();
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
-    const wday = WEEKDAYS[date.getDay()];
+    const dateStr = `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日（${WD[date.getDay()]}）`;
 
-    let dateRange = "";
+    const links = [
+      d.link1_title && d.link1_url ? { title: d.link1_title, url: d.link1_url } : null,
+      d.link2_title && d.link2_url ? { title: d.link2_title, url: d.link2_url } : null,
+    ].filter(Boolean);
+
+    const card = document.createElement('div');
+    card.className = 'announce-card';
+    card.innerHTML = `
+      <div class="announce-date">${esc(dateStr)}</div>
+      ${d.title ? `<div class="announce-title">${esc(d.title)}</div>` : ''}
+      ${d.body  ? `<div class="announce-body">${esc(d.body)}</div>` : ''}
+      <div class="announce-links">
+        ${links.map(l => `<a class="announce-link" href="${esc(l.url)}" target="_blank" rel="noopener">
+          <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
+      </div>
+      ${isAdmin ? `<div class="announce-actions">
+        <button class="btn-edit" data-id="${docSnap.id}"><span class="material-icons">edit</span>編集</button>
+        <button class="btn-delete" data-id="${docSnap.id}" data-type="announce"><span class="material-icons">delete</span>削除</button>
+      </div>` : ''}
+    `;
+    list.appendChild(card);
+  });
+
+  if (isAdmin) {
+    list.querySelectorAll('.btn-edit').forEach(btn =>
+      btn.addEventListener('click', () => openAnnounceModal(btn.dataset.id)));
+    list.querySelectorAll('.btn-delete').forEach(btn =>
+      btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, 'announce')));
+  }
+}
+
+// ── 発表モーダル ──────────────────────────────
+const announceModal = document.getElementById('announce-modal');
+const announceForm  = document.getElementById('announce-form');
+
+document.getElementById('add-announce-btn').addEventListener('click', () => openAnnounceModal(null));
+document.getElementById('announce-modal-close').addEventListener('click', closeAnnounceModal);
+document.getElementById('announce-overlay').addEventListener('click', closeAnnounceModal);
+document.getElementById('af-cancel').addEventListener('click', closeAnnounceModal);
+
+function openAnnounceModal(id) {
+  editingAnnounceId = id;
+  document.getElementById('announce-modal-title').textContent = id ? '発表を編集' : '発表を追加';
+  if (!id) {
+    announceForm.reset();
+    document.getElementById('af-date').value = new Date().toISOString().split('T')[0];
+  } else {
+    db.collection('ANNOUNCEMENT').doc(id).get().then(snap => {
+      const d = snap.data();
+      const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+      document.getElementById('af-date').value = date.toISOString().split('T')[0];
+      document.getElementById('af-title').value = d.title || '';
+      document.getElementById('af-body').value  = d.body  || '';
+      document.getElementById('af-link1-title').value = d.link1_title || '';
+      document.getElementById('af-link1-url').value   = d.link1_url   || '';
+      document.getElementById('af-link2-title').value = d.link2_title || '';
+      document.getElementById('af-link2-url').value   = d.link2_url   || '';
+    });
+  }
+  announceModal.classList.remove('hidden');
+}
+
+function closeAnnounceModal() {
+  announceModal.classList.add('hidden');
+  editingAnnounceId = null;
+}
+
+announceForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = {
+    date:        firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('af-date').value)),
+    title:       document.getElementById('af-title').value.trim(),
+    body:        document.getElementById('af-body').value.trim(),
+    link1_title: document.getElementById('af-link1-title').value.trim(),
+    link1_url:   document.getElementById('af-link1-url').value.trim(),
+    link2_title: document.getElementById('af-link2-title').value.trim(),
+    link2_url:   document.getElementById('af-link2-url').value.trim(),
+  };
+  try {
+    if (editingAnnounceId) {
+      await db.collection('ANNOUNCEMENT').doc(editingAnnounceId).update(data);
+    } else {
+      data.createdAt = firebase.firestore.Timestamp.now();
+      await db.collection('ANNOUNCEMENT').add(data);
+    }
+    closeAnnounceModal();
+    loadAnnouncements();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  }
+});
+
+// ── リンクページ ──────────────────────────────
+async function loadLinks(section) {
+  const listEl = document.getElementById(section + '-list');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('LINKS')
+      .where('section', '==', section)
+      .orderBy('order', 'asc').get();
+
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    snap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const a = document.createElement('a');
+      a.className = 'link-item';
+      a.href = d.url || '#';
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">${esc(d.icon || 'insert_drive_file')}</span></div>
+        <span class="link-item-label">${esc(d.title)}</span>
+      `;
+      listEl.appendChild(a);
+    });
+  } catch (e) {
+    listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
+  }
+}
+
+// ── 集会スケジュール ──────────────────────────
+async function loadSchedule() {
+  const list = document.getElementById('schedule-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('SCHEDULE')
+      .where('type', '==', scheduleType)
+      .orderBy('date', 'asc').get();
+    renderSchedule(snap.docs);
+  } catch (e) {
+    list.innerHTML = '<div class="loading">読み込みエラー: ' + e.message + '</div>';
+  }
+}
+
+const TYPE_LABELS = { meeting: '集会', circuit: '巡回訪問', convention: '大会' };
+
+function renderSchedule(docs) {
+  const list = document.getElementById('schedule-list');
+  if (docs.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">event_busy</span>スケジュールはありません</div>';
+    return;
+  }
+  list.innerHTML = '';
+  docs.forEach(docSnap => {
+    const d = docSnap.data();
+    const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+    const wday = WD[date.getDay()];
+    let dateRange = '';
     if (d.endDate) {
       const end = d.endDate?.toDate ? d.endDate.toDate() : new Date(d.endDate);
-      dateRange = ` ～ ${end.getMonth()+1}/${end.getDate()}(${WEEKDAYS[end.getDay()]})`;
+      dateRange = ` ～ ${end.getMonth()+1}/${end.getDate()}(${WD[end.getDay()]})`;
     }
-
-    const card = document.createElement("div");
-    card.className = "schedule-card";
+    const card = document.createElement('div');
+    card.className = 'schedule-card';
     card.innerHTML = `
       <div class="schedule-date-block">
         <div class="schedule-date-month">${date.getMonth()+1}月</div>
@@ -138,125 +318,137 @@ function renderSchedule(docs) {
       </div>
       <div class="schedule-info">
         <span class="schedule-type-badge badge-${d.type}">${TYPE_LABELS[d.type]}</span>
-        <div class="schedule-title">${esc(d.title || "")}</div>
+        <div class="schedule-title">${esc(d.title || '')}</div>
         <div class="schedule-meta">
-          ${dateRange ? `<span><span class="material-icons">date_range</span>${esc(dateRange)}</span>` : ""}
-          ${d.location ? `<span><span class="material-icons">place</span>${esc(d.location)}</span>` : ""}
+          ${dateRange ? `<span><span class="material-icons">date_range</span>${esc(dateRange)}</span>` : ''}
+          ${d.location ? `<span><span class="material-icons">place</span>${esc(d.location)}</span>` : ''}
         </div>
-        ${d.note ? `<div class="schedule-note">${esc(d.note)}</div>` : ""}
+        ${d.note ? `<div class="schedule-note">${esc(d.note)}</div>` : ''}
       </div>
-      ${isAdmin ? `
-        <div class="schedule-actions">
-          <button class="icon-btn btn-edit" data-id="${docSnap.id}" title="編集">
-            <span class="material-icons">edit</span>
-          </button>
-          <button class="icon-btn btn-delete" data-id="${docSnap.id}" title="削除">
-            <span class="material-icons">delete</span>
-          </button>
-        </div>` : ""}
+      ${isAdmin ? `<div class="schedule-actions">
+        <button class="icon-btn btn-edit" data-id="${docSnap.id}" style="color:var(--primary)">
+          <span class="material-icons">edit</span>
+        </button>
+        <button class="icon-btn btn-delete" data-id="${docSnap.id}" data-type="schedule" style="color:#d32f2f">
+          <span class="material-icons">delete</span>
+        </button>
+      </div>` : ''}
     `;
-    scheduleList.appendChild(card);
+    list.appendChild(card);
   });
 
   if (isAdmin) {
-    scheduleList.querySelectorAll(".btn-edit").forEach(btn =>
-      btn.addEventListener("click", () => openEditModal(btn.dataset.id)));
-    scheduleList.querySelectorAll(".btn-delete").forEach(btn =>
-      btn.addEventListener("click", () => openDeleteModal(btn.dataset.id)));
+    list.querySelectorAll('.btn-edit').forEach(btn =>
+      btn.addEventListener('click', () => openScheduleModal(btn.dataset.id)));
+    list.querySelectorAll('.btn-delete').forEach(btn =>
+      btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, 'schedule')));
   }
 }
 
-function esc(str) {
-  return String(str)
-    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// スケジュールタブ
+document.querySelectorAll('.stab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    scheduleType = tab.dataset.type;
+    loadSchedule();
+  });
+});
+
+// ── スケジュールモーダル ──────────────────────
+const scheduleModal = document.getElementById('schedule-modal');
+const scheduleForm  = document.getElementById('schedule-form');
+
+document.getElementById('add-schedule-btn').addEventListener('click', () => openScheduleModal(null));
+document.getElementById('schedule-modal-close').addEventListener('click', closeScheduleModal);
+document.getElementById('schedule-overlay').addEventListener('click', closeScheduleModal);
+document.getElementById('sf-cancel').addEventListener('click', closeScheduleModal);
+
+function openScheduleModal(id) {
+  editingScheduleId = id;
+  document.getElementById('schedule-modal-title').textContent = id ? 'スケジュール編集' : 'スケジュール追加';
+  if (!id) {
+    scheduleForm.reset();
+    document.getElementById('sf-type').value = scheduleType;
+  } else {
+    db.collection('SCHEDULE').doc(id).get().then(snap => {
+      const d = snap.data();
+      document.getElementById('sf-type').value     = d.type;
+      document.getElementById('sf-title').value    = d.title || '';
+      document.getElementById('sf-date').value     = toDateInput(d.date);
+      document.getElementById('sf-end-date').value = d.endDate ? toDateInput(d.endDate) : '';
+      document.getElementById('sf-location').value = d.location || '';
+      document.getElementById('sf-note').value     = d.note || '';
+    });
+  }
+  scheduleModal.classList.remove('hidden');
 }
 
-// ── モーダル ──────────────────────────────────
-fab.addEventListener("click", openAddModal);
-
-function openAddModal() {
-  editingId = null;
-  modalTitle.textContent = "スケジュール追加";
-  scheduleForm.reset();
-  document.getElementById("form-type").value = currentTab;
-  adminModal.classList.remove("hidden");
-}
-
-async function openEditModal(id) {
-  editingId = id;
-  modalTitle.textContent = "スケジュール編集";
-  const snap = await db.collection("SCHEDULE").doc(id).get();
-  const d = snap.data();
-  document.getElementById("form-type").value     = d.type;
-  document.getElementById("form-title").value    = d.title || "";
-  document.getElementById("form-date").value     = toDateInput(d.date);
-  document.getElementById("form-end-date").value = d.endDate ? toDateInput(d.endDate) : "";
-  document.getElementById("form-location").value = d.location || "";
-  document.getElementById("form-note").value     = d.note || "";
-  adminModal.classList.remove("hidden");
+function closeScheduleModal() {
+  scheduleModal.classList.add('hidden');
+  editingScheduleId = null;
 }
 
 function toDateInput(ts) {
   const d = ts?.toDate ? ts.toDate() : new Date(ts);
-  return d.toISOString().split("T")[0];
+  return d.toISOString().split('T')[0];
 }
 
-function closeModal() {
-  adminModal.classList.add("hidden");
-  editingId = null;
-}
-
-document.getElementById("modal-close").addEventListener("click", closeModal);
-document.getElementById("form-cancel").addEventListener("click", closeModal);
-document.getElementById("modal-overlay").addEventListener("click", closeModal);
-
-// ── フォーム保存 ──────────────────────────────
-scheduleForm.addEventListener("submit", async (e) => {
+scheduleForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const endVal = document.getElementById("form-end-date").value;
+  const endVal = document.getElementById('sf-end-date').value;
   const data = {
-    type:     document.getElementById("form-type").value,
-    title:    document.getElementById("form-title").value.trim(),
-    date:     firebase.firestore.Timestamp.fromDate(new Date(document.getElementById("form-date").value)),
+    type:     document.getElementById('sf-type').value,
+    title:    document.getElementById('sf-title').value.trim(),
+    date:     firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('sf-date').value)),
     endDate:  endVal ? firebase.firestore.Timestamp.fromDate(new Date(endVal)) : null,
-    location: document.getElementById("form-location").value.trim(),
-    note:     document.getElementById("form-note").value.trim(),
+    location: document.getElementById('sf-location').value.trim(),
+    note:     document.getElementById('sf-note').value.trim(),
   };
   try {
-    if (editingId) {
-      await db.collection("SCHEDULE").doc(editingId).update(data);
+    if (editingScheduleId) {
+      await db.collection('SCHEDULE').doc(editingScheduleId).update(data);
     } else {
       data.createdAt = firebase.firestore.Timestamp.now();
-      await db.collection("SCHEDULE").add(data);
+      await db.collection('SCHEDULE').add(data);
     }
-    closeModal();
+    closeScheduleModal();
     loadSchedule();
   } catch (err) {
-    alert("保存エラー: " + err.message);
+    alert('保存エラー: ' + err.message);
   }
 });
 
 // ── 削除 ──────────────────────────────────────
-function openDeleteModal(id) {
-  deleteTargetId = id;
-  document.getElementById("delete-modal").classList.remove("hidden");
+function openDeleteModal(id, type) {
+  deleteTargetId   = id;
+  deleteTargetType = type;
+  document.getElementById('delete-modal').classList.remove('hidden');
 }
 
 function closeDeleteModal() {
-  document.getElementById("delete-modal").classList.add("hidden");
-  deleteTargetId = null;
+  document.getElementById('delete-modal').classList.add('hidden');
+  deleteTargetId = null; deleteTargetType = null;
 }
 
-document.getElementById("delete-cancel").addEventListener("click", closeDeleteModal);
-document.getElementById("delete-overlay").addEventListener("click", closeDeleteModal);
-document.getElementById("delete-confirm").addEventListener("click", async () => {
+document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
+document.getElementById('delete-overlay').addEventListener('click', closeDeleteModal);
+document.getElementById('delete-confirm').addEventListener('click', async () => {
   if (!deleteTargetId) return;
+  const col = deleteTargetType === 'announce' ? 'ANNOUNCEMENT' : 'SCHEDULE';
   try {
-    await db.collection("SCHEDULE").doc(deleteTargetId).delete();
+    await db.collection(col).doc(deleteTargetId).delete();
     closeDeleteModal();
-    loadSchedule();
+    if (deleteTargetType === 'announce') loadAnnouncements();
+    else loadSchedule();
   } catch (err) {
-    alert("削除エラー: " + err.message);
+    alert('削除エラー: ' + err.message);
   }
 });
+
+// ── ユーティリティ ────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}

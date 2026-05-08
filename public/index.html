@@ -6,125 +6,307 @@
   <title>唐木田PORTAL</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
-  <!-- Firebase compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-  <!-- ログイン画面 -->
-  <div id="login-screen" class="login-screen">
-    <div class="login-card">
-      <div class="login-logo">
-        <div class="logo-circle">唐</div>
-        <h1 class="login-title">唐木田PORTAL</h1>
-        <p class="login-subtitle">唐木田会衆</p>
-      </div>
-      <button id="login-btn" class="google-btn">
-        <svg class="google-icon" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Googleアカウントでログイン
+<!-- ログイン画面 -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-circle">唐</div>
+      <h1>唐木田PORTAL</h1>
+      <p>唐木田会衆</p>
+    </div>
+    <button id="login-btn" class="google-btn">
+      <svg class="google-icon" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Googleアカウントでログイン
+    </button>
+    <p id="login-error" class="login-error"></p>
+  </div>
+</div>
+
+<!-- メインアプリ -->
+<div id="app" class="hidden">
+  <header class="app-header">
+    <button id="back-btn" class="back-btn hidden">
+      <span class="material-icons">arrow_back</span>
+    </button>
+    <div class="header-brand" id="header-home-btn">
+      <div class="logo-circle-sm">唐</div>
+      <span id="header-title">唐木田PORTAL</span>
+    </div>
+    <div class="header-actions">
+      <span id="user-name" class="user-name"></span>
+      <button id="logout-btn" class="icon-btn" title="ログアウト">
+        <span class="material-icons">logout</span>
       </button>
-      <p id="login-error" class="login-error"></p>
     </div>
-  </div>
+  </header>
 
-  <!-- メイン画面 -->
-  <div id="main-screen" class="hidden">
-    <header class="app-bar">
-      <span class="app-bar-title">唐木田PORTAL</span>
-      <div class="app-bar-actions">
-        <span id="user-name" class="user-name"></span>
-        <button id="logout-btn" class="icon-btn" title="ログアウト">
-          <span class="material-icons">logout</span>
+  <main id="main-content">
+
+    <!-- ホーム -->
+    <section id="page-home" class="page active">
+      <div class="home-hero"></div>
+      <div class="menu-grid">
+        <div class="menu-item" data-page="hatsuhy">
+          <span class="menu-icon material-icons">article</span>
+          <span class="menu-label">発表</span>
+        </div>
+        <div class="menu-item" data-page="keikaku">
+          <span class="menu-icon material-icons">calendar_month</span>
+          <span class="menu-label">計画</span>
+        </div>
+        <div class="menu-item" data-page="senkyo">
+          <span class="menu-icon material-icons">groups</span>
+          <span class="menu-label">宣教</span>
+        </div>
+        <div class="menu-item" data-page="shukai">
+          <span class="menu-icon material-icons">event_seat</span>
+          <span class="menu-label">集会</span>
+        </div>
+        <div class="menu-item" data-page="shinsei">
+          <span class="menu-icon material-icons">assignment</span>
+          <span class="menu-label">申請</span>
+        </div>
+        <div class="menu-item" data-page="soshiki">
+          <span class="menu-icon material-icons">account_tree</span>
+          <span class="menu-label">組織</span>
+        </div>
+        <div class="menu-item" data-page="gyoji">
+          <span class="menu-icon material-icons">wine_bar</span>
+          <span class="menu-label">行事</span>
+        </div>
+        <div class="menu-item" data-page="saigai">
+          <span class="menu-icon material-icons">crisis_alert</span>
+          <span class="menu-label">災害対応</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 発表 -->
+    <section id="page-hatsuhy" class="page">
+      <div class="page-banner banner-hatsuhy">
+        <h2>発表</h2>
+      </div>
+      <div class="page-content">
+        <div id="announce-list" class="announce-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+      <button id="add-announce-btn" class="fab hidden">
+        <span class="material-icons">add</span>
+      </button>
+    </section>
+
+    <!-- 計画 -->
+    <section id="page-keikaku" class="page">
+      <div class="page-banner banner-keikaku">
+        <h2>宣教計画表</h2>
+      </div>
+      <div class="page-content">
+        <div id="keikaku-list" class="link-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 宣教 -->
+    <section id="page-senkyo" class="page">
+      <div class="page-banner banner-senkyo">
+        <h2>宣教</h2>
+      </div>
+      <div class="page-content">
+        <div id="senkyo-list" class="link-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 集会 -->
+    <section id="page-shukai" class="page">
+      <div class="page-banner banner-shukai">
+        <h2>集会</h2>
+      </div>
+      <div class="page-content">
+        <div id="shukai-links" class="link-list"></div>
+        <div class="section-divider"></div>
+        <h3 class="section-title">集会スケジュール</h3>
+        <div class="schedule-tabs">
+          <button class="stab active" data-type="meeting">集会</button>
+          <button class="stab" data-type="circuit">巡回訪問</button>
+          <button class="stab" data-type="convention">大会</button>
+        </div>
+        <div id="schedule-list" class="schedule-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+        <button id="add-schedule-btn" class="fab hidden">
+          <span class="material-icons">add</span>
         </button>
       </div>
-    </header>
+    </section>
 
-    <div class="tab-bar">
-      <button class="tab active" data-tab="meeting">集会</button>
-      <button class="tab" data-tab="circuit">巡回訪問</button>
-      <button class="tab" data-tab="convention">大会</button>
-    </div>
-
-    <main class="content">
-      <div id="schedule-list" class="schedule-list">
-        <div class="loading">読み込み中...</div>
+    <!-- 申請 -->
+    <section id="page-shinsei" class="page">
+      <div class="page-banner banner-shinsei">
+        <h2>申請</h2>
       </div>
-    </main>
-  </div>
-
-  <!-- 追加・編集モーダル -->
-  <div id="admin-modal" class="modal hidden">
-    <div class="modal-overlay" id="modal-overlay"></div>
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="modal-title">スケジュール追加</h2>
-        <button class="icon-btn dark" id="modal-close">
-          <span class="material-icons">close</span>
-        </button>
+      <div class="page-content">
+        <div id="shinsei-list" class="link-list">
+          <div class="loading">読み込み中...</div>
+        </div>
       </div>
-      <form id="schedule-form" class="schedule-form">
-        <input type="hidden" id="edit-id">
-        <div class="form-group">
-          <label>種類</label>
-          <select id="form-type" required>
-            <option value="meeting">集会</option>
-            <option value="circuit">巡回訪問</option>
-            <option value="convention">大会</option>
-          </select>
+    </section>
+
+    <!-- 組織 -->
+    <section id="page-soshiki" class="page">
+      <div class="page-banner banner-soshiki">
+        <h2>組織</h2>
+      </div>
+      <div class="page-content">
+        <div id="soshiki-list" class="link-list">
+          <div class="loading">読み込み中...</div>
         </div>
-        <div class="form-group">
-          <label>タイトル</label>
-          <input type="text" id="form-title" required placeholder="例：週の聖書研究">
+      </div>
+    </section>
+
+    <!-- 行事 -->
+    <section id="page-gyoji" class="page">
+      <div class="page-banner banner-gyoji">
+        <h2>行事</h2>
+      </div>
+      <div class="page-content">
+        <div id="gyoji-list" class="link-list">
+          <div class="loading">読み込み中...</div>
         </div>
-        <div class="form-group">
-          <label>開始日</label>
-          <input type="date" id="form-date" required>
+      </div>
+    </section>
+
+    <!-- 災害対応 -->
+    <section id="page-saigai" class="page">
+      <div class="page-banner banner-saigai">
+        <h2>災害対応</h2>
+      </div>
+      <div class="page-content">
+        <div id="saigai-list" class="link-list">
+          <div class="loading">読み込み中...</div>
         </div>
-        <div class="form-group">
-          <label>終了日（任意・複数日の場合）</label>
-          <input type="date" id="form-end-date">
-        </div>
-        <div class="form-group">
-          <label>場所</label>
-          <input type="text" id="form-location" placeholder="例：会衆会館">
-        </div>
-        <div class="form-group">
-          <label>メモ・備考</label>
-          <textarea id="form-note" rows="3" placeholder="詳細など"></textarea>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn-secondary" id="form-cancel">キャンセル</button>
-          <button type="submit" class="btn-primary">保存</button>
-        </div>
-      </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 発表追加・編集モーダル -->
+<div id="announce-modal" class="modal hidden">
+  <div class="modal-overlay" id="announce-overlay"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="announce-modal-title">発表を追加</h2>
+      <button class="icon-btn" id="announce-modal-close"><span class="material-icons">close</span></button>
+    </div>
+    <form id="announce-form">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="af-date" required>
+      </div>
+      <div class="form-group">
+        <label>タイトル（任意）</label>
+        <input type="text" id="af-title" placeholder="例：5月の補助開拓奉仕者">
+      </div>
+      <div class="form-group">
+        <label>本文（任意）</label>
+        <textarea id="af-body" rows="3" placeholder="内容を入力..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>リンク1タイトル</label>
+        <input type="text" id="af-link1-title" placeholder="例：巡回訪問の予定表">
+      </div>
+      <div class="form-group">
+        <label>リンク1 URL</label>
+        <input type="url" id="af-link1-url" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label>リンク2タイトル</label>
+        <input type="text" id="af-link2-title" placeholder="例：座席表">
+      </div>
+      <div class="form-group">
+        <label>リンク2 URL</label>
+        <input type="url" id="af-link2-url" placeholder="https://...">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="af-cancel">キャンセル</button>
+        <button type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- スケジュール追加・編集モーダル -->
+<div id="schedule-modal" class="modal hidden">
+  <div class="modal-overlay" id="schedule-overlay"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="schedule-modal-title">スケジュール追加</h2>
+      <button class="icon-btn" id="schedule-modal-close"><span class="material-icons">close</span></button>
+    </div>
+    <form id="schedule-form">
+      <div class="form-group">
+        <label>種類</label>
+        <select id="sf-type" required>
+          <option value="meeting">集会</option>
+          <option value="circuit">巡回訪問</option>
+          <option value="convention">大会</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>タイトル</label>
+        <input type="text" id="sf-title" required placeholder="例：週の聖書研究">
+      </div>
+      <div class="form-group">
+        <label>開始日</label>
+        <input type="date" id="sf-date" required>
+      </div>
+      <div class="form-group">
+        <label>終了日（任意）</label>
+        <input type="date" id="sf-end-date">
+      </div>
+      <div class="form-group">
+        <label>場所</label>
+        <input type="text" id="sf-location" placeholder="例：会衆会館">
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="sf-note" rows="2"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="sf-cancel">キャンセル</button>
+        <button type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div id="delete-modal" class="modal hidden">
+  <div class="modal-overlay" id="delete-overlay"></div>
+  <div class="modal-card modal-small">
+    <p>削除しますか？</p>
+    <div class="form-actions" style="justify-content:center">
+      <button class="btn-secondary" id="delete-cancel">キャンセル</button>
+      <button class="btn-danger" id="delete-confirm">削除</button>
     </div>
   </div>
+</div>
 
-  <!-- 削除確認モーダル -->
-  <div id="delete-modal" class="modal hidden">
-    <div class="modal-overlay" id="delete-overlay"></div>
-    <div class="modal-card modal-small">
-      <p>このスケジュールを削除しますか？</p>
-      <div class="form-actions" style="justify-content:center">
-        <button class="btn-secondary" id="delete-cancel">キャンセル</button>
-        <button class="btn-danger" id="delete-confirm">削除</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- FAB（管理者のみ表示） -->
-  <button id="fab" class="fab hidden" title="スケジュール追加">
-    <span class="material-icons">add</span>
-  </button>
-
-  <script src="main.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
