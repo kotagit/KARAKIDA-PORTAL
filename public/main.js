@@ -405,6 +405,11 @@ async function loadLinks(section) {
     listEl.innerHTML = '';
 
     if (section === 'shinsei') {
+      const versionDiv = document.createElement('div');
+      versionDiv.style.cssText = 'text-align:center; padding:10px; color:#666; font-size:12px;';
+      versionDiv.textContent = 'v1.1 (2026-05-08)';
+      listEl.appendChild(versionDiv);
+
       const memberInfoItem = document.createElement('div');
       memberInfoItem.className = 'link-item';
       memberInfoItem.style.cursor = 'pointer';
