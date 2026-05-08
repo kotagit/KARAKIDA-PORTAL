@@ -82,25 +82,25 @@ async function tryAppAutoLogin() {
   currentUser = { email: appUser };
   userNameEl.textContent = appUser;
 
-  // USER_LISTから名前と権限を取得（失敗しても続行）
-  if (appUser) {
-    try {
-      const snap = await db.collection('USER_LIST')
-        .where('mail', '==', appUser.toLowerCase()).limit(1).get();
-      if (!snap.empty) {
-        const userData = snap.docs[0].data();
-        const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-        isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
-        userNameEl.textContent = userData.name || appUser;
-      }
-    } catch (e) {
-      console.error('AutoLogin USER_LIST error:', e);
-    }
-  }
-
+  // 即座にアプリを表示
   loginScreen.classList.add('hidden');
   app.classList.remove('hidden');
   navigate('home');
+
+  // バックグラウンドでUSER_LIST情報を取得
+  if (appUser) {
+    db.collection('USER_LIST')
+      .where('mail', '==', appUser.toLowerCase()).limit(1).get()
+      .then(snap => {
+        if (!snap.empty) {
+          const userData = snap.docs[0].data();
+          const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+          isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
+          userNameEl.textContent = userData.name || appUser;
+        }
+      }).catch(e => console.error('USER_LIST error:', e));
+  }
+
   return true;
 }
 
