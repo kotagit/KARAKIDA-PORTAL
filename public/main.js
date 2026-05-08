@@ -31,6 +31,8 @@ const tabs         = document.querySelectorAll(".tab");
 
 // ── ログイン（リダイレクト方式・ポップアップなし）──
 loginBtn.addEventListener("click", () => {
+  document.getElementById("login-error").textContent = "Googleへ移動中...";
+  console.log("login btn clicked");
   signInWithRedirect(auth, provider);
 });
 
