@@ -113,10 +113,17 @@ body {
 .page { display: none; }
 .page.active { display: block; }
 
+/* ── ホームページ全体のラッパー ── */
+#page-home {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
 /* ── ホームヒーロー ── */
 .home-hero {
-  height: 220px;
+  height: 240px;
   background: url('hero.jpg') center center / cover no-repeat;
+  border-radius: 0 0 16px 16px;
 }
 
 /* ── メニューグリッド ── */
@@ -130,7 +137,8 @@ body {
 .menu-item {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 8px; padding: 20px 8px;
+  gap: 8px;
+  aspect-ratio: 1 / 1;
   border-radius: 16px;
   cursor: pointer;
   background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
