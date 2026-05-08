@@ -77,7 +77,7 @@ auth.onAuthStateChanged(async (user) => {
     app.classList.remove('hidden');
     navigate('home');
 
-    // Firestoreから権限(status5)を確認
+    // Firestoreから権限(status7)を確認
     try {
       console.log('Checking permissions for:', user.email);
       const snap = await db.collection('USER_LIST')
@@ -88,11 +88,12 @@ auth.onAuthStateChanged(async (user) => {
         const userData = snap.docs[0].data();
         userNameEl.textContent = userData.name || user.displayName || '';
         
-        // 大文字小文字や空白に影響されないよう正規化して比較
-        const status = (userData.status5 || '').toString().toUpperCase().trim();
+        // Rowyの画面に基づき、status7 または status5 を確認
+        const statusVal = userData.status7 || userData.status5 || '';
+        const status = statusVal.toString().toUpperCase().trim();
         isAdmin = (status === 'WEB');
         
-        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status5_raw:', userData.status5, 'status_normalized:', status);
+        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status_raw:', statusVal);
 
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) {
