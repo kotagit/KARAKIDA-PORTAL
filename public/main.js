@@ -10,6 +10,13 @@
       '</div>';
     throw new Error('access denied');
   }
+  // KarakidaApp WebViewはログイン画面を即座に非表示
+  if (ua.includes('KarakidaApp')) {
+    document.addEventListener('DOMContentLoaded', function() {
+      var ls = document.getElementById('login-screen');
+      if (ls) ls.classList.add('hidden');
+    });
+  }
 })();
 
 // ── Firebase 初期化 ────────────────────────────
