@@ -12,6 +12,9 @@ var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
 
 // ── 状態 ──────────────────────────────────────
+const APP_VERSION = '1.0.2-debug'; // バージョン確認用
+console.log('App Version:', APP_VERSION);
+
 let currentUser   = null;
 let isAdmin       = false;
 let currentPage   = 'home';
@@ -85,10 +88,11 @@ auth.onAuthStateChanged(async (user) => {
         const userData = snap.docs[0].data();
         userNameEl.textContent = userData.name || user.displayName || '';
         
-        // status5 フィールドが 'WEB' の場合に管理者権限を付与
-        isAdmin = (userData.status5 === 'WEB');
+        // 大文字小文字や空白に影響されないよう正規化して比較
+        const status = (userData.status5 || '').toString().toUpperCase().trim();
+        isAdmin = (status === 'WEB');
         
-        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status5:', userData.status5);
+        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status5_raw:', userData.status5, 'status_normalized:', status);
 
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) {
