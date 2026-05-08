@@ -88,8 +88,9 @@ async function awLoadHistoryWeeks() {
 
 // ── 割当管理メインページ ──────────────────────
 
-// weekId → 現在のスロット（確定ボタンから参照）
-const awLiveSlots = {};
+// weekId → 現在のスロット / トピック（確定ボタンから参照）
+const awLiveSlots  = {};
+const awLiveTopics = {};
 
 async function initAssignmentPage() {
   const createList = document.getElementById('assignment-create-list');
@@ -131,13 +132,14 @@ async function awConfirmAll() {
   let confirmed = 0;
   try {
     for (const week of awWeeks) {
-      const slots = awLiveSlots[week.id] || {};
+      const slots  = awLiveSlots[week.id]  || {};
+      const topics = awLiveTopics[week.id] || {};
       if (Object.keys(slots).length === 0) continue;
 
       await db.collection('assignments').doc(week.id).set({
         weekId: week.id, status: 'confirmed',
         confirmedAt: firebase.firestore.Timestamp.now(),
-        confirmedBy: currentUser?.email || '', slots,
+        confirmedBy: currentUser?.email || '', slots, topics,
       }, { merge: true });
 
       const [ym, wn] = week.id.split('_');
@@ -292,9 +294,11 @@ async function awLoadWeeks() {
       Object.entries(raw).forEach(([c, v]) => {
         week.slots[c] = typeof v === 'object' ? v.name : String(v);
       });
+      week.topics = asnap.data().topics || {};
     } else {
       week.assignmentStatus = 'none';
-      week.slots = {};
+      week.slots  = {};
+      week.topics = {};
     }
   }));
 }
@@ -322,13 +326,15 @@ function awBuildWeekSection(week, container) {
   const st       = week.assignmentStatus || 'none';
   const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
   const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
-  const slots    = Object.assign({}, week.slots || {});
-  const items    = week.items || [];
+  const slots  = Object.assign({}, week.slots  || {});
+  const topics = Object.assign({}, week.topics || {});
+  const items  = week.items || [];
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
   section.dataset.weekId = week.id;
-  awLiveSlots[week.id] = slots;
+  awLiveSlots[week.id]  = slots;
+  awLiveTopics[week.id] = topics;
 
   // ── ヘッダー ──
   const hdr = document.createElement('div');
@@ -355,7 +361,7 @@ function awBuildWeekSection(week, container) {
   // ── 予定表テーブル ──
   const table = document.createElement('div');
   table.className = 'aw-week-table';
-  awBuildInlineTable(items, slots, table, week.id);
+  awBuildInlineTable(items, slots, topics, table);
   section.appendChild(table);
 
   container.appendChild(section);
@@ -368,10 +374,11 @@ function awBuildWeekSection(week, container) {
       await db.collection('assignments').doc(week.id).set({
         weekId: week.id, status: 'draft',
         updatedAt: firebase.firestore.Timestamp.now(),
-        updatedBy: currentUser?.email || '', slots,
+        updatedBy: currentUser?.email || '', slots, topics,
       }, { merge: true });
       week.assignmentStatus = 'draft';
-      week.slots = Object.assign({}, slots);
+      week.slots  = Object.assign({}, slots);
+      week.topics = Object.assign({}, topics);
       badge.className = `aw-status-badge ${classMap.draft}`;
       badge.textContent = labelMap.draft;
       alert('保存しました');
@@ -380,7 +387,7 @@ function awBuildWeekSection(week, container) {
 
 }
 
-function awBuildInlineTable(items, slots, container, weekId) {
+function awBuildInlineTable(items, slots, topics, container) {
   container.innerHTML = '';
   let prevSection = '';
   let minutesOffset = 0;
@@ -406,18 +413,22 @@ function awBuildInlineTable(items, slots, container, weekId) {
       assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
     } else if (item.codes && item.codes.length > 0) {
       assigneeCells = item.codes.map(code => {
-        const base    = awGetBase(code);
-        const label   = awCodes[base] || base;
+        const base     = awGetBase(code);
+        const label    = awCodes[base] || base;
         const eligible = awMembers.filter(mb => (mb.eligibleCodes || []).includes(base));
-        const cur     = slots[code] || '';
-        const opts    = eligible.map(mb =>
+        const cur      = slots[code] || '';
+        const opts     = eligible.map(mb =>
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
+        const topicHtml = base === 'T'
+          ? `<input class="aw-topic-input" data-code="${esc(base)}" type="text"
+               placeholder="主題を入力" value="${esc(topics[base] || '')}">`
+          : '';
         return `<div class="aw-slot">
           <label class="aw-slot-label">${esc(label)}</label>
           <select class="aw-slot-select" data-code="${esc(code)}">
             <option value="">—</option>${opts}
-          </select></div>`;
+          </select>${topicHtml}</div>`;
       }).join('');
     }
 
@@ -441,6 +452,9 @@ function awBuildInlineTable(items, slots, container, weekId) {
       slots[sel.dataset.code] = sel.value;
       if (sel.dataset.code === 'A') awUpdateClosingNoteIn(container, slots);
     });
+  });
+  container.querySelectorAll('.aw-topic-input').forEach(inp => {
+    inp.addEventListener('input', () => { topics[inp.dataset.code] = inp.value; });
   });
 }
 

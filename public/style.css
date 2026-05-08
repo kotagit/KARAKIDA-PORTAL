@@ -398,6 +398,11 @@ body {
 .aw-inline-sub   { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
 .aw-inline-section .aw-week-actions { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .aw-inline-section .aw-week-table   { padding: 0 8px 8px; }
+.aw-topic-input {
+  display: block; margin-top: 4px; width: 100%; max-width: 260px;
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 0.85rem; color: var(--text);
+}
 
 .aw-elder-table-wrap {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
