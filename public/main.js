@@ -21,6 +21,17 @@ let editingScheduleId  = null;
 let deleteTargetId     = null;
 let deleteTargetType   = null;
 
+// ── ユーティリティ ────────────────────────────
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function isMobile() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 // ── ページタイトル ────────────────────────────
 const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
@@ -40,15 +51,59 @@ const backBtn       = document.getElementById('back-btn');
 const headerTitle   = document.getElementById('header-title');
 const headerHomeBtn = document.getElementById('header-home-btn');
 
-// ── ログイン ──────────────────────────────────
-function isMobile() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// ── 認証状態の監視と初期化 ──────────────────
+async function initApp() {
+  // リダイレクト結果の処理
+  try {
+    const result = await auth.getRedirectResult();
+    if (result.user) {
+      console.log('Redirect login success:', result.user.email);
+    }
+  } catch (err) {
+    console.error('Redirect login error:', err);
+    loginError.textContent = 'ログインエラー: ' + err.message;
+  }
+
+  // 認証状態の変化を監視
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      currentUser = user;
+      isAdmin = false;
+      userNameEl.textContent = user.displayName || 'ユーザー';
+      loginScreen.classList.add('hidden');
+      app.classList.remove('hidden');
+      navigate('home');
+
+      // 権限チェック
+      try {
+        const email = user.email.trim();
+        let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
+        if (snap.empty) {
+          snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+        }
+        
+        if (!snap.empty) {
+          const userData = snap.docs[0].data();
+          userNameEl.textContent = userData.name || user.displayName || '';
+          const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+          isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
+          
+          const adminMenu = document.getElementById('menu-admin');
+          if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+        }
+      } catch (e) {
+        console.error('Auth Check Error:', e);
+      }
+    } else {
+      currentUser = null;
+      isAdmin = false;
+      app.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+    }
+  });
 }
 
-auth.getRedirectResult().catch((err) => {
-  document.getElementById('login-error').textContent = 'エラー: ' + err.message;
-});
-
+// ── ログインイベント ────────────────────────
 loginBtn.addEventListener('click', () => {
   loginError.textContent = 'Googleへ移動中...';
   if (isMobile()) {
@@ -62,69 +117,15 @@ loginBtn.addEventListener('click', () => {
 
 logoutBtn.addEventListener('click', () => auth.signOut());
 
-// ── 認証状態 ──────────────────────────────────
-auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    currentUser = user;
-    
-    // 初期状態は非管理者としてUIを表示
-    isAdmin = false;
-    userNameEl.textContent = user.displayName || 'ユーザー';
-    loginScreen.classList.add('hidden');
-    app.classList.remove('hidden');
-    navigate('home');
-
-    // Firestoreから権限を確認
-    try {
-      const email = user.email.trim();
-      console.log('Checking permissions for:', email);
-      
-      // 小文字一致と完全一致の両方で検索を試みる
-      let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
-      if (snap.empty) {
-        snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
-      }
-      
-      if (!snap.empty) {
-        const userData = snap.docs[0].data();
-        console.log('USER_LIST data found:', userData);
-        userNameEl.textContent = userData.name || user.displayName || '';
-        
-        // status1 から status8 までをすべてチェックし、どこかに 'WEB' があれば管理者
-        const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-        isAdmin = statusFields.some(f => {
-          const val = (userData[f] || '').toString().toUpperCase().trim();
-          return val === 'WEB';
-        });
-        
-        const adminMenu = document.getElementById('menu-admin');
-        if (adminMenu) {
-          adminMenu.classList.toggle('hidden', !isAdmin);
-        }
-        
-        // 管理者でないのに管理画面にいた場合はホームへ戻す
-        if (!isAdmin && (currentPage === 'admin' || currentPage === 'admin-announcements')) {
-          navigate('home');
-        }
-      } else {
-        console.warn('User not found in USER_LIST:', user.email);
-        // 権限がない場合はログアウトさせる等の処理が必要な場合はここに追加
-      }
-    } catch (e) {
-      console.error('Auth Check Error:', e);
-    }
-  } else {
-    currentUser = null;
-    isAdmin = false;
-    app.classList.add('hidden');
-    loginScreen.classList.remove('hidden');
-  }
-});
+// アプリ起動
+initApp();
 
 // ── ルーティング ──────────────────────────────
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
+  const targetPage = document.getElementById('page-' + page);
+  if (targetPage) targetPage.classList.add('active');
+  
   currentPage = page;
   headerTitle.textContent = PAGE_TITLES[page] || page;
 
@@ -148,7 +149,7 @@ function navigate(page) {
     const fab = document.getElementById('add-announce-btn');
     const sfab = document.getElementById('add-schedule-btn');
     if (fab)  fab.classList.toggle('hidden', page !== 'admin');
-    if (sfab) sfab.classList.toggle('hidden', page !== 'admin' && page !== 'shukai'); // スケジュールは一旦保留、または管理画面へ
+    if (sfab) sfab.classList.toggle('hidden', page !== 'admin' && page !== 'shukai');
   }
 
   window.scrollTo(0, 0);
@@ -260,7 +261,6 @@ function renderAnnouncements(docs) {
     let itemsHtml = '';
     groups[dateKey].forEach(item => {
       const links = item.links || [];
-      // 互換性のため古い形式のリンクもチェック
       if (item.link1_title && item.link1_url) links.push({ title: item.link1_title, url: item.link1_url });
       if (item.link2_title && item.link2_url) links.push({ title: item.link2_title, url: item.link2_url });
 
@@ -321,7 +321,7 @@ function openAnnounceModal(id) {
   if (!id) {
     announceForm.reset();
     document.getElementById('af-date').value = new Date().toISOString().split('T')[0];
-    addLinkInput('', ''); // 初期状態で1つ入力欄を出す
+    addLinkInput('', '');
   } else {
     db.collection('ANNOUNCEMENT').doc(id).get().then(snap => {
       const d = snap.data();
@@ -364,7 +364,6 @@ announceForm.addEventListener('submit', async (e) => {
     title:       document.getElementById('af-title').value.trim(),
     body:        document.getElementById('af-body').value.trim(),
     links:       links,
-    // 互換性のための空文字（必要なければ削除可）
     link1_title: '', link1_url: '', link2_title: '', link2_url: ''
   };
   try {
@@ -584,10 +583,3 @@ document.getElementById('delete-confirm').addEventListener('click', async () => 
     alert('削除エラー: ' + err.message);
   }
 });
-
-// ── ユーティリティ ────────────────────────────
-function esc(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
