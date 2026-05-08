@@ -122,7 +122,7 @@ body {
 /* ── ホームヒーロー ── */
 .home-hero {
   height: 240px;
-  background: url('hero.jpg') center center / cover no-repeat;
+  background: url('hero.jpg') center bottom / cover no-repeat;
 
 }
 
