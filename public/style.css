@@ -36,6 +36,17 @@ body {
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 .login-logo { margin-bottom: 32px; }
+.login-logo-img {
+  width: 96px; height: 96px;
+  color: var(--primary);
+  filter: invert(29%) sepia(90%) saturate(600%) hue-rotate(175deg) brightness(90%);
+  margin-bottom: 8px;
+}
+.header-logo-img {
+  width: 28px; height: 28px;
+  filter: brightness(0) invert(1);
+  flex-shrink: 0;
+}
 .logo-circle {
   width: 72px; height: 72px;
   background: var(--primary);
