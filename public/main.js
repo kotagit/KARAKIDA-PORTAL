@@ -66,8 +66,38 @@ const backBtn       = document.getElementById('back-btn');
 const headerTitle   = document.getElementById('header-title');
 const headerHomeBtn = document.getElementById('header-home-btn');
 
+// ── アプリ内WebViewの自動ログイン ────────────
+async function tryAppAutoLogin() {
+  const ua = navigator.userAgent;
+  const appUser = new URLSearchParams(location.search).get('appUser');
+  if (!ua.includes('KarakidaApp') || !appUser) return false;
+
+  try {
+    const snap = await db.collection('USER_LIST')
+      .where('mail', '==', appUser.toLowerCase()).limit(1).get();
+    if (snap.empty) return false;
+
+    const userData = snap.docs[0].data();
+    currentUser = { email: appUser };
+    const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+    isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
+    userNameEl.textContent = userData.name || appUser;
+
+    loginScreen.classList.add('hidden');
+    app.classList.remove('hidden');
+    navigate('home');
+    return true;
+  } catch (e) {
+    console.error('AutoLogin error:', e);
+    return false;
+  }
+}
+
 // ── 認証状態の監視と初期化 ──────────────────
 async function initApp() {
+  // アプリ内WebViewの場合は自動ログイン
+  if (await tryAppAutoLogin()) return;
+
   // リダイレクト結果の処理
   try {
     const result = await auth.getRedirectResult();
