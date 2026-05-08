@@ -144,11 +144,31 @@ function awRenderElderList() {
     });
   });
 
-  // 使われているコードを順序どおり抽出
-  const CODE_ORDER = ['A','B','C','D','E','F','G','Q','R','S','T','U','V','W'];
+  // 使われているコードを順序どおり抽出（聖書朗読E・話Qは除外）
+  const CODE_ORDER = ['A','B','C','D','F','G','R','S','T','U','V','W'];
   const usedCodes = CODE_ORDER.filter(c =>
     dates.some(d => cell[d] && cell[d][c])
   );
+
+  // 全員に固有の塗り潰し色を割り当て
+  const PALETTE = [
+    '#FADADD','#FAD7A0','#A9DFBF','#AED6F1','#D2B4DE',
+    '#FDEBD0','#D5F5E3','#D6EAF8','#FDEDEC','#E8DAEF',
+    '#FCF3CF','#D1F2EB','#EBF5FB','#F9EBEA','#E9F7EF',
+    '#FEF9E7','#EAFAF1','#EAF2FF','#FDF2F8','#F0F3FF',
+    '#FFF3CD','#D4EFDF','#D6EEF8','#FADBD8','#E8D5F5',
+    '#FFEAA7','#BADC58','#7ED6DF','#E056FD','#F9CA24',
+  ];
+  const nameColorMap = {};
+  let colorIdx = 0;
+  dates.forEach(d => {
+    usedCodes.forEach(c => {
+      const name = cell[d]?.[c];
+      if (name && !nameColorMap[name]) {
+        nameColorMap[name] = PALETTE[colorIdx++ % PALETTE.length];
+      }
+    });
+  });
 
   // テーブル構築
   const wrap = document.createElement('div');
@@ -163,7 +183,6 @@ function awRenderElderList() {
   hRow.insertCell().textContent = 'プログラム';
   dates.forEach(d => {
     const th = document.createElement('th');
-    // YYYY-MM-DD → M/D 表示
     const [, m, day] = d.split('-');
     th.textContent = `${parseInt(m)}/${parseInt(day)}`;
     hRow.appendChild(th);
@@ -180,7 +199,11 @@ function awRenderElderList() {
       const td = row.insertCell();
       const name = cell[d]?.[code] || '';
       td.textContent = name;
-      if (!name) td.style.color = 'var(--border)';
+      if (name) {
+        td.style.background = nameColorMap[name] || '';
+      } else {
+        td.style.color = 'var(--border)';
+      }
     });
   });
 

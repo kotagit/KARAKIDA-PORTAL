@@ -416,7 +416,6 @@ body {
   text-align: left; font-weight: bold; background: #fafafa;
   position: sticky; left: 0; z-index: 1; min-width: 140px;
 }
-.aw-elder-table tr:nth-child(even) td { background: #fafafa; }
 .aw-elder-table tr:nth-child(even) td.aw-elder-label { background: #f0f0f0; }
 
 .aw-history-section-title {
