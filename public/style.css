@@ -116,7 +116,7 @@ body {
 /* ── ホームヒーロー ── */
 .home-hero {
   height: 220px;
-  background: linear-gradient(160deg, #047CBC 0%, #0a9fd4 40%, #5bc8f0 100%);
+  background: url('hero.jpg') center center / cover no-repeat;
 }
 
 /* ── メニューグリッド ── */
