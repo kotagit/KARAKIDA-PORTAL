@@ -144,6 +144,16 @@ body {
 .menu-icon  { font-size: 40px !important; color: var(--primary); }
 .menu-label { font-size: 14px; font-weight: 700; color: var(--primary); }
 
+.menu-item[data-page="admin"] {
+  border-color: #F1C232;
+  box-shadow: 0 4px 12px rgba(241,194,50,0.35), 0 -1px 4px rgba(255,255,255,0.8);
+}
+.menu-item[data-page="admin"] .menu-icon,
+.menu-item[data-page="admin"] .menu-label { color: #F1C232; }
+.menu-item[data-page="admin"]:hover {
+  box-shadow: 0 8px 20px rgba(241,194,50,0.45), 0 -1px 4px rgba(255,255,255,0.8);
+}
+
 /* ── ページバナー ── */
 .page-banner {
   height: 180px;
