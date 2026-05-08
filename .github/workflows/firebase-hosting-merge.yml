@@ -16,4 +16,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KARAKIDA_PORTAL }}
           channelId: live
-          projectId: karakida-app-7bbc0
+          projectId: karakida-portal
