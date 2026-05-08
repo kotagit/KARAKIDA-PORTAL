@@ -434,7 +434,7 @@ function awOpenHistoryDetail(date, records) {
         // ペアの場合「担当 / 相手」ラベルと「担当名 / 相手名」
         const leadLabel    = awCodes[code]        || code;
         const partnerLabel = awCodes[partnerCode] || partnerCode;
-        label   = leadLabel.replace(' — 担当', '');
+        label   = leadLabel.replace(/ ?— ?(担当|相手)/, '').replace(/（(司会|朗読者)）/, '');
         nameStr = `${esc(byCode[code][0])} / ${esc(byCode[partnerCode][0])}`;
       } else {
         nameStr = esc((byCode[code] || []).join(' / '));
