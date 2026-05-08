@@ -193,10 +193,19 @@ async function awLoadWeeks() {
   const snap = await db.collection('mwbWeeks').orderBy('importedAt','desc').get();
   awWeeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-  // 各週の割当ステータスを取得
   await Promise.all(awWeeks.map(async week => {
     const asnap = await db.collection('assignments').doc(week.id).get();
-    week.assignmentStatus = asnap.exists ? (asnap.data().status || 'draft') : 'none';
+    if (asnap.exists) {
+      week.assignmentStatus = asnap.data().status || 'draft';
+      const raw = asnap.data().slots || {};
+      week.slots = {};
+      Object.entries(raw).forEach(([c, v]) => {
+        week.slots[c] = typeof v === 'object' ? v.name : String(v);
+      });
+    } else {
+      week.assignmentStatus = 'none';
+      week.slots = {};
+    }
   }));
 }
 
@@ -216,19 +225,189 @@ function awRenderCreateList() {
     return;
   }
   list.innerHTML = '';
-  awWeeks.forEach(week => {
-    const st = week.assignmentStatus || 'none';
-    const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
-    const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
-    list.appendChild(awMakeWeekRow(`
-      <div class="admin-list-info">
-        <div class="admin-list-title">${esc(week.dateRange || week.id)}</div>
-        <div class="admin-list-date" style="color:var(--text-light)">${esc(week.bibleChapter || '')}</div>
-      </div>
-      <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
-      <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
-    `, () => awOpenWeekDetail(week.id)));
+  awWeeks.forEach(week => awBuildWeekSection(week, list));
+}
+
+function awBuildWeekSection(week, container) {
+  const st       = week.assignmentStatus || 'none';
+  const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
+  const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
+  const slots    = Object.assign({}, week.slots || {});
+  const items    = week.items || [];
+
+  const section = document.createElement('div');
+  section.className = 'aw-inline-section';
+
+  // ── ヘッダー ──
+  const hdr = document.createElement('div');
+  hdr.className = 'aw-inline-header';
+  hdr.innerHTML = `
+    <div>
+      <div class="aw-inline-title">${esc(week.dateRange || week.id)}</div>
+      <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
+    </div>
+    <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
+  `;
+  section.appendChild(hdr);
+
+  // ── アクションボタン ──
+  const actions = document.createElement('div');
+  actions.className = 'aw-week-actions';
+  actions.innerHTML = `
+    <button class="btn-secondary aw-btn-gen">
+      <span class="material-icons" style="font-size:18px;vertical-align:middle">auto_fix_high</span> 自動生成
+    </button>
+    <button class="btn-secondary aw-btn-save">
+      <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
+    </button>
+    <button class="btn-primary aw-btn-confirm">
+      <span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 確定
+    </button>
+  `;
+  section.appendChild(actions);
+
+  // ── 予定表テーブル ──
+  const table = document.createElement('div');
+  table.className = 'aw-week-table';
+  awBuildInlineTable(items, slots, table, week.id);
+  section.appendChild(table);
+
+  container.appendChild(section);
+
+  // ── ボタンイベント ──
+  const badge = hdr.querySelector('.aw-status-badge');
+
+  actions.querySelector('.aw-btn-gen').addEventListener('click', () => {
+    const result = awRunGeneration(
+      [...new Set(items.flatMap(i => i.codes || []))],
+      awMembers, awHistory
+    );
+    Object.entries(result).forEach(([code, name]) => {
+      if (name && name !== '（該当者なし）') slots[code] = name;
+    });
+    table.querySelectorAll('.aw-slot-select').forEach(sel => {
+      sel.value = slots[sel.dataset.code] || '';
+    });
+    awUpdateClosingNoteIn(table, slots);
   });
+
+  actions.querySelector('.aw-btn-save').addEventListener('click', async () => {
+    try {
+      await db.collection('assignments').doc(week.id).set({
+        weekId: week.id, status: 'draft',
+        updatedAt: firebase.firestore.Timestamp.now(),
+        updatedBy: currentUser?.email || '', slots,
+      }, { merge: true });
+      week.assignmentStatus = 'draft';
+      week.slots = Object.assign({}, slots);
+      badge.className = `aw-status-badge ${classMap.draft}`;
+      badge.textContent = labelMap.draft;
+      alert('保存しました');
+    } catch(e) { alert('保存エラー: ' + e.message); }
+  });
+
+  actions.querySelector('.aw-btn-confirm').addEventListener('click', async () => {
+    if (!confirm('割当を確定しますか？\n確定するとassignmentHistoryに記録されます。')) return;
+    try {
+      await db.collection('assignments').doc(week.id).set({
+        weekId: week.id, status: 'confirmed',
+        confirmedAt: firebase.firestore.Timestamp.now(),
+        confirmedBy: currentUser?.email || '', slots,
+      }, { merge: true });
+
+      const [ym, wn] = week.id.split('_');
+      const year = parseInt(ym.substring(0,4)), month = parseInt(ym.substring(4,6));
+      const day  = (parseInt(wn) - 1) * 7 + 1;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+      const batch = db.batch();
+      Object.entries(slots).forEach(([code, name]) => {
+        if (!name || name === '（該当者なし）') return;
+        const member = awMembers.find(mb => mb.name === name);
+        batch.set(db.collection('assignmentHistory').doc(), {
+          memberId: member?.memberId ?? null, memberName: name,
+          code: awGetBase(code), date: dateStr, weekId: week.id,
+        });
+      });
+      await batch.commit();
+      await awLoadHistory();
+
+      week.assignmentStatus = 'confirmed';
+      week.slots = Object.assign({}, slots);
+      badge.className = `aw-status-badge ${classMap.confirmed}`;
+      badge.textContent = labelMap.confirmed;
+      alert('確定しました');
+    } catch(e) { alert('確定エラー: ' + e.message); }
+  });
+}
+
+function awBuildInlineTable(items, slots, container, weekId) {
+  container.innerHTML = '';
+  let prevSection = '';
+  let minutesOffset = 0;
+
+  items.forEach(item => {
+    const section = item.section;
+    if (section !== prevSection && section !== '開会') {
+      if (section === 'クリスチャンとして生活する') minutesOffset = 47;
+      const hdr = document.createElement('div');
+      hdr.className = 'aw-section-header';
+      hdr.style.background = AW_SECTION_COLORS[section] || '#333';
+      hdr.textContent = section;
+      container.appendChild(hdr);
+      prevSection = section;
+    }
+
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const m = minutesOffset % 60;
+    const timeStr = `${h}:${m.toString().padStart(2,'0')}`;
+
+    let assigneeCells = '';
+    if (item.title === '閉会の言葉') {
+      assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
+    } else if (item.codes && item.codes.length > 0) {
+      assigneeCells = item.codes.map(code => {
+        const base    = awGetBase(code);
+        const label   = awCodes[base] || base;
+        const eligible = awMembers.filter(mb => (mb.eligibleCodes || []).includes(base));
+        const cur     = slots[code] || '';
+        const opts    = eligible.map(mb =>
+          `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
+        ).join('');
+        return `<div class="aw-slot">
+          <label class="aw-slot-label">${esc(label)}</label>
+          <select class="aw-slot-select" data-code="${esc(code)}">
+            <option value="">—</option>${opts}
+          </select></div>`;
+      }).join('');
+    }
+
+    const row = document.createElement('div');
+    row.className = 'aw-row';
+    row.innerHTML = `
+      <div class="aw-row-time">${timeStr}</div>
+      <div class="aw-row-info">
+        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+        <span class="aw-row-title">${esc(item.title)}</span>
+        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
+      </div>
+      <div class="aw-row-assignees">${assigneeCells}</div>
+    `;
+    container.appendChild(row);
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
+  });
+
+  container.querySelectorAll('.aw-slot-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      slots[sel.dataset.code] = sel.value;
+      if (sel.dataset.code === 'A') awUpdateClosingNoteIn(container, slots);
+    });
+  });
+}
+
+function awUpdateClosingNoteIn(container, slots) {
+  const note = container.querySelector('.aw-closing-note');
+  if (note) note.textContent = `司会者と同じ（${slots['A'] || '（未割当）'}）`;
 }
 
 function awRenderHistoryList() {
