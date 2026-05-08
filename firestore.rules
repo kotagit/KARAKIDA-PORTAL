@@ -1,7 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // アクセス制御はアプリ側（USER_LIST認証）で実施済み
+    // USER_LISTは読み取りのみ（不正登録を防ぐ）
+    match /USER_LIST/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // その他のコレクションは全公開
     match /{document=**} {
       allow read, write: if true;
     }
