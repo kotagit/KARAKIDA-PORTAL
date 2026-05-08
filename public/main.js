@@ -1,7 +1,7 @@
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
-  authDomain: "karakida-app-7bbc0.firebaseapp.com",
+  authDomain: "karakida-app-7bbc0.web.app",
   projectId: "karakida-app-7bbc0",
   storageBucket: "karakida-app-7bbc0.appspot.com",
   messagingSenderId: "784037102811",
@@ -35,9 +35,7 @@ const tabs         = document.querySelectorAll(".tab");
 // ── ログイン ──────────────────────────────────
 loginBtn.addEventListener("click", () => {
   loginError.textContent = "Googleへ移動中...";
-  auth.signInWithPopup(provider).catch((err) => {
-    loginError.textContent = "エラー: " + err.message;
-  });
+  auth.signInWithRedirect(provider);
 });
 
 logoutBtn.addEventListener("click", () => auth.signOut());
