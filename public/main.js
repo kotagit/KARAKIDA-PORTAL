@@ -38,7 +38,8 @@ const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
   senkyo: '宣教', shukai: '集会', shinsei: '申請',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
-  admin: '管理画面', 'admin-announcements': '発表管理'
+  admin: '管理画面', 'admin-announcements': '発表管理',
+  'member-info': '成員情報登録'
 };
 
 // ── DOM ──────────────────────────────────────
@@ -153,6 +154,7 @@ function navigate(page) {
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'admin-announcements') loadAdminAnnouncements();
+  if (page === 'member-info') loadMemberInfoForm();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -400,24 +402,37 @@ async function loadLinks(section) {
       .where('section', '==', section)
       .orderBy('order', 'asc').get();
 
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
-      return;
-    }
     listEl.innerHTML = '';
-    snap.docs.forEach(docSnap => {
-      const d = docSnap.data();
-      const a = document.createElement('a');
-      a.className = 'link-item';
-      a.href = d.url || '#';
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">${esc(d.icon || 'insert_drive_file')}</span></div>
-        <span class="link-item-label">${esc(d.title)}</span>
+
+    if (section === 'shinsei') {
+      const memberInfoItem = document.createElement('div');
+      memberInfoItem.className = 'link-item';
+      memberInfoItem.style.cursor = 'pointer';
+      memberInfoItem.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">contact_phone</span></div>
+        <span class="link-item-label">成員情報登録</span>
       `;
-      listEl.appendChild(a);
-    });
+      memberInfoItem.addEventListener('click', () => navigate('member-info'));
+      listEl.appendChild(memberInfoItem);
+    }
+
+    if (!snap.empty) {
+      snap.docs.forEach(docSnap => {
+        const d = docSnap.data();
+        const a = document.createElement('a');
+        a.className = 'link-item';
+        a.href = d.url || '#';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.innerHTML = `
+          <div class="link-item-icon"><span class="material-icons">${esc(d.icon || 'insert_drive_file')}</span></div>
+          <span class="link-item-label">${esc(d.title)}</span>
+        `;
+        listEl.appendChild(a);
+      });
+    } else if (section !== 'shinsei') {
+      listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
+    }
   } catch (e) {
     listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
   }
@@ -592,3 +607,159 @@ document.getElementById('delete-confirm').addEventListener('click', async () => 
     alert('削除エラー: ' + err.message);
   }
 });
+
+// ── 成員情報登録 ──────────────────────────────
+let currentMemberData = null;
+let memberUserName = '';
+let memberUserGroup = '';
+
+async function loadMemberInfoForm() {
+  const container = document.getElementById('member-info-form-container');
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const email = currentUser.email.trim();
+    let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
+    if (snap.empty) {
+      snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+    }
+
+    if (!snap.empty) {
+      const userData = snap.docs[0].data();
+      memberUserName = userData.name || currentUser.displayName || '';
+      memberUserGroup = userData.group || '';
+
+      const docSnap = await db.collection('MEMBER_INFO').doc(memberUserName).get();
+      if (docSnap.exists) {
+        currentMemberData = docSnap.data();
+      }
+    } else {
+      memberUserName = currentUser.displayName || '';
+      memberUserGroup = '';
+    }
+
+    renderMemberInfoForm();
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    console.error('loadMemberInfoForm error:', e);
+  }
+}
+
+function renderMemberInfoForm() {
+  const container = document.getElementById('member-info-form-container');
+  const data = currentMemberData || {};
+
+  container.innerHTML = `
+    <div class="form-container">
+      <p class="form-description">成員情報を登録・更新してください</p>
+
+      <div class="section-divider"></div>
+      <h3 class="section-title">成員基本情報</h3>
+
+      <div class="form-group">
+        <label>氏名</label>
+        <input type="text" id="mf-name" value="${esc(memberUserName)}" readonly style="background:#f5f5f5;">
+      </div>
+
+      <div class="form-group">
+        <label>所属グループ</label>
+        <input type="text" id="mf-group" value="${esc(memberUserGroup)}" readonly style="background:#f5f5f5;">
+      </div>
+
+      <div class="form-group">
+        <label>自宅電話</label>
+        <input type="tel" id="mf-home-phone" value="${esc(data.homePhone || '')}" placeholder="例: 042-653-9740">
+      </div>
+
+      <div class="form-group">
+        <label>携帯電話 <span style="color:#d32f2f;">*</span></label>
+        <input type="tel" id="mf-mobile-phone" value="${esc(data.mobilePhone || '')}" placeholder="例: 090-1540-3718" required>
+      </div>
+
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input type="email" id="mf-email" value="${esc(data.email || '')}" placeholder="例: example@gmail.com">
+      </div>
+
+      <div class="form-group">
+        <label>住所</label>
+        <textarea id="mf-address" rows="2" placeholder="例: 別所2-9 エミネンス長池1-307">${esc(data.address || '')}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label>生年月日</label>
+        <input type="date" id="mf-birth-date" value="${data.birthDate ? toDateInput(data.birthDate) : ''}">
+      </div>
+
+      <div class="form-group">
+        <label>バプテスマの日付</label>
+        <input type="date" id="mf-baptism-date" value="${data.baptismDate ? toDateInput(data.baptismDate) : ''}">
+      </div>
+
+      <div class="section-divider"></div>
+      <h3 class="section-title">緊急連絡先</h3>
+
+      <div class="form-group">
+        <label>緊急連絡先氏名</label>
+        <input type="text" id="mf-emergency-name" value="${esc(data.emergencyContactName || '')}" placeholder="例: 森永智裕">
+      </div>
+
+      <div class="form-group">
+        <label>緊急連絡先電話</label>
+        <input type="tel" id="mf-emergency-phone" value="${esc(data.emergencyContactPhone || '')}" placeholder="例: 090-1317-0795">
+      </div>
+
+      <div style="margin-top:32px;">
+        <button type="button" id="mf-submit" class="btn-primary" style="width:100%;">
+          <span class="material-icons" style="font-size:18px; vertical-align:middle;">save</span> 保存する
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('mf-submit').addEventListener('click', submitMemberInfo);
+}
+
+async function submitMemberInfo() {
+  const mobilePhone = document.getElementById('mf-mobile-phone').value.trim();
+  if (!mobilePhone) {
+    alert('携帯電話は必須です');
+    return;
+  }
+
+  const btn = document.getElementById('mf-submit');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span class="material-icons" style="font-size:18px; vertical-align:middle;">hourglass_empty</span> 保存中...';
+  btn.disabled = true;
+
+  try {
+    const birthDateVal = document.getElementById('mf-birth-date').value;
+    const baptismDateVal = document.getElementById('mf-baptism-date').value;
+
+    const data = {
+      memberName: memberUserName,
+      memberGroupName: memberUserGroup,
+      homePhone: document.getElementById('mf-home-phone').value.trim(),
+      mobilePhone: mobilePhone,
+      email: document.getElementById('mf-email').value.trim(),
+      address: document.getElementById('mf-address').value.trim(),
+      birthDate: birthDateVal ? firebase.firestore.Timestamp.fromDate(new Date(birthDateVal)) : null,
+      baptismDate: baptismDateVal ? firebase.firestore.Timestamp.fromDate(new Date(baptismDateVal)) : null,
+      emergencyContactName: document.getElementById('mf-emergency-name').value.trim(),
+      emergencyContactPhone: document.getElementById('mf-emergency-phone').value.trim(),
+      registeredBy: memberUserName,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await db.collection('MEMBER_INFO').doc(memberUserName).set(data, { merge: true });
+
+    alert('保存しました！');
+    currentMemberData = data;
+    renderMemberInfoForm();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
+}
