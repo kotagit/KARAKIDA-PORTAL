@@ -12,8 +12,16 @@ var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
 
 // ── 状態 ──────────────────────────────────────
-const APP_VERSION = '1.0.2-debug'; // バージョン確認用
+const APP_VERSION = 'v1.0.4-robust'; // バージョン確認用
 console.log('App Version:', APP_VERSION);
+
+// 画面にバージョンを表示
+document.addEventListener('DOMContentLoaded', () => {
+  const vEl = document.createElement('div');
+  vEl.style.cssText = 'position:fixed; bottom:2px; left:5px; font-size:9px; color:#ccc; z-index:9999; pointer-events:none;';
+  vEl.textContent = APP_VERSION;
+  document.body.appendChild(vEl);
+});
 
 let currentUser   = null;
 let isAdmin       = false;
@@ -77,23 +85,30 @@ auth.onAuthStateChanged(async (user) => {
     app.classList.remove('hidden');
     navigate('home');
 
-    // Firestoreから権限(status7)を確認
+    // Firestoreから権限を確認
     try {
-      console.log('Checking permissions for:', user.email);
-      const snap = await db.collection('USER_LIST')
-        .where('mail', '==', user.email.toLowerCase().trim())
-        .limit(1).get();
+      const email = user.email.trim();
+      console.log('Checking permissions for:', email);
+      
+      // 小文字一致と完全一致の両方で検索を試みる
+      let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
+      if (snap.empty) {
+        snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+      }
       
       if (!snap.empty) {
         const userData = snap.docs[0].data();
+        console.log('USER_LIST data found:', userData);
         userNameEl.textContent = userData.name || user.displayName || '';
         
-        // Rowyの画面に基づき、status7 または status5 を確認
-        const statusVal = userData.status7 || userData.status5 || '';
-        const status = statusVal.toString().toUpperCase().trim();
-        isAdmin = (status === 'WEB');
+        // status1 から status8 までをすべてチェックし、どこかに 'WEB' があれば管理者
+        const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+        isAdmin = statusFields.some(f => {
+          const val = (userData[f] || '').toString().toUpperCase().trim();
+          return val === 'WEB';
+        });
         
-        console.log('User authorized:', user.email, 'isAdmin:', isAdmin, 'status_raw:', statusVal);
+        console.log('Permission result - isAdmin:', isAdmin);
 
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) {
