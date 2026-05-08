@@ -118,30 +118,75 @@ async function initHistoryPage() {
 }
 
 function awRenderElderList() {
-  const list = document.getElementById('assignment-elder-list');
-  if (!list) return;
+  const container = document.getElementById('assignment-elder-list');
+  if (!container) return;
 
-  // 長老・援助奉仕者コードのみに絞った週ごとのデータを生成
+  // 長老・援助奉仕者コードのみ、日付ごとに集約
   const elderWeeks = awHistoryWeeks.map(({ date, records }) => ({
     date,
     records: records.filter(r => AW_ELDER_MS_CODES.has(r.code)),
   })).filter(w => w.records.length > 0);
 
   if (elderWeeks.length === 0) {
-    list.innerHTML = '<div class="empty-state">データがありません</div>';
+    container.innerHTML = '<div class="empty-state">データがありません</div>';
     return;
   }
-  list.innerHTML = '';
+
+  // 日付リスト（降順 = 新しい順）、最大26週
+  const dates = elderWeeks.slice(0, 26).map(w => w.date);
+
+  // date→code→name のマップ
+  const cell = {};
   elderWeeks.forEach(({ date, records }) => {
-    list.appendChild(awMakeWeekRow(`
-      <div class="admin-list-info">
-        <div class="admin-list-title">${esc(date)}</div>
-        <div class="admin-list-date" style="color:var(--text-light)">${records.length}件</div>
-      </div>
-      <span class="aw-status-badge aw-badge-confirmed">確定</span>
-      <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
-    `, () => awOpenHistoryDetail(date, records)));
+    records.forEach(({ code, memberName }) => {
+      if (!cell[date]) cell[date] = {};
+      cell[date][code] = memberName;
+    });
   });
+
+  // 使われているコードを順序どおり抽出
+  const CODE_ORDER = ['A','B','C','D','E','F','G','Q','R','S','T','U','V','W'];
+  const usedCodes = CODE_ORDER.filter(c =>
+    dates.some(d => cell[d] && cell[d][c])
+  );
+
+  // テーブル構築
+  const wrap = document.createElement('div');
+  wrap.className = 'aw-elder-table-wrap';
+
+  const table = document.createElement('table');
+  table.className = 'aw-elder-table';
+
+  // ヘッダー行（日付）
+  const thead = table.createTHead();
+  const hRow = thead.insertRow();
+  hRow.insertCell().textContent = 'プログラム';
+  dates.forEach(d => {
+    const th = document.createElement('th');
+    // YYYY-MM-DD → M/D 表示
+    const [, m, day] = d.split('-');
+    th.textContent = `${parseInt(m)}/${parseInt(day)}`;
+    hRow.appendChild(th);
+  });
+
+  // データ行（コード別）
+  const tbody = table.createTBody();
+  usedCodes.forEach(code => {
+    const row = tbody.insertRow();
+    const labelCell = row.insertCell();
+    labelCell.className = 'aw-elder-label';
+    labelCell.textContent = awCodes[code] || code;
+    dates.forEach(d => {
+      const td = row.insertCell();
+      const name = cell[d]?.[code] || '';
+      td.textContent = name;
+      if (!name) td.style.color = 'var(--border)';
+    });
+  });
+
+  wrap.appendChild(table);
+  container.innerHTML = '';
+  container.appendChild(wrap);
 }
 
 async function awLoadWeeks() {
