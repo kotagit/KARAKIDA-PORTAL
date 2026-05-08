@@ -1,3 +1,17 @@
+// ── アクセス制御 ──────────────────────────────
+(function checkAccess() {
+  var ua = navigator.userAgent;
+  var isSmartphone = /iPhone|Android/i.test(ua) && !/iPad/i.test(ua);
+  if (isSmartphone && !ua.includes('KarakidaApp')) {
+    document.body.innerHTML =
+      '<div style="text-align:center;padding:80px 24px;font-family:sans-serif;">' +
+      '<h2 style="margin-bottom:16px;">唐木田APPから開いてください</h2>' +
+      '<p style="color:#666;">このページはアプリ専用です。</p>' +
+      '</div>';
+    throw new Error('access denied');
+  }
+})();
+
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
