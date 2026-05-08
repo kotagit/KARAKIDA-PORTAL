@@ -41,6 +41,7 @@ const PAGE_TITLES = {
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
+  'admin-assignment-history': '割当履歴',
   'admin-members': 'メンバー管理',
 };
 
@@ -157,8 +158,9 @@ function navigate(page) {
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
-  if (page === 'admin-assignment')      initAssignmentPage();
-  if (page === 'admin-members')         initMembersPage();
+  if (page === 'admin-assignment')         initAssignmentPage();
+  if (page === 'admin-assignment-history') initHistoryPage();
+  if (page === 'admin-members')            initMembersPage();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');

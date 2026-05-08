@@ -261,25 +261,46 @@
     </section>
 
     <!-- 割当管理（週一覧） -->
+    <!-- 割当管理（作成） -->
     <section id="page-admin-assignment" class="page">
       <div class="page-banner banner-admin">
         <h2>割当管理</h2>
       </div>
-      <div class="aw-tab-bar">
-        <button class="aw-tab active" data-tab="create">作成</button>
-        <button class="aw-tab" data-tab="history">履歴</button>
-      </div>
-      <div class="page-content" style="padding-top:0">
-        <div id="aw-tab-create" class="aw-tab-panel">
-          <div class="admin-actions-bar">
-            <button class="btn-secondary" id="aw-import-btn">
-              <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
-            </button>
-            <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
-          </div>
-          <div id="assignment-create-list" class="admin-list"></div>
+      <div class="page-content">
+        <div class="admin-actions-bar">
+          <button class="btn-secondary" id="aw-import-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
+          </button>
+          <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+          <button class="btn-secondary" onclick="navigate('admin-assignment-history')" style="margin-left:auto">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">history</span> 履歴
+          </button>
         </div>
-        <div id="aw-tab-history" class="aw-tab-panel hidden">
+        <div id="assignment-create-list" class="admin-list"></div>
+      </div>
+    </section>
+
+    <!-- 割当管理（履歴） -->
+    <section id="page-admin-assignment-history" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin-assignment')" class="aw-back-btn" title="作成に戻る">
+          <span class="material-icons">arrow_back</span>
+        </button>
+        <h2 style="margin:0">割当履歴</h2>
+      </div>
+      <div class="page-content">
+        <div class="aw-history-section">
+          <div class="aw-history-section-title">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">manage_accounts</span>
+            長老・援助奉仕者のプログラム
+          </div>
+          <div id="assignment-elder-list" class="admin-list"></div>
+        </div>
+        <div class="aw-history-section" style="margin-top:24px">
+          <div class="aw-history-section-title">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">people</span>
+            全プログラム履歴
+          </div>
           <div id="assignment-history-list" class="admin-list"></div>
         </div>
       </div>

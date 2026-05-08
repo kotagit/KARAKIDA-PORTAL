@@ -89,18 +89,59 @@ async function awLoadHistoryWeeks() {
 // ── 割当管理メインページ ──────────────────────
 
 async function initAssignmentPage() {
-  awInitTabs();
-  const createList  = document.getElementById('assignment-create-list');
-  const historyList = document.getElementById('assignment-history-list');
-  if (createList)  createList.innerHTML  = '<div class="loading">読み込み中...</div>';
-  if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
+  const createList = document.getElementById('assignment-create-list');
+  if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await awLoadAll();
-    await Promise.all([awLoadWeeks(), awLoadHistoryWeeks()]);
-    awRenderWeekList();
+    await awLoadWeeks();
+    awRenderCreateList();
   } catch(e) {
     if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
+}
+
+// 長老・援助奉仕者が担当するコード（生徒プレゼン H-O,P を除く）
+const AW_ELDER_MS_CODES = new Set(['A','B','C','D','E','F','G','Q','R','S','T','U','V','W']);
+
+async function initHistoryPage() {
+  const elderList   = document.getElementById('assignment-elder-list');
+  const historyList = document.getElementById('assignment-history-list');
+  if (elderList)   elderList.innerHTML   = '<div class="loading">読み込み中...</div>';
+  if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    await Promise.all([awLoadCodes(), awLoadHistoryWeeks()]);
+    awRenderElderList();
+    awRenderHistoryList();
+  } catch(e) {
+    if (elderList) elderList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function awRenderElderList() {
+  const list = document.getElementById('assignment-elder-list');
+  if (!list) return;
+
+  // 長老・援助奉仕者コードのみに絞った週ごとのデータを生成
+  const elderWeeks = awHistoryWeeks.map(({ date, records }) => ({
+    date,
+    records: records.filter(r => AW_ELDER_MS_CODES.has(r.code)),
+  })).filter(w => w.records.length > 0);
+
+  if (elderWeeks.length === 0) {
+    list.innerHTML = '<div class="empty-state">データがありません</div>';
+    return;
+  }
+  list.innerHTML = '';
+  elderWeeks.forEach(({ date, records }) => {
+    list.appendChild(awMakeWeekRow(`
+      <div class="admin-list-info">
+        <div class="admin-list-title">${esc(date)}</div>
+        <div class="admin-list-date" style="color:var(--text-light)">${records.length}件</div>
+      </div>
+      <span class="aw-status-badge aw-badge-confirmed">確定</span>
+      <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
+    `, () => awOpenHistoryDetail(date, records)));
+  });
 }
 
 async function awLoadWeeks() {
@@ -165,21 +206,6 @@ function awRenderHistoryList() {
   });
 }
 
-function awRenderWeekList() {
-  awRenderCreateList();
-  awRenderHistoryList();
-}
-
-function awInitTabs() {
-  document.querySelectorAll('.aw-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.aw-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.aw-tab-panel').forEach(p => p.classList.add('hidden'));
-      tab.classList.add('active');
-      document.getElementById('aw-tab-' + tab.dataset.tab)?.classList.remove('hidden');
-    });
-  });
-}
 
 // ── ZIPインポート ─────────────────────────────
 
