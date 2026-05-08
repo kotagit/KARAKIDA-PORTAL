@@ -395,23 +395,28 @@ function awOpenHistoryDetail(date, records) {
       byCode[code].push(memberName);
     });
 
+    const sectionOf = {
+      A:'開会', B:'開会',
+      C:'神の言葉の宝', D:'神の言葉の宝', E:'神の言葉の宝',
+      F:'野外奉仕に励む', G:'野外奉仕に励む',
+      H:'野外奉仕に励む', I:'野外奉仕に励む',
+      J:'野外奉仕に励む', K:'野外奉仕に励む',
+      L:'野外奉仕に励む', M:'野外奉仕に励む',
+      N:'野外奉仕に励む', O:'野外奉仕に励む',
+      P:'野外奉仕に励む', Q:'野外奉仕に励む',
+      R:'クリスチャンとして生活する', S:'クリスチャンとして生活する',
+      T:'クリスチャンとして生活する', U:'クリスチャンとして生活する',
+      V:'クリスチャンとして生活する', W:'クリスチャンとして生活する',
+    };
+    // 担当/相手ペアは1行にまとめる（相手コードはスキップ）
+    const PARTNER_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
+    const PARTNER_CODES = new Set(Object.values(PARTNER_OF));
+
     const sortedCodes = Object.keys(byCode).sort();
     let prevSection = '';
     sortedCodes.forEach(code => {
-      // コードに対応するセクションを判定して見出しを出す
-      const sectionOf = {
-        A:'開会', B:'開会',
-        C:'神の言葉の宝', D:'神の言葉の宝', E:'神の言葉の宝',
-        F:'野外奉仕に励む', G:'野外奉仕に励む',
-        H:'野外奉仕に励む', I:'野外奉仕に励む',
-        J:'野外奉仕に励む', K:'野外奉仕に励む',
-        L:'野外奉仕に励む', M:'野外奉仕に励む',
-        N:'野外奉仕に励む', O:'野外奉仕に励む',
-        P:'野外奉仕に励む', Q:'野外奉仕に励む',
-        R:'クリスチャンとして生活する', S:'クリスチャンとして生活する',
-        T:'クリスチャンとして生活する', U:'クリスチャンとして生活する',
-        V:'クリスチャンとして生活する', W:'クリスチャンとして生活する',
-      };
+      if (PARTNER_CODES.has(code)) return; // 相手コードは担当行でまとめて表示
+
       const section = sectionOf[code] || '';
       if (section && section !== prevSection) {
         const hdr = document.createElement('div');
@@ -422,14 +427,25 @@ function awOpenHistoryDetail(date, records) {
         prevSection = section;
       }
 
-      const label = awCodes[code] || code;
-      const names = byCode[code].join('、');
+      const partnerCode = PARTNER_OF[code];
+      let label = awCodes[code] || code;
+      let nameStr;
+      if (partnerCode && byCode[partnerCode]) {
+        // ペアの場合「担当 / 相手」ラベルと「担当名 / 相手名」
+        const leadLabel    = awCodes[code]        || code;
+        const partnerLabel = awCodes[partnerCode] || partnerCode;
+        label   = leadLabel.replace(' — 担当', '');
+        nameStr = `${esc(byCode[code][0])} / ${esc(byCode[partnerCode][0])}`;
+      } else {
+        nameStr = esc((byCode[code] || []).join('、'));
+      }
+
       const row = document.createElement('div');
       row.className = 'aw-row';
       row.innerHTML = `
         <div class="aw-row-time" style="font-size:0.85rem;font-weight:bold;color:var(--text-light)">${esc(code)}</div>
         <div class="aw-row-info"><span class="aw-row-title">${esc(label)}</span></div>
-        <div class="aw-row-assignees" style="padding:8px 0;font-size:0.95rem">${esc(names)}</div>
+        <div class="aw-row-assignees" style="padding:8px 0;font-size:0.95rem">${nameStr}</div>
       `;
       container.appendChild(row);
     });
