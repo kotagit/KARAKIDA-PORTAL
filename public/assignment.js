@@ -88,6 +88,9 @@ async function awLoadHistoryWeeks() {
 
 // ── 割当管理メインページ ──────────────────────
 
+// weekId → 現在のスロット（確定ボタンから参照）
+const awLiveSlots = {};
+
 async function initAssignmentPage() {
   const createList = document.getElementById('assignment-create-list');
   if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -98,6 +101,49 @@ async function initAssignmentPage() {
   } catch(e) {
     if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
+
+  document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
+}
+
+async function awConfirmAll() {
+  if (!confirm('表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
+  let confirmed = 0;
+  try {
+    for (const week of awWeeks) {
+      const slots = awLiveSlots[week.id] || {};
+      if (Object.keys(slots).length === 0) continue;
+
+      await db.collection('assignments').doc(week.id).set({
+        weekId: week.id, status: 'confirmed',
+        confirmedAt: firebase.firestore.Timestamp.now(),
+        confirmedBy: currentUser?.email || '', slots,
+      }, { merge: true });
+
+      const [ym, wn] = week.id.split('_');
+      const year  = parseInt(ym.substring(0,4)), month = parseInt(ym.substring(4,6));
+      const day   = (parseInt(wn) - 1) * 7 + 1;
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+      const batch = db.batch();
+      Object.entries(slots).forEach(([code, name]) => {
+        if (!name || name === '（該当者なし）') return;
+        const member = awMembers.find(mb => mb.name === name);
+        batch.set(db.collection('assignmentHistory').doc(), {
+          memberId: member?.memberId ?? null, memberName: name,
+          code: awGetBase(code), date: dateStr, weekId: week.id,
+        });
+      });
+      await batch.commit();
+
+      // バッジ更新
+      const badge = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
+      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定'; }
+      week.assignmentStatus = 'confirmed';
+      confirmed++;
+    }
+    await awLoadHistory();
+    alert(`${confirmed}週分を確定しました`);
+  } catch(e) { alert('確定エラー: ' + e.message); }
 }
 
 // 長老・援助奉仕者が担当するコード（生徒プレゼン H-O,P を除く）
@@ -260,6 +306,8 @@ function awBuildWeekSection(week, container) {
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
+  section.dataset.weekId = week.id;
+  awLiveSlots[week.id] = slots;
 
   // ── ヘッダー ──
   const hdr = document.createElement('div');
@@ -282,9 +330,6 @@ function awBuildWeekSection(week, container) {
     </button>
     <button class="btn-secondary aw-btn-save">
       <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
-    </button>
-    <button class="btn-primary aw-btn-confirm">
-      <span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 確定
     </button>
   `;
   section.appendChild(actions);
@@ -329,39 +374,6 @@ function awBuildWeekSection(week, container) {
     } catch(e) { alert('保存エラー: ' + e.message); }
   });
 
-  actions.querySelector('.aw-btn-confirm').addEventListener('click', async () => {
-    if (!confirm('割当を確定しますか？\n確定するとassignmentHistoryに記録されます。')) return;
-    try {
-      await db.collection('assignments').doc(week.id).set({
-        weekId: week.id, status: 'confirmed',
-        confirmedAt: firebase.firestore.Timestamp.now(),
-        confirmedBy: currentUser?.email || '', slots,
-      }, { merge: true });
-
-      const [ym, wn] = week.id.split('_');
-      const year = parseInt(ym.substring(0,4)), month = parseInt(ym.substring(4,6));
-      const day  = (parseInt(wn) - 1) * 7 + 1;
-      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-
-      const batch = db.batch();
-      Object.entries(slots).forEach(([code, name]) => {
-        if (!name || name === '（該当者なし）') return;
-        const member = awMembers.find(mb => mb.name === name);
-        batch.set(db.collection('assignmentHistory').doc(), {
-          memberId: member?.memberId ?? null, memberName: name,
-          code: awGetBase(code), date: dateStr, weekId: week.id,
-        });
-      });
-      await batch.commit();
-      await awLoadHistory();
-
-      week.assignmentStatus = 'confirmed';
-      week.slots = Object.assign({}, slots);
-      badge.className = `aw-status-badge ${classMap.confirmed}`;
-      badge.textContent = labelMap.confirmed;
-      alert('確定しました');
-    } catch(e) { alert('確定エラー: ' + e.message); }
-  });
 }
 
 function awBuildInlineTable(items, slots, container, weekId) {
