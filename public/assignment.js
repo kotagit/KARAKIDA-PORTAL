@@ -324,22 +324,28 @@ function awRenderCreateList() {
   awWeeks.forEach(week => awBuildWeekSection(week, list));
 }
 
-// 週の開始日（月曜）から木曜日の日付を算出して表示
-function awGetThursdayLabel(week) {
-  if (!week.dateRange) return week.id;
+// 週の木曜日の Date を返す
+function awGetThursdayDate(week) {
+  if (!week.dateRange) return null;
   const m = week.dateRange.match(/^(\d+)月(\d+)日/);
-  if (!m) return week.dateRange;
+  if (!m) return null;
   const issueYear  = parseInt(week.id.substring(0, 4));
   const issueMonth = parseInt(week.id.substring(4, 6));
   const startMonth = parseInt(m[1]);
   const startDay   = parseInt(m[2]);
-  // 12月号で1月始まりの週は翌年
   const startYear  = (issueMonth === 12 && startMonth === 1) ? issueYear + 1 : issueYear;
   const startDate  = new Date(startYear, startMonth - 1, startDay);
   const daysToThu  = (4 - startDate.getDay() + 7) % 7;
   const thursday   = new Date(startDate);
   thursday.setDate(startDate.getDate() + daysToThu);
-  return `${thursday.getMonth() + 1}月${thursday.getDate()}日`;
+  return thursday;
+}
+
+// 週の開始日（月曜）から木曜日の日付を算出して表示
+function awGetThursdayLabel(week) {
+  const d = awGetThursdayDate(week);
+  if (!d) return week.dateRange || week.id;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 function awBuildWeekSection(week, container) {
@@ -624,6 +630,7 @@ function awParseWeekLines(lines) {
     // セクション
     if (raw === '神の言葉の宝')             { currentSection = '神の言葉の宝'; continue; }
     if (raw === '野外奉仕に励む')            { currentSection = '野外奉仕に励む'; continue; }
+    if (raw === '伝道を楽しもう')            { currentSection = '野外奉仕に励む'; continue; }
     if (raw === 'クリスチャンとして生活する') { currentSection = 'クリスチャンとして生活する'; continue; }
 
     // 歌
@@ -1344,6 +1351,121 @@ async function awSaveEditorItems() {
     alert('保存しました');
     navigate('admin-assignment');
   } catch(e) { alert('保存エラー: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════
+// 集会ページ — 今週の確定済み予定表表示
+// ══════════════════════════════════════════════
+
+async function loadAssignmentWeekDisplay() {
+  const container = document.getElementById('assignment-week-display');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    // コード定義を取得
+    const codesSnap = await db.collection('assignmentCodes').get();
+    const codes = {};
+    codesSnap.docs.forEach(d => { codes[d.data().code] = d.data().label; });
+
+    // 直近8週分の mwbWeeks を取得
+    const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(8).get();
+    const weeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 今日に最も近い木曜日を含む週を優先して確定済みを探す
+    const today = new Date(); today.setHours(0,0,0,0);
+    weeks.sort((a, b) => {
+      const da = awGetThursdayDate(a), db2 = awGetThursdayDate(b);
+      if (!da) return 1; if (!db2) return -1;
+      return Math.abs(da - today) - Math.abs(db2 - today);
+    });
+
+    let targetWeek = null, slots = {}, topics = {};
+    for (const week of weeks) {
+      const asnap = await db.collection('assignments').doc(week.id).get();
+      if (asnap.exists && asnap.data().status === 'confirmed') {
+        targetWeek = week;
+        const raw = asnap.data().slots || {};
+        Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
+        topics = asnap.data().topics || {};
+        break;
+      }
+    }
+
+    if (!targetWeek) {
+      container.innerHTML = '<div class="empty-state" style="padding:16px">確定済みの予定表がありません</div>';
+      return;
+    }
+
+    const thuLabel = awGetThursdayLabel(targetWeek);
+    const items = targetWeek.items || [];
+
+    // ── レンダリング ──
+    container.innerHTML = '';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'aw-shukai-week-title';
+    titleEl.textContent = `${thuLabel}（木）の集会`;
+    container.appendChild(titleEl);
+
+    const PAIR_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
+    const PAIR_PARTNER_SET = new Set(Object.values(PAIR_OF));
+
+    let prevSection = '', minutesOffset = 0;
+
+    items.forEach(item => {
+      const section = item.section;
+      if (section !== prevSection && section !== '開会') {
+        if (section === 'クリスチャンとして生活する') minutesOffset = 47;
+        const hdr = document.createElement('div');
+        hdr.className = 'aw-section-header';
+        hdr.style.background = AW_SECTION_COLORS[section] || '#333';
+        hdr.textContent = section;
+        container.appendChild(hdr);
+        prevSection = section;
+      }
+
+      const h = 19 + Math.floor(minutesOffset / 60);
+      const mi = minutesOffset % 60;
+      const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
+
+      // 担当者テキスト構築
+      let assigneeText = '';
+      if (item.title === '閉会の言葉') {
+        assigneeText = slots['A'] || '';
+      } else if (item.codes && item.codes.length > 0) {
+        const parts = [];
+        item.codes.forEach(code => {
+          const base = awGetBase(code);
+          if (PAIR_PARTNER_SET.has(base)) return;
+          const partnerBase = PAIR_OF[base];
+          const name = slots[code] || '';
+          const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
+          if (partnerName) parts.push(`${name} / ${partnerName}`);
+          else if (name) parts.push(name);
+        });
+        assigneeText = parts.join('、');
+      }
+
+      // 会衆の必要の主題
+      const topicText = (item.codes||[]).includes('T') ? (topics['T'] || '') : '';
+
+      const row = document.createElement('div');
+      row.className = 'aw-shukai-row';
+      row.innerHTML = `
+        <div class="aw-shukai-time">${timeStr}</div>
+        <div class="aw-shukai-info">
+          <div class="aw-shukai-title">${esc(item.title)}</div>
+          ${topicText ? `<div class="aw-shukai-topic">${esc(topicText)}</div>` : ''}
+        </div>
+        <div class="aw-shukai-name">${esc(assigneeText)}</div>
+      `;
+      container.appendChild(row);
+      minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+    });
+
+  } catch(e) {
+    container.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────

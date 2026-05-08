@@ -398,6 +398,22 @@ body {
 .aw-inline-sub   { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
 .aw-inline-section .aw-week-actions { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .aw-inline-section .aw-week-table   { padding: 0 8px 8px; }
+/* 集会ページ — 予定表表示 */
+.aw-shukai-week-title {
+  font-weight: bold; font-size: 1rem; padding: 10px 4px 6px;
+  color: var(--primary); border-bottom: 2px solid var(--primary);
+  margin-bottom: 4px;
+}
+.aw-shukai-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 4px; border-bottom: 1px solid var(--border);
+}
+.aw-shukai-time  { font-size: 0.8rem; color: var(--text-light); min-width: 38px; flex-shrink: 0; padding-top: 2px; }
+.aw-shukai-info  { flex: 1; }
+.aw-shukai-title { font-size: 0.9rem; }
+.aw-shukai-topic { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
+.aw-shukai-name  { font-size: 0.85rem; color: var(--text-light); text-align: right; flex-shrink: 0; max-width: 45%; }
+
 .aw-editor-row {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
