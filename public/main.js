@@ -139,8 +139,8 @@ function navigate(page) {
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
     const sfab = document.getElementById('add-schedule-btn');
-    if (fab)  fab.classList.toggle('hidden', page !== 'hatsuhy' && page !== 'admin');
-    if (sfab) sfab.classList.toggle('hidden', page !== 'shukai');
+    if (fab)  fab.classList.toggle('hidden', page !== 'admin');
+    if (sfab) sfab.classList.toggle('hidden', page !== 'admin' && page !== 'shukai'); // スケジュールは一旦保留、または管理画面へ
   }
 
   window.scrollTo(0, 0);
@@ -264,10 +264,6 @@ function renderAnnouncements(docs) {
             ${links.map(l => `<a class="announce-item-link" href="${esc(l.url)}" target="_blank" rel="noopener">
               <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
           </div>
-          ${isAdmin ? `<div class="announce-actions">
-            <button class="btn-edit" data-id="${item.id}"><span class="material-icons">edit</span>編集</button>
-            <button class="btn-delete" data-id="${item.id}" data-type="announce"><span class="material-icons">delete</span>削除</button>
-          </div>` : ''}
         </div>
       `;
     });
@@ -280,13 +276,6 @@ function renderAnnouncements(docs) {
     `;
     list.appendChild(groupDiv);
   });
-
-  if (isAdmin) {
-    list.querySelectorAll('.btn-edit').forEach(btn =>
-      btn.addEventListener('click', () => openAnnounceModal(btn.dataset.id)));
-    list.querySelectorAll('.btn-delete').forEach(btn =>
-      btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, 'announce')));
-  }
 }
 
 // ── 発表モーダル ──────────────────────────────
