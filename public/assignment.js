@@ -89,14 +89,17 @@ async function awLoadHistoryWeeks() {
 // ── 割当管理メインページ ──────────────────────
 
 async function initAssignmentPage() {
-  const list = document.getElementById('assignment-week-list');
-  if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
+  awInitTabs();
+  const createList  = document.getElementById('assignment-create-list');
+  const historyList = document.getElementById('assignment-history-list');
+  if (createList)  createList.innerHTML  = '<div class="loading">読み込み中...</div>';
+  if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await awLoadAll();
     await Promise.all([awLoadWeeks(), awLoadHistoryWeeks()]);
     awRenderWeekList();
   } catch(e) {
-    if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+    if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
 }
 
@@ -119,52 +122,63 @@ function awMakeWeekRow(innerHTML, onClick) {
   return item;
 }
 
-function awRenderWeekList() {
-  const list = document.getElementById('assignment-week-list');
+function awRenderCreateList() {
+  const list = document.getElementById('assignment-create-list');
   if (!list) return;
-  list.innerHTML = '';
-
-  if (awWeeks.length === 0 && awHistoryWeeks.length === 0) {
-    list.innerHTML = '<div class="empty-state"><span class="material-icons">event_busy</span>データがありません<br>ZIPファイルをインポートしてください</div>';
+  if (awWeeks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
     return;
   }
+  list.innerHTML = '';
+  awWeeks.forEach(week => {
+    const st = week.assignmentStatus || 'none';
+    const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
+    const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
+    list.appendChild(awMakeWeekRow(`
+      <div class="admin-list-info">
+        <div class="admin-list-title">${esc(week.dateRange || week.id)}</div>
+        <div class="admin-list-date" style="color:var(--text-light)">${esc(week.bibleChapter || '')}</div>
+      </div>
+      <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
+      <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
+    `, () => awOpenWeekDetail(week.id)));
+  });
+}
 
-  // mwbWeeks セクション
-  if (awWeeks.length > 0) {
-    awWeeks.forEach(week => {
-      const st = week.assignmentStatus || 'none';
-      const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
-      const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
-      list.appendChild(awMakeWeekRow(`
-        <div class="admin-list-info">
-          <div class="admin-list-title">${esc(week.dateRange || week.id)}</div>
-          <div class="admin-list-date" style="color:var(--text-light)">${esc(week.bibleChapter || '')}</div>
-        </div>
-        <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
-        <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
-      `, () => awOpenWeekDetail(week.id)));
-    });
+function awRenderHistoryList() {
+  const list = document.getElementById('assignment-history-list');
+  if (!list) return;
+  if (awHistoryWeeks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">history</span>履歴がありません</div>';
+    return;
   }
+  list.innerHTML = '';
+  awHistoryWeeks.forEach(({ date, records }) => {
+    list.appendChild(awMakeWeekRow(`
+      <div class="admin-list-info">
+        <div class="admin-list-title">${esc(date)}</div>
+        <div class="admin-list-date" style="color:var(--text-light)">${records.length}件の割当</div>
+      </div>
+      <span class="aw-status-badge aw-badge-confirmed">確定</span>
+      <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
+    `, () => awOpenHistoryDetail(date, records)));
+  });
+}
 
-  // 履歴セクション（assignmentHistory から）
-  if (awHistoryWeeks.length > 0) {
-    if (awWeeks.length > 0) {
-      const sep = document.createElement('div');
-      sep.className = 'aw-list-section-label';
-      sep.textContent = '過去の割当履歴';
-      list.appendChild(sep);
-    }
-    awHistoryWeeks.forEach(({ date, records }) => {
-      list.appendChild(awMakeWeekRow(`
-        <div class="admin-list-info">
-          <div class="admin-list-title">${esc(date)}</div>
-          <div class="admin-list-date" style="color:var(--text-light)">${records.length}件の割当</div>
-        </div>
-        <span class="aw-status-badge aw-badge-confirmed">確定</span>
-        <span class="material-icons" style="color:var(--text-light)">chevron_right</span>
-      `, () => awOpenHistoryDetail(date, records)));
+function awRenderWeekList() {
+  awRenderCreateList();
+  awRenderHistoryList();
+}
+
+function awInitTabs() {
+  document.querySelectorAll('.aw-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.aw-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.aw-tab-panel').forEach(p => p.classList.add('hidden'));
+      tab.classList.add('active');
+      document.getElementById('aw-tab-' + tab.dataset.tab)?.classList.remove('hidden');
     });
-  }
+  });
 }
 
 // ── ZIPインポート ─────────────────────────────

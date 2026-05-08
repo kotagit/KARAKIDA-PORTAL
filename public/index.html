@@ -265,15 +265,22 @@
       <div class="page-banner banner-admin">
         <h2>割当管理</h2>
       </div>
-      <div class="page-content">
-        <div class="admin-actions-bar">
-          <button class="btn-secondary" id="aw-import-btn">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
-          </button>
-          <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+      <div class="aw-tab-bar">
+        <button class="aw-tab active" data-tab="create">作成</button>
+        <button class="aw-tab" data-tab="history">履歴</button>
+      </div>
+      <div class="page-content" style="padding-top:0">
+        <div id="aw-tab-create" class="aw-tab-panel">
+          <div class="admin-actions-bar">
+            <button class="btn-secondary" id="aw-import-btn">
+              <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
+            </button>
+            <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+          </div>
+          <div id="assignment-create-list" class="admin-list"></div>
         </div>
-        <div id="assignment-week-list" class="admin-list">
-          <div class="loading">読み込み中...</div>
+        <div id="aw-tab-history" class="aw-tab-panel hidden">
+          <div id="assignment-history-list" class="admin-list"></div>
         </div>
       </div>
     </section>
