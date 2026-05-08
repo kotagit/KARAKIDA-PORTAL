@@ -1,9 +1,9 @@
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
-  authDomain: "karakida-portal.web.app",
-  projectId: "karakida-portal",
-  storageBucket: "karakida-portal.appspot.com",
+  authDomain: "karakida-app-7bbc0.web.app",
+  projectId: "karakida-app-7bbc0",
+  storageBucket: "karakida-app-7bbc0.appspot.com",
   messagingSenderId: "784037102811",
   appId: "1:784037102811:web:8173578b319adc6596f8fe"
 });
@@ -12,17 +12,6 @@ var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
 
 // ── 状態 ──────────────────────────────────────
-const APP_VERSION = 'v1.0.4-robust'; // バージョン確認用
-console.log('App Version:', APP_VERSION);
-
-// 画面にバージョンを表示
-document.addEventListener('DOMContentLoaded', () => {
-  const vEl = document.createElement('div');
-  vEl.style.cssText = 'position:fixed; bottom:2px; left:5px; font-size:9px; color:#ccc; z-index:9999; pointer-events:none;';
-  vEl.textContent = APP_VERSION;
-  document.body.appendChild(vEl);
-});
-
 let currentUser   = null;
 let isAdmin       = false;
 let currentPage   = 'home';
@@ -108,15 +97,9 @@ auth.onAuthStateChanged(async (user) => {
           return val === 'WEB';
         });
         
-        console.log('Permission result - isAdmin:', isAdmin);
-
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) {
           adminMenu.classList.toggle('hidden', !isAdmin);
-          // デバッグ用: 管理者の場合は背景色を少し変えるなどして視覚的に確認
-          if (isAdmin) {
-            console.log('Admin menu should be visible now');
-          }
         }
         
         // 管理者でないのに管理画面にいた場合はホームへ戻す
