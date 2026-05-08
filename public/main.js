@@ -69,14 +69,17 @@ async function initApp() {
     if (user) {
       currentUser = user;
       isAdmin = false;
+      // 読み込み中はGoogleの表示名を出しておく
       userNameEl.textContent = user.displayName || 'ユーザー';
       loginScreen.classList.add('hidden');
       app.classList.remove('hidden');
       navigate('home');
 
-      // 権限チェック
+      // 権限と名前のチェック（Firestoreから取得）
       try {
         const email = user.email.trim();
+        console.log('Checking USER_LIST for:', email);
+        
         let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
         if (snap.empty) {
           snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
@@ -84,12 +87,17 @@ async function initApp() {
         
         if (!snap.empty) {
           const userData = snap.docs[0].data();
+          console.log('User data loaded:', userData.name);
+          // USER_LISTにある漢字の名前等に書き換える
           userNameEl.textContent = userData.name || user.displayName || '';
+          
           const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
           isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
           
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+        } else {
+          console.warn('User not found in USER_LIST');
         }
       } catch (e) {
         console.error('Auth Check Error:', e);
