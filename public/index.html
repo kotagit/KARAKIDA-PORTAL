@@ -312,6 +312,27 @@
       </div>
     </section>
 
+    <!-- スケジュール編集 -->
+    <section id="page-admin-schedule-editor" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin-assignment')" class="aw-back-btn" title="作成に戻る">
+          <span class="material-icons">arrow_back</span>
+        </button>
+        <h2 id="aw-editor-title" style="margin:0">スケジュール編集</h2>
+      </div>
+      <div class="page-content">
+        <div id="aw-editor-list"></div>
+        <button class="btn-secondary" id="aw-editor-add-btn" style="margin-top:12px;width:100%">
+          <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 行を追加
+        </button>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn-primary" id="aw-editor-save-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- 割当管理（週の詳細） -->
     <section id="page-admin-assignment-week" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">

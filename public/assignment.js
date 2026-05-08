@@ -26,6 +26,8 @@ let awCurrentItems    = [];
 let awCurrentSlots    = {};
 let awEditingMemberId = null;
 let awIsHistoryView   = false;
+let awEditorWeekId    = null;
+let awEditorItems     = [];
 
 // ── ユーティリティ ────────────────────────────
 function awNorm(s) {
@@ -322,6 +324,24 @@ function awRenderCreateList() {
   awWeeks.forEach(week => awBuildWeekSection(week, list));
 }
 
+// 週の開始日（月曜）から木曜日の日付を算出して表示
+function awGetThursdayLabel(week) {
+  if (!week.dateRange) return week.id;
+  const m = week.dateRange.match(/^(\d+)月(\d+)日/);
+  if (!m) return week.dateRange;
+  const issueYear  = parseInt(week.id.substring(0, 4));
+  const issueMonth = parseInt(week.id.substring(4, 6));
+  const startMonth = parseInt(m[1]);
+  const startDay   = parseInt(m[2]);
+  // 12月号で1月始まりの週は翌年
+  const startYear  = (issueMonth === 12 && startMonth === 1) ? issueYear + 1 : issueYear;
+  const startDate  = new Date(startYear, startMonth - 1, startDay);
+  const daysToThu  = (4 - startDate.getDay() + 7) % 7;
+  const thursday   = new Date(startDate);
+  thursday.setDate(startDate.getDate() + daysToThu);
+  return `${thursday.getMonth() + 1}月${thursday.getDate()}日`;
+}
+
 function awBuildWeekSection(week, container) {
   const st       = week.assignmentStatus || 'none';
   const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
@@ -341,11 +361,17 @@ function awBuildWeekSection(week, container) {
   hdr.className = 'aw-inline-header';
   hdr.innerHTML = `
     <div>
-      <div class="aw-inline-title">${esc(week.dateRange || week.id)}</div>
+      <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
-    <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="aw-edit-schedule-btn icon-btn" title="スケジュール編集">
+        <span class="material-icons" style="font-size:20px;color:var(--text-light)">edit_calendar</span>
+      </button>
+      <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
+    </div>
   `;
+  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
   section.appendChild(hdr);
 
   // ── アクションボタン ──
@@ -361,7 +387,7 @@ function awBuildWeekSection(week, container) {
   // ── 予定表テーブル ──
   const table = document.createElement('div');
   table.className = 'aw-week-table';
-  awBuildInlineTable(items, slots, topics, table);
+  awBuildInlineTable(items, slots, topics, table, week.id);
   section.appendChild(table);
 
   container.appendChild(section);
@@ -387,7 +413,7 @@ function awBuildWeekSection(week, container) {
 
 }
 
-function awBuildInlineTable(items, slots, topics, container) {
+function awBuildInlineTable(items, slots, topics, container, weekId) {
   container.innerHTML = '';
   let prevSection = '';
   let minutesOffset = 0;
@@ -421,8 +447,13 @@ function awBuildInlineTable(items, slots, topics, container) {
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
         const topicHtml = base === 'T'
-          ? `<input class="aw-topic-input" data-code="${esc(base)}" type="text"
-               placeholder="主題を入力" value="${esc(topics[base] || '')}">`
+          ? `<div class="aw-topic-row">
+               <input class="aw-topic-input" data-code="${esc(base)}" type="text"
+                 placeholder="主題を入力" value="${esc(topics[base] || '')}">
+               <button class="aw-topic-save-btn icon-btn" title="主題を保存" data-week-id="${esc(weekId||'')}">
+                 <span class="material-icons" style="font-size:18px">save</span>
+               </button>
+             </div>`
           : '';
         return `<div class="aw-slot">
           <label class="aw-slot-label">${esc(label)}</label>
@@ -455,6 +486,17 @@ function awBuildInlineTable(items, slots, topics, container) {
   });
   container.querySelectorAll('.aw-topic-input').forEach(inp => {
     inp.addEventListener('input', () => { topics[inp.dataset.code] = inp.value; });
+  });
+  container.querySelectorAll('.aw-topic-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await db.collection('assignments').doc(weekId).set(
+          { topics }, { merge: true }
+        );
+        btn.querySelector('.material-icons').textContent = 'check';
+        setTimeout(() => { btn.querySelector('.material-icons').textContent = 'save'; }, 1500);
+      } catch(e) { alert('保存エラー: ' + e.message); }
+    });
   });
 }
 
@@ -1182,6 +1224,126 @@ async function awSaveMember(e) {
   } catch(err) {
     alert('保存エラー: ' + err.message);
   }
+}
+
+// ══════════════════════════════════════════════
+// スケジュール編集
+// ══════════════════════════════════════════════
+
+const AW_SECTIONS = ['開会','神の言葉の宝','野外奉仕に励む','クリスチャンとして生活する'];
+const AW_ALL_CODES = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W'];
+
+async function awOpenScheduleEditor(weekId) {
+  awEditorWeekId = weekId;
+  const snap = await db.collection('mwbWeeks').doc(weekId).get();
+  if (!snap.exists) return;
+  awEditorItems = JSON.parse(JSON.stringify(snap.data().items || []));
+
+  const week = awWeeks.find(w => w.id === weekId);
+  const titleEl = document.getElementById('aw-editor-title');
+  if (titleEl) titleEl.textContent = week ? awGetThursdayLabel(week) : weekId;
+
+  awRenderEditorList();
+
+  document.getElementById('aw-editor-add-btn').onclick = () => {
+    awEditorItems.push({ type:'item', section:'クリスチャンとして生活する', title:'', minutes:'5', number:'', codes:[] });
+    awRenderEditorList();
+  };
+  document.getElementById('aw-editor-save-btn').onclick = awSaveEditorItems;
+
+  navigate('admin-schedule-editor');
+}
+
+function awRenderEditorList() {
+  const list = document.getElementById('aw-editor-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  // 時間計算用
+  let minutesOffset = 0;
+  const timeOf = awEditorItems.map(item => {
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const m = minutesOffset % 60;
+    const t = `${h}:${m.toString().padStart(2,'0')}`;
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
+    if (item.section === 'クリスチャンとして生活する' && minutesOffset < 47) minutesOffset = 47;
+    return t;
+  });
+
+  awEditorItems.forEach((item, idx) => {
+    // 行間の「＋ 挿入」ボタン
+    const ins = document.createElement('button');
+    ins.className = 'aw-editor-insert-btn';
+    ins.innerHTML = '<span class="material-icons">add</span>';
+    ins.onclick = () => {
+      awEditorItems.splice(idx, 0, { type:'item', section: item.section, title:'', minutes:'5', number:'', codes:[] });
+      awRenderEditorList();
+    };
+    list.appendChild(ins);
+
+    const row = document.createElement('div');
+    row.className = 'aw-editor-row';
+
+    const sectionOpts = AW_SECTIONS.map(s =>
+      `<option value="${s}" ${item.section===s?'selected':''}>${s}</option>`
+    ).join('');
+    const codeOpts = AW_ALL_CODES.map(c =>
+      `<option value="${c}" ${(item.codes||[]).includes(c)?'selected':''}>${c}: ${awCodes[c]||c}</option>`
+    ).join('');
+
+    row.innerHTML = `
+      <span class="aw-editor-time">${timeOf[idx]}</span>
+      <select class="aw-editor-section">${sectionOpts}</select>
+      <input class="aw-editor-title" type="text" placeholder="プログラム名" value="${esc(item.title||'')}">
+      <input class="aw-editor-min" type="number" min="0" max="60" placeholder="分" value="${esc(item.minutes||'')}">
+      <select class="aw-editor-code" title="割当コード">${codeOpts}</select>
+      <div class="aw-editor-btns">
+        <button class="icon-btn aw-up"   title="上へ" ${idx===0?'disabled':''}><span class="material-icons">arrow_upward</span></button>
+        <button class="icon-btn aw-down" title="下へ" ${idx===awEditorItems.length-1?'disabled':''}><span class="material-icons">arrow_downward</span></button>
+        <button class="icon-btn aw-del"  title="削除" style="color:#d32f2f"><span class="material-icons">delete</span></button>
+      </div>
+    `;
+
+    row.querySelector('.aw-editor-section').onchange = e => { item.section = e.target.value; awRenderEditorList(); };
+    row.querySelector('.aw-editor-title').oninput   = e => { item.title   = e.target.value; };
+    row.querySelector('.aw-editor-min').oninput     = e => { item.minutes = e.target.value; awRenderEditorList(); };
+    row.querySelector('.aw-editor-code').onchange   = e => {
+      item.codes = e.target.value ? [e.target.value] : [];
+    };
+    row.querySelector('.aw-up').onclick = () => {
+      if (idx > 0) { [awEditorItems[idx-1], awEditorItems[idx]] = [awEditorItems[idx], awEditorItems[idx-1]]; awRenderEditorList(); }
+    };
+    row.querySelector('.aw-down').onclick = () => {
+      if (idx < awEditorItems.length-1) { [awEditorItems[idx], awEditorItems[idx+1]] = [awEditorItems[idx+1], awEditorItems[idx]]; awRenderEditorList(); }
+    };
+    row.querySelector('.aw-del').onclick = () => {
+      if (confirm('この行を削除しますか？')) { awEditorItems.splice(idx, 1); awRenderEditorList(); }
+    };
+
+    list.appendChild(row);
+  });
+
+  // 末尾挿入ボタン
+  const insEnd = document.createElement('button');
+  insEnd.className = 'aw-editor-insert-btn';
+  insEnd.innerHTML = '<span class="material-icons">add</span>';
+  insEnd.onclick = () => {
+    awEditorItems.push({ type:'item', section:'クリスチャンとして生活する', title:'', minutes:'5', number:'', codes:[] });
+    awRenderEditorList();
+  };
+  list.appendChild(insEnd);
+}
+
+async function awSaveEditorItems() {
+  if (!awEditorWeekId) return;
+  try {
+    await db.collection('mwbWeeks').doc(awEditorWeekId).update({ items: awEditorItems });
+    // awWeeks のキャッシュも更新
+    const week = awWeeks.find(w => w.id === awEditorWeekId);
+    if (week) week.items = JSON.parse(JSON.stringify(awEditorItems));
+    alert('保存しました');
+    navigate('admin-assignment');
+  } catch(e) { alert('保存エラー: ' + e.message); }
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────

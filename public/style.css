@@ -398,6 +398,26 @@ body {
 .aw-inline-sub   { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
 .aw-inline-section .aw-week-actions { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .aw-inline-section .aw-week-table   { padding: 0 8px 8px; }
+.aw-editor-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.aw-editor-time   { font-size: 0.8rem; color: var(--text-light); min-width: 38px; flex-shrink: 0; }
+.aw-editor-section { font-size: 0.78rem; padding: 3px 4px; border: 1px solid var(--border); border-radius: 4px; }
+.aw-editor-title   { flex: 1; min-width: 140px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
+.aw-editor-min     { width: 52px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
+.aw-editor-code    { font-size: 0.78rem; padding: 3px 4px; border: 1px solid var(--border); border-radius: 4px; }
+.aw-editor-btns    { display: flex; gap: 2px; }
+.aw-editor-insert-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 20px; background: none; border: 1px dashed var(--border);
+  border-radius: 4px; cursor: pointer; color: var(--text-light);
+  margin: 2px 0; opacity: 0.4;
+}
+.aw-editor-insert-btn:hover { opacity: 1; background: var(--primary-light); }
+.aw-editor-insert-btn .material-icons { font-size: 14px; }
+
+.aw-topic-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
 .aw-topic-input {
   display: block; margin-top: 4px; width: 100%; max-width: 260px;
   padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;

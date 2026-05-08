@@ -42,6 +42,7 @@ const PAGE_TITLES = {
   'member-info': '成員情報登録',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
+  'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
 };
 
