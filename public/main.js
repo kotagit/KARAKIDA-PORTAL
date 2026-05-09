@@ -47,6 +47,7 @@ const PAGE_TITLES = {
   'area-info': '区域情報登録',
   'service-report': '奉仕報告提出',
   'admin-reports': '奉仕報告管理',
+  'admin-report-card': '伝道者記録',
   'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -207,6 +208,8 @@ function navigate(page, pushHistory) {
     const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
     if (subPages.includes(page)) {
       backBtn._backTarget = 'admin-assignment';
+    } else if (page === 'admin-report-card') {
+      backBtn._backTarget = 'admin-reports';
     } else {
       backBtn._backTarget = 'admin';
     }
@@ -240,6 +243,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-s13')                loadAdminS13Table();
   if (page === 'admin-reports')            loadAdminReports();
+  if (page === 'admin-report-card')        loadAdminReportCard();
   if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
@@ -1261,125 +1265,108 @@ async function pwApplySubmit(items) {
   }
 }
 
-// ── 奉仕報告管理 ────────────────────────────────
-let rptFilter = 'all'; // all, done, none
-let rptData = { members: [], reports: [] };
+// ── 奉仕報告管理（INDEX + CARD） ────────────────────
+let rptFilter = 'all'; // all, pioneer, pub
+let rptMembers = [];
+let rptSelectedYear = null;
+let rptCardMember = null; // 選択中のメンバー（カード表示用）
+
+// 奉仕年度を返す（9月〜翌8月）
+function getServiceYear(date) {
+  const d = date || new Date();
+  return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+}
+
+// 奉仕年度の月リスト [9,10,11,12,1,2,3,4,5,6,7,8]
+const SERVICE_YEAR_MONTHS = [9,10,11,12,1,2,3,4,5,6,7,8];
 
 async function loadAdminReports() {
   const view = document.getElementById('rpt-view');
-  const monthSel = document.getElementById('rpt-month-select');
+  const yearSel = document.getElementById('rpt-year-select');
   if (!view) return;
   view.innerHTML = '<div class="loading">読み込み中...</div>';
 
-  // 月セレクト初期化
-  if (monthSel && monthSel.options.length === 0) {
-    const now = new Date();
-    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    for (let i = 0; i < 12; i++) {
-      let m = now.getMonth() - i;
-      let y = now.getFullYear();
-      if (m <= 0) { m += 12; y--; }
+  // 年セレクト初期化
+  if (yearSel && yearSel.options.length === 0) {
+    const curYear = getServiceYear();
+    for (let i = 0; i < 5; i++) {
+      const y = curYear - i;
       const opt = document.createElement('option');
-      opt.value = y + '-' + m;
-      opt.textContent = y + '年' + m + '月';
-      if (m === defMonth && y === defYear) opt.selected = true;
-      monthSel.appendChild(opt);
+      opt.value = y;
+      opt.textContent = y + '年度（' + y + '/9〜' + (y+1) + '/8）';
+      if (y === curYear) opt.selected = true;
+      yearSel.appendChild(opt);
     }
-    monthSel.addEventListener('change', () => loadAdminReportsData());
+    rptSelectedYear = curYear;
+    yearSel.addEventListener('change', () => {
+      rptSelectedYear = parseInt(yearSel.value);
+      renderAdminReportsIndex();
+    });
 
     // フィルターボタン
     document.getElementById('rpt-filter-all')?.addEventListener('click', () => setRptFilter('all'));
-    document.getElementById('rpt-filter-done')?.addEventListener('click', () => setRptFilter('done'));
-    document.getElementById('rpt-filter-none')?.addEventListener('click', () => setRptFilter('none'));
+    document.getElementById('rpt-filter-pioneer')?.addEventListener('click', () => setRptFilter('pioneer'));
+    document.getElementById('rpt-filter-pub')?.addEventListener('click', () => setRptFilter('pub'));
   }
 
-  await loadAdminReportsData();
-}
-
-function setRptFilter(f) {
-  rptFilter = f;
-  document.querySelectorAll('.rpt-filter-btn').forEach(b => b.classList.remove('rpt-filter-active'));
-  const id = f === 'all' ? 'rpt-filter-all' : f === 'done' ? 'rpt-filter-done' : 'rpt-filter-none';
-  document.getElementById(id)?.classList.add('rpt-filter-active');
-  renderAdminReports();
-}
-
-async function loadAdminReportsData() {
-  const view = document.getElementById('rpt-view');
-  view.innerHTML = '<div class="loading">読み込み中...</div>';
-
-  const monthSel = document.getElementById('rpt-month-select');
-  const val = monthSel.value.split('-');
-  const year = parseInt(val[0]);
-  const month = parseInt(val[1]);
-
   try {
-    const [userSnap, reportSnap] = await Promise.all([
-      db.collection('USER_LIST').get(),
-      db.collection('PREACHING_REPORT').where('month', '==', month).get(),
-    ]);
-
-    // 成員一覧
-    const members = [];
+    const userSnap = await db.collection('USER_LIST').get();
+    rptMembers = [];
     userSnap.docs.forEach(d => {
       const data = d.data();
       const name = String(data.name || '').trim();
       if (!name) return;
-      members.push({
+      rptMembers.push({
+        id: d.id,
         name,
         group: String(data.group || '').trim(),
+        role: String(data.role || data.position || '').trim(),
+        gender: String(data.gender || '').trim(),
+        birthDate: String(data.birthDate || '').trim(),
+        baptismDate: String(data.baptismDate || '').trim(),
+        pioneer: String(data.pioneer || '').trim(),
       });
     });
-    members.sort((a, b) => {
+    rptMembers.sort((a, b) => {
       if (a.group !== b.group) return a.group.localeCompare(b.group);
       return a.name.localeCompare(b.name);
     });
-
-    // 報告データ（同じ名前+月は最新のみ）
-    const reportMap = {};
-    reportSnap.docs.forEach(d => {
-      const data = d.data();
-      const name = String(data.name || '').trim();
-      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
-      if (!reportMap[name] || ts > reportMap[name]._ts) {
-        reportMap[name] = {
-          role: data.role || '',
-          participation: data.participation || '',
-          hours: data.hours,
-          bibleStudy: data.bibleStudy,
-          remarks: data.remarks || '',
-          _ts: ts,
-        };
-      }
-    });
-
-    rptData = { members, reportMap, month, year };
-    renderAdminReports();
+    renderAdminReportsIndex();
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
 }
 
-function renderAdminReports() {
+function setRptFilter(f) {
+  rptFilter = f;
+  document.querySelectorAll('.rpt-filter-btn').forEach(b => b.classList.remove('rpt-filter-active'));
+  const id = f === 'all' ? 'rpt-filter-all' : f === 'pioneer' ? 'rpt-filter-pioneer' : 'rpt-filter-pub';
+  document.getElementById(id)?.classList.add('rpt-filter-active');
+  renderAdminReportsIndex();
+}
+
+function isPioneer(m) {
+  const p = (m.pioneer || m.role || '').toLowerCase();
+  return p.includes('開拓');
+}
+
+function renderAdminReportsIndex() {
   const view = document.getElementById('rpt-view');
-  const { members, reportMap, month } = rptData;
-
-  // 統計
-  let submitted = 0;
-  members.forEach(m => { if (reportMap[m.name]) submitted++; });
   const summary = document.getElementById('rpt-summary');
-  if (summary) summary.textContent = '提出: ' + submitted + ' / ' + members.length + '名';
 
-  // グループ別にまとめる
+  // フィルタ適用
+  let filtered = rptMembers;
+  if (rptFilter === 'pioneer') filtered = rptMembers.filter(m => isPioneer(m));
+  if (rptFilter === 'pub') filtered = rptMembers.filter(m => !isPioneer(m));
+
+  if (summary) summary.textContent = filtered.length + '名';
+
+  // グループ別
   const groups = {};
-  members.forEach(m => {
-    const report = reportMap[m.name] || null;
-    const isDone = !!report;
-    if (rptFilter === 'done' && !isDone) return;
-    if (rptFilter === 'none' && isDone) return;
-    if (!groups[m.group]) groups[m.group] = [];
-    groups[m.group].push({ ...m, report });
+  filtered.forEach(m => {
+    const g = m.group || '未分類';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(m);
   });
 
   if (Object.keys(groups).length === 0) {
@@ -1391,39 +1378,166 @@ function renderAdminReports() {
   Object.keys(groups).sort().forEach(groupName => {
     const list = groups[groupName];
     html += '<div class="rpt-group">';
-    html += '<div class="rpt-group-title">' + esc(groupName || '未分類') + '</div>';
-    html += '<table class="rpt-table"><thead><tr>';
-    html += '<th>氏名</th><th>立場</th><th>参加/時間</th><th>研究</th><th>状態</th>';
-    html += '</tr></thead><tbody>';
+    html += '<div class="rpt-group-title">' + esc(groupName) + '（' + list.length + '名）</div>';
+    html += '<div class="rpt-member-list">';
+    list.forEach(m => {
+      const roleLabel = isPioneer(m) ? (m.pioneer || m.role || '開拓者') : '伝道者';
+      const roleBadge = isPioneer(m) ? 'rpt-role-pioneer' : 'rpt-role-pub';
+      html += '<div class="rpt-member-row" onclick="openReportCard(\'' + esc(m.id) + '\')">';
+      html += '<span class="material-icons rpt-member-icon">person</span>';
+      html += '<span class="rpt-member-name">' + esc(m.name) + '</span>';
+      html += '<span class="rpt-role-badge ' + roleBadge + '">' + esc(roleLabel) + '</span>';
+      html += '<span class="material-icons rpt-member-chevron">chevron_right</span>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
 
-    list.forEach(item => {
-      const r = item.report;
-      if (r) {
-        const isEv = r.role === '伝道者';
-        const activity = isEv ? (r.participation || '-') : (r.hours != null ? r.hours + '時間' : '-');
-        html += '<tr>';
-        html += '<td>' + esc(item.name) + '</td>';
-        html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
-        html += '<td class="rpt-cell-sm">' + esc(activity) + '</td>';
-        html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
-        html += '<td><span class="rpt-badge-done">✓ 提出済</span></td>';
-        html += '</tr>';
-        if (r.remarks) {
-          html += '<tr><td colspan="5" class="rpt-remarks">備考: ' + esc(r.remarks) + '</td></tr>';
-        }
-      } else {
-        html += '<tr class="rpt-row-none">';
-        html += '<td>' + esc(item.name) + '</td>';
-        html += '<td class="rpt-cell-sm">-</td>';
-        html += '<td class="rpt-cell-sm">-</td>';
-        html += '<td class="rpt-cell-sm">-</td>';
-        html += '<td><span class="rpt-badge-none">未提出</span></td>';
-        html += '</tr>';
+  view.innerHTML = html;
+}
+
+function openReportCard(memberId) {
+  rptCardMember = rptMembers.find(m => m.id === memberId) || null;
+  if (!rptCardMember) return;
+  navigate('admin-report-card');
+}
+
+async function loadAdminReportCard() {
+  const view = document.getElementById('rpt-card-view');
+  const titleEl = document.getElementById('rpt-card-title');
+  if (!view || !rptCardMember) {
+    if (view) view.innerHTML = '<div class="empty-state">メンバーが選択されていません</div>';
+    return;
+  }
+
+  const m = rptCardMember;
+  if (titleEl) titleEl.textContent = m.name;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  const year = rptSelectedYear || getServiceYear();
+
+  try {
+    // 奉仕年度（9月〜翌8月）の報告を取得
+    const reportSnap = await db.collection('PREACHING_REPORT')
+      .where('name', '==', m.name)
+      .get();
+
+    // 月ごとに最新の報告のみ保持
+    const reportMap = {};
+    reportSnap.docs.forEach(d => {
+      const data = d.data();
+      const mo = data.month;
+      const yr = data.year || null;
+      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+
+      // 奉仕年度フィルタ: 9-12月はyear, 1-8月はyear+1
+      let belongsYear;
+      if (mo >= 9) belongsYear = yr || year;
+      else belongsYear = (yr ? yr - 1 : null) || year;
+
+      if (belongsYear !== year) return;
+
+      if (!reportMap[mo] || ts > reportMap[mo]._ts) {
+        reportMap[mo] = {
+          participation: data.participation || '',
+          bibleStudy: data.bibleStudy,
+          hours: data.hours,
+          role: data.role || '',
+          remarks: data.remarks || '',
+          auxiliary: data.auxiliary || '',
+          _ts: ts,
+        };
       }
     });
 
-    html += '</tbody></table></div>';
+    renderReportCard(m, reportMap, year);
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+function renderReportCard(member, reportMap, year) {
+  const view = document.getElementById('rpt-card-view');
+
+  // ヘッダー情報
+  let html = '<div class="s21-card">';
+  html += '<div class="s21-header">';
+  html += '<div class="s21-title">伝道者記録カード（S-21）</div>';
+  html += '<table class="s21-info-table">';
+  html += '<tr><td class="s21-info-label">氏名</td><td class="s21-info-value">' + esc(member.name) + '</td>';
+  html += '<td class="s21-info-label">性別</td><td class="s21-info-value">' + esc(member.gender || '-') + '</td></tr>';
+  html += '<tr><td class="s21-info-label">生年月日</td><td class="s21-info-value">' + esc(member.birthDate || '-') + '</td>';
+  html += '<td class="s21-info-label">バプテスマ日</td><td class="s21-info-value">' + esc(member.baptismDate || '-') + '</td></tr>';
+  html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value">' + esc(member.group || '-') + '</td>';
+  const roleLabel = isPioneer(member) ? (member.pioneer || member.role || '開拓者') : '伝道者';
+  html += '<td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td></tr>';
+  html += '</table></div>';
+
+  // 年度ラベル
+  html += '<div class="s21-year-label">' + year + '年度（' + year + '/9〜' + (year+1) + '/8）</div>';
+
+  // 月別テーブル
+  html += '<div class="s21-table-wrap"><table class="s21-table">';
+  html += '<thead><tr>';
+  html += '<th>月</th><th>参加</th><th>研究</th><th>補助</th><th>時間</th><th>備考</th>';
+  html += '</tr></thead><tbody>';
+
+  let totalStudy = 0, totalHours = 0, countStudy = 0, countHours = 0;
+  let participationCount = 0;
+
+  SERVICE_YEAR_MONTHS.forEach(mo => {
+    const r = reportMap[mo] || null;
+    const moLabel = mo + '月';
+    if (r) {
+      const partIcon = r.participation === 'はい' ? '✓' : (r.participation === 'いいえ' ? '✗' : '-');
+      const partClass = r.participation === 'はい' ? 's21-yes' : (r.participation === 'いいえ' ? 's21-no' : '');
+      const study = r.bibleStudy != null ? r.bibleStudy : '-';
+      const hours = r.hours != null ? r.hours : '-';
+      const aux = r.auxiliary || r.role || '';
+      const isAux = aux.includes('補助');
+
+      if (r.participation === 'はい') participationCount++;
+      if (r.bibleStudy != null) { totalStudy += Number(r.bibleStudy); countStudy++; }
+      if (r.hours != null) { totalHours += Number(r.hours); countHours++; }
+
+      html += '<tr>';
+      html += '<td class="s21-month">' + moLabel + '</td>';
+      html += '<td class="s21-cell ' + partClass + '">' + partIcon + '</td>';
+      html += '<td class="s21-cell">' + study + '</td>';
+      html += '<td class="s21-cell">' + (isAux ? '✓' : '') + '</td>';
+      html += '<td class="s21-cell">' + hours + '</td>';
+      html += '<td class="s21-cell s21-remarks">' + esc(r.remarks) + '</td>';
+      html += '</tr>';
+    } else {
+      html += '<tr class="s21-empty-row">';
+      html += '<td class="s21-month">' + moLabel + '</td>';
+      html += '<td class="s21-cell">-</td><td class="s21-cell">-</td>';
+      html += '<td class="s21-cell"></td><td class="s21-cell">-</td>';
+      html += '<td class="s21-cell"></td>';
+      html += '</tr>';
+    }
   });
+
+  // 合計・平均行
+  html += '<tr class="s21-total-row">';
+  html += '<td class="s21-month">合計</td>';
+  html += '<td class="s21-cell">' + participationCount + '</td>';
+  html += '<td class="s21-cell">' + totalStudy + '</td>';
+  html += '<td class="s21-cell"></td>';
+  html += '<td class="s21-cell">' + totalHours + '</td>';
+  html += '<td class="s21-cell"></td>';
+  html += '</tr>';
+  html += '<tr class="s21-avg-row">';
+  html += '<td class="s21-month">平均</td>';
+  html += '<td class="s21-cell"></td>';
+  html += '<td class="s21-cell">' + (countStudy ? (totalStudy / countStudy).toFixed(1) : '-') + '</td>';
+  html += '<td class="s21-cell"></td>';
+  html += '<td class="s21-cell">' + (countHours ? (totalHours / countHours).toFixed(1) : '-') + '</td>';
+  html += '<td class="s21-cell"></td>';
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+  html += '</div>';
 
   view.innerHTML = html;
 }

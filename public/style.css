@@ -1131,3 +1131,72 @@ body {
   font-size: 11px; color: var(--text-light); font-style: italic;
   padding-top: 0 !important; padding-left: 12px !important;
 }
+/* INDEX: メンバーリスト */
+.rpt-member-list {
+  background: white; border-radius: 0 0 8px 8px;
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.rpt-member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid #f0f0f0;
+  cursor: pointer; transition: background 0.12s;
+}
+.rpt-member-row:last-child { border-bottom: none; }
+.rpt-member-row:hover { background: var(--primary-light); }
+.rpt-member-icon { font-size: 22px; color: var(--primary); flex-shrink: 0; }
+.rpt-member-name { flex: 1; font-size: 14px; font-weight: 600; }
+.rpt-role-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; white-space: nowrap;
+}
+.rpt-role-pioneer { background: #fff3e0; color: #e65100; }
+.rpt-role-pub { background: #e8f5e9; color: #2e7d32; }
+.rpt-member-chevron { font-size: 20px; color: #ccc; flex-shrink: 0; }
+
+/* S-21 伝道者記録カード */
+.s21-card {
+  background: white; border-radius: 12px; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.s21-header {
+  padding: 16px; border-bottom: 2px solid var(--primary);
+}
+.s21-title {
+  font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 12px;
+}
+.s21-info-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.s21-info-table td { padding: 4px 6px; }
+.s21-info-label {
+  font-weight: 700; color: var(--text-light); white-space: nowrap; width: 80px;
+}
+.s21-info-value { color: var(--text); }
+.s21-year-label {
+  padding: 8px 16px; background: #f5f5f5; font-size: 13px; font-weight: 700;
+  color: var(--primary); border-bottom: 1px solid var(--border);
+}
+.s21-table-wrap { overflow-x: auto; }
+.s21-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.s21-table th {
+  background: var(--primary); color: white; padding: 8px 6px;
+  text-align: center; font-size: 12px; font-weight: 700;
+}
+.s21-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+.s21-month { font-weight: 700; color: var(--text); white-space: nowrap; }
+.s21-cell { color: var(--text); }
+.s21-yes { color: #2e7d32; font-weight: 700; }
+.s21-no { color: #c62828; }
+.s21-remarks { text-align: left; font-size: 11px; color: var(--text-light); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s21-empty-row td { color: #ccc; }
+.s21-total-row { border-top: 2px solid var(--primary); }
+.s21-total-row td { font-weight: 700; background: #f5f9ff; }
+.s21-avg-row td { font-weight: 600; background: #fafafa; color: var(--text-light); }
+@media (max-width: 500px) {
+  .s21-info-table { font-size: 11px; }
+  .s21-info-label { width: 60px; }
+  .s21-table { font-size: 11px; }
+  .s21-table th { font-size: 10px; padding: 6px 3px; }
+  .s21-table td { padding: 6px 3px; }
+}
