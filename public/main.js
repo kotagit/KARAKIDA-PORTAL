@@ -320,10 +320,10 @@ const announceForm  = document.getElementById('announce-form');
 const linksContainer = document.getElementById('af-links-container');
 const addLinkBtn = document.getElementById('af-add-link-btn');
 
-document.getElementById('add-announce-btn').addEventListener('click', () => openAnnounceModal(null));
-document.getElementById('announce-modal-close').addEventListener('click', closeAnnounceModal);
-document.getElementById('announce-overlay').addEventListener('click', closeAnnounceModal);
-document.getElementById('af-cancel').addEventListener('click', closeAnnounceModal);
+document.getElementById('add-announce-btn')?.addEventListener('click', () => openAnnounceModal(null));
+document.getElementById('announce-modal-close')?.addEventListener('click', closeAnnounceModal);
+document.getElementById('announce-overlay')?.addEventListener('click', closeAnnounceModal);
+document.getElementById('af-cancel')?.addEventListener('click', closeAnnounceModal);
 
 addLinkBtn.addEventListener('click', () => addLinkInput('', ''));
 
@@ -456,7 +456,21 @@ async function loadLinks(section) {
       listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
     }
   } catch (e) {
-    listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
+    console.error('loadLinks error:', section, e);
+    if (section === 'shinsei') {
+      listEl.innerHTML = '';
+      const memberInfoItem = document.createElement('div');
+      memberInfoItem.className = 'link-item';
+      memberInfoItem.style.cursor = 'pointer';
+      memberInfoItem.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">contact_phone</span></div>
+        <span class="link-item-label">成員情報登録</span>
+      `;
+      memberInfoItem.addEventListener('click', () => navigate('member-info'));
+      listEl.appendChild(memberInfoItem);
+    } else {
+      listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
+    }
   }
 }
 
@@ -543,10 +557,10 @@ document.querySelectorAll('.stab').forEach(tab => {
 const scheduleModal = document.getElementById('schedule-modal');
 const scheduleForm  = document.getElementById('schedule-form');
 
-document.getElementById('add-schedule-btn').addEventListener('click', () => openScheduleModal(null));
-document.getElementById('schedule-modal-close').addEventListener('click', closeScheduleModal);
-document.getElementById('schedule-overlay').addEventListener('click', closeScheduleModal);
-document.getElementById('sf-cancel').addEventListener('click', closeScheduleModal);
+document.getElementById('add-schedule-btn')?.addEventListener('click', () => openScheduleModal(null));
+document.getElementById('schedule-modal-close')?.addEventListener('click', closeScheduleModal);
+document.getElementById('schedule-overlay')?.addEventListener('click', closeScheduleModal);
+document.getElementById('sf-cancel')?.addEventListener('click', closeScheduleModal);
 
 function openScheduleModal(id) {
   editingScheduleId = id;
@@ -615,9 +629,9 @@ function closeDeleteModal() {
   deleteTargetId = null; deleteTargetType = null;
 }
 
-document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
-document.getElementById('delete-overlay').addEventListener('click', closeDeleteModal);
-document.getElementById('delete-confirm').addEventListener('click', async () => {
+document.getElementById('delete-cancel')?.addEventListener('click', closeDeleteModal);
+document.getElementById('delete-overlay')?.addEventListener('click', closeDeleteModal);
+document.getElementById('delete-confirm')?.addEventListener('click', async () => {
   if (!deleteTargetId) return;
   const col = deleteTargetType === 'announce' ? 'ANNOUNCEMENT' : 'SCHEDULE';
   try {
@@ -840,6 +854,7 @@ async function s13LoadSupervisors() {
     const name = (d.name || '').trim();
     if (group && name) s13SupervisorMap[group] = name;
   });
+  console.log('s13SupervisorMap:', JSON.stringify(s13SupervisorMap));
 }
 
 async function s13LoadHistory() {
@@ -935,19 +950,30 @@ async function s13RenderAssignPanel() {
     const ranked = s13RecommendGroup(next.territory, city);
     const recommended = ranked && ranked.length > 0 ? ranked[0] : null;
 
-    const groupOptions = (ranked || []).map(r =>
-      `<option value="${esc(r.group)}">${esc(r.group)}（${esc(r.reason)}）</option>`
-    ).join('');
+    const groupOptions = (ranked || []).map(r => {
+      const svName = s13SupervisorMap[r.group] || '';
+      const label = svName ? `${r.group}（${svName}）- ${r.reason}` : `${r.group}（${r.reason}）`;
+      return `<option value="${esc(r.group)}">${esc(label)}</option>`;
+    }).join('');
 
     const daysLabel = next.lastEnd
       ? `前回返却: ${esc(next.lastEnd)}（${next.daysSince}日経過）`
       : '未割当（最優先）';
 
+    const territoryNums = Object.keys(s13TerritoryCity).filter(t => s13TerritoryCity[t] === city).sort((a, b) => {
+      const na = parseInt(a), nb = parseInt(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+    const territoryOptions = territoryNums.map(t =>
+      `<option value="${esc(t)}" ${t === next.territory ? 'selected' : ''}>${esc(t)}</option>`
+    ).join('');
+
     html += `
       <div class="s13-assign-city" data-city="${esc(city)}">
         <div class="s13-assign-city-name">${esc(city)}</div>
         <div class="s13-assign-territory">
-          次の区域: <strong>No.${esc(next.territory)}</strong>
+          次の区域: <select class="s13-assign-territory-select">${territoryOptions}</select>
           <span class="s13-assign-days">${daysLabel}</span>
         </div>
         ${recommended ? `<div class="s13-assign-recommend">推薦: ${esc(recommended.group)}（${esc(recommended.reason)}）</div>` : ''}
@@ -957,7 +983,7 @@ async function s13RenderAssignPanel() {
           </label>
           <label>開始日: <input type="date" class="s13-assign-start"></label>
           <label>終了日: <input type="date" class="s13-assign-end"></label>
-          <button class="btn-primary s13-assign-btn" data-territory="${esc(next.territory)}">割当実行</button>
+          <button class="btn-primary s13-assign-btn">割当実行</button>
         </div>
       </div>`;
   }
@@ -967,7 +993,7 @@ async function s13RenderAssignPanel() {
   panel.querySelectorAll('.s13-assign-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const cityDiv = btn.closest('.s13-assign-city');
-      const territory = btn.dataset.territory;
+      const territory = cityDiv.querySelector('.s13-assign-territory-select').value;
       const groupName = cityDiv.querySelector('.s13-assign-group').value;
       const startDate = cityDiv.querySelector('.s13-assign-start').value;
       const endDate = cityDiv.querySelector('.s13-assign-end').value;
@@ -976,7 +1002,8 @@ async function s13RenderAssignPanel() {
         alert('グループ・開始日・終了日を全て入力してください');
         return;
       }
-      if (!confirm(`区域No.${territory} を ${groupName} に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
+      const svName = s13SupervisorMap[groupName] || groupName;
+      if (!confirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
 
       try {
         await db.collection('GROUP_ASS_NO').add({
@@ -985,7 +1012,7 @@ async function s13RenderAssignPanel() {
           startDate: startDate,
           endDate: endDate,
           type: 'NORMAL',
-          assignedAt: firebase.firestore.Timestamp.now(),
+          timestamp: firebase.firestore.Timestamp.now(),
         });
         alert('割当を登録しました');
         await s13LoadHistory();

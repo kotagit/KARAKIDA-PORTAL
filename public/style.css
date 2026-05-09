@@ -357,7 +357,7 @@ body {
 
 /* ── S-13 レイアウト ── */
 .s13-content { max-width: 1400px; overflow-x: auto; }
-.s13-grid { font-family: serif; color: #000; }
+.s13-grid { font-family: inherit; color: #000; }
 
 .s13-band {
   background: #dce9f7;
@@ -422,7 +422,9 @@ body {
 .s13-name {
   padding: 4px 6px;
   font-size: 13px;
-  min-height: 22px;
+  height: 22px;
+  line-height: 14px;
+  overflow: hidden;
   border-bottom: 1px solid #000;
   text-align: center;
 }
@@ -433,7 +435,9 @@ body {
 .s13-dates span {
   padding: 3px 4px;
   font-size: 11px;
-  min-height: 18px;
+  height: 18px;
+  line-height: 12px;
+  overflow: hidden;
   text-align: center;
 }
 .s13-dates span:first-child { border-right: 1px solid #000; }
@@ -462,6 +466,13 @@ body {
 .s13-assign-territory {
   font-size: 15px;
   margin-bottom: 6px;
+}
+.s13-assign-territory-select {
+  font-size: 15px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
 }
 .s13-assign-days {
   font-size: 12px;
