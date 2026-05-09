@@ -180,7 +180,7 @@ function navigate(page, pushHistory) {
     const banner = document.getElementById('home-report-banner');
     if (banner) {
       const today = new Date().getDate();
-      banner.classList.toggle('hidden', today < 1 || today > 7);
+      banner.classList.toggle('hidden', today < 1 || today > 10);
     }
   } else {
     backBtn.classList.remove('hidden');
