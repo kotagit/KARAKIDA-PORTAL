@@ -1385,94 +1385,113 @@ async function loadAssignmentWeekDisplay() {
       return Math.abs(da - today) - Math.abs(db2 - today);
     });
 
-    let targetWeek = null, slots = {}, topics = {};
+    // 2か月分の確定済み週を収集
+    const now = new Date(); now.setHours(0,0,0,0);
+    const twoMonthsLater = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+    const confirmedWeeks = [];
     for (const week of weeks) {
       const asnap = await db.collection('assignments').doc(week.id).get();
       if (asnap.exists && asnap.data().status === 'confirmed') {
-        targetWeek = week;
-        const raw = asnap.data().slots || {};
-        Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
-        topics = asnap.data().topics || {};
-        break;
+        const thuDate = awGetThursdayDate(week);
+        if (thuDate && thuDate >= now && thuDate <= twoMonthsLater) {
+          const raw = asnap.data().slots || {};
+          const slots = {};
+          Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
+          confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate });
+        }
+      }
+    }
+    // 過ぎた週も含めて直近のものを表示（まだ何も無い場合）
+    if (confirmedWeeks.length === 0) {
+      for (const week of weeks) {
+        const asnap = await db.collection('assignments').doc(week.id).get();
+        if (asnap.exists && asnap.data().status === 'confirmed') {
+          const raw = asnap.data().slots || {};
+          const slots = {};
+          Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
+          confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate: awGetThursdayDate(week) });
+          break;
+        }
       }
     }
 
-    if (!targetWeek) {
+    if (confirmedWeeks.length === 0) {
       container.innerHTML = '<div class="empty-state" style="padding:16px">確定済みの予定表がありません</div>';
       return;
     }
 
-    const thuLabel = awGetThursdayLabel(targetWeek);
-    const items = targetWeek.items || [];
+    confirmedWeeks.sort((a, b) => (a.thuDate || 0) - (b.thuDate || 0));
 
-    // ── レンダリング ──
     container.innerHTML = '';
-    const titleEl = document.createElement('div');
-    titleEl.className = 'aw-shukai-week-title';
-    titleEl.textContent = `${thuLabel}（木）の集会`;
-    container.appendChild(titleEl);
-
     const PAIR_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
     const PAIR_PARTNER_SET = new Set(Object.values(PAIR_OF));
 
-    let prevSection = '', minutesOffset = 0;
+    confirmedWeeks.forEach(({ week, slots, topics }) => {
+      const thuLabel = awGetThursdayLabel(week);
+      const items = week.items || [];
 
-    items.forEach(item => {
-      const section = item.section;
-      if (section !== prevSection && section !== '開会') {
-        if (section === 'クリスチャンとして生活する') minutesOffset = 47;
-        const hdr = document.createElement('div');
-        hdr.className = 'aw-section-header';
-        hdr.style.background = AW_SECTION_COLORS[section] || '#333';
-        hdr.textContent = section;
-        container.appendChild(hdr);
-        prevSection = section;
-      }
+      const titleEl = document.createElement('div');
+      titleEl.className = 'aw-shukai-week-title';
+      titleEl.textContent = `${thuLabel}（木）の集会`;
+      container.appendChild(titleEl);
 
-      const h = 19 + Math.floor(minutesOffset / 60);
-      const mi = minutesOffset % 60;
-      const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
+      let prevSection = '', minutesOffset = 0;
 
-      // 担当者テキスト構築
-      let assigneeText = '';
-      if (item.title === '閉会の言葉') {
-        assigneeText = slots['A'] || '';
-      } else if (item.codes && item.codes.length > 0) {
-        const parts = [];
-        const isSongWithPrayer = item.type === 'song' && item.codes.includes('A') && item.codes.includes('B');
-        if (isSongWithPrayer) {
-          const chairName = slots['A'] || '';
-          const prayerName = slots['B'] || '';
-          if (chairName || prayerName) parts.push(`${chairName} / ${prayerName}`);
-        } else {
-          item.codes.forEach(code => {
-            const base = awGetBase(code);
-            if (PAIR_PARTNER_SET.has(base)) return;
-            const partnerBase = PAIR_OF[base];
-            const name = slots[code] || '';
-            const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
-            if (partnerName) parts.push(`${name} / ${partnerName}`);
-            else if (name) parts.push(name);
-          });
+      items.forEach(item => {
+        const section = item.section;
+        if (section !== prevSection && section !== '開会') {
+          if (section === 'クリスチャンとして生活する') minutesOffset = 47;
+          const hdr = document.createElement('div');
+          hdr.className = 'aw-section-header';
+          hdr.style.background = AW_SECTION_COLORS[section] || '#333';
+          hdr.textContent = section;
+          container.appendChild(hdr);
+          prevSection = section;
         }
-        assigneeText = parts.join('、');
-      }
 
-      // 会衆の必要の主題
-      const topicText = (item.codes||[]).includes('T') ? (topics['T'] || '') : '';
+        const h = 19 + Math.floor(minutesOffset / 60);
+        const mi = minutesOffset % 60;
+        const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
 
-      const row = document.createElement('div');
-      row.className = 'aw-shukai-row';
-      row.innerHTML = `
-        <div class="aw-shukai-time">${timeStr}</div>
-        <div class="aw-shukai-info">
-          <div class="aw-shukai-title">${esc(item.title)}</div>
-          ${topicText ? `<div class="aw-shukai-topic">${esc(topicText)}</div>` : ''}
-        </div>
-        <div class="aw-shukai-name">${esc(assigneeText)}</div>
-      `;
-      container.appendChild(row);
-      minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+        let assigneeText = '';
+        if (item.title === '閉会の言葉') {
+          assigneeText = slots['A'] || '';
+        } else if (item.codes && item.codes.length > 0) {
+          const parts = [];
+          const isSongWithPrayer = item.type === 'song' && item.codes.includes('A') && item.codes.includes('B');
+          if (isSongWithPrayer) {
+            const chairName = slots['A'] || '';
+            const prayerName = slots['B'] || '';
+            if (chairName || prayerName) parts.push(`${chairName} / ${prayerName}`);
+          } else {
+            item.codes.forEach(code => {
+              const base = awGetBase(code);
+              if (PAIR_PARTNER_SET.has(base)) return;
+              const partnerBase = PAIR_OF[base];
+              const name = slots[code] || '';
+              const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
+              if (partnerName) parts.push(`${name} / ${partnerName}`);
+              else if (name) parts.push(name);
+            });
+          }
+          assigneeText = parts.join('、');
+        }
+
+        const topicText = (item.codes||[]).includes('T') ? (topics['T'] || '') : '';
+
+        const row = document.createElement('div');
+        row.className = 'aw-shukai-row';
+        row.innerHTML = `
+          <div class="aw-shukai-time">${timeStr}</div>
+          <div class="aw-shukai-info">
+            <div class="aw-shukai-title">${esc(item.title)}</div>
+            ${topicText ? `<div class="aw-shukai-topic">${esc(topicText)}</div>` : ''}
+          </div>
+          <div class="aw-shukai-name">${esc(assigneeText)}</div>
+        `;
+        container.appendChild(row);
+        minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+      });
     });
 
   } catch(e) {
