@@ -787,12 +787,14 @@ async function submitMemberInfo() {
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────
+const S13_ROWS = 24;
+const S13_COLS = 5;
+
 async function loadAdminS13Table() {
   const grid = document.getElementById('s13-grid');
   grid.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    // 1. 監督名マップの作成 (USER_LIST から status4 == 'SV' を抽出)
     const svSnap = await db.collection('USER_LIST').where('status4', '==', 'SV').get();
     const supervisorByGroup = {};
     svSnap.docs.forEach(doc => {
@@ -802,20 +804,15 @@ async function loadAdminS13Table() {
       if (group && name) supervisorByGroup[group] = name;
     });
 
-    // 2. 割当てデータの取得 (GROUP_ASS_NO)
     const snap = await db.collection('GROUP_ASS_NO').get();
     const groupedByTerritory = {};
 
     snap.docs.forEach(doc => {
       const data = doc.data();
-      // 通常区域のみ対象
       if ((data.type || 'NORMAL').toString().trim() !== 'NORMAL') return;
-      
       const territory = (data.territories || '').toString();
       if (!territory) return;
-
       if (!groupedByTerritory[territory]) groupedByTerritory[territory] = [];
-      
       groupedByTerritory[territory].push({
         name: supervisorByGroup[data.groupName] || data.groupName || '',
         start: data.startDate || '',
@@ -823,15 +820,12 @@ async function loadAdminS13Table() {
       });
     });
 
-    // 3. 各区域の履歴を日付順にソート (降順: 新しい順)
     Object.keys(groupedByTerritory).forEach(t => {
       groupedByTerritory[t].sort((a, b) => b.start.localeCompare(a.start));
     });
 
-    // 4. 区域番号順にソートして表示
     const sortedTerritories = Object.keys(groupedByTerritory).sort((a, b) => {
-      const na = parseInt(a);
-      const nb = parseInt(b);
+      const na = parseInt(a), nb = parseInt(b);
       if (!isNaN(na) && !isNaN(nb)) return na - nb;
       return a.localeCompare(b);
     });
@@ -841,39 +835,64 @@ async function loadAdminS13Table() {
       return;
     }
 
-    grid.innerHTML = sortedTerritories.map(t => {
-      const history = groupedByTerritory[t];
-      // カード内には最大8件程度の履歴枠を表示 (画像フォーマット準拠)
-      let rowsHtml = '';
-      for (let i = 0; i < 8; i++) {
-        const h = history[i] || { name: '', start: '', end: '' };
-        rowsHtml += `
-          <tr><td colspan="2" class="name">${esc(h.name)}</td></tr>
-          <tr class="date-row">
-            <td>${esc(h.start)}</td>
-            <td>${esc(h.end)}</td>
-          </tr>
-        `;
+    grid.innerHTML = '';
+    for (let g = 0; g < sortedTerritories.length; g += S13_COLS) {
+      const chunk = sortedTerritories.slice(g, g + S13_COLS);
+
+      const band = document.createElement('div');
+      band.className = 's13-band';
+
+      // ヘッダー行（区域番号）
+      const headerRow = document.createElement('div');
+      headerRow.className = 's13-header-row';
+      for (let c = 0; c < S13_COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 's13-header-cell';
+        if (chunk[c]) {
+          cell.innerHTML = `<span class="s13-label">区域番号</span><span class="s13-num">${esc(chunk[c])}</span>`;
+        }
+        headerRow.appendChild(cell);
+      }
+      band.appendChild(headerRow);
+
+      // テーブルヘッダー（奉仕者の名前 / 日付ラベル）
+      const thRow = document.createElement('div');
+      thRow.className = 's13-th-row';
+      for (let c = 0; c < S13_COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 's13-th-cell';
+        if (chunk[c]) {
+          cell.innerHTML = `
+            <div class="s13-th-name">奉仕者の名前</div>
+            <div class="s13-th-dates">
+              <span>区域が出された日付</span><span>区域が戻された日付</span>
+            </div>`;
+        }
+        thRow.appendChild(cell);
+      }
+      band.appendChild(thRow);
+
+      // データ行（24行）
+      for (let r = 0; r < S13_ROWS; r++) {
+        const dataRow = document.createElement('div');
+        dataRow.className = 's13-data-row';
+        for (let c = 0; c < S13_COLS; c++) {
+          const cell = document.createElement('div');
+          cell.className = 's13-data-cell';
+          const history = chunk[c] ? (groupedByTerritory[chunk[c]] || []) : [];
+          const h = history[r] || { name: '', start: '', end: '' };
+          cell.innerHTML = `
+            <div class="s13-name">${esc(h.name)}</div>
+            <div class="s13-dates">
+              <span>${esc(h.start)}</span><span>${esc(h.end)}</span>
+            </div>`;
+          dataRow.appendChild(cell);
+        }
+        band.appendChild(dataRow);
       }
 
-      return `
-        <div class="s13-card">
-          <div class="s13-card-header">
-            <span class="label">区域番号</span>
-            <span class="value">${esc(t)}</span>
-          </div>
-          <table class="s13-card-table">
-            <thead>
-              <tr><th colspan="2">奉仕者の名前</th></tr>
-              <tr><th>区域が出された日付</th><th>区域が戻された日付</th></tr>
-            </thead>
-            <tbody>
-              ${rowsHtml}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }).join('');
+      grid.appendChild(band);
+    }
 
   } catch (e) {
     console.error('S-13 load error:', e);
