@@ -1678,19 +1678,39 @@ async function loadSenkyoCardView() {
     const sheetId = parseInt(parts[1] || '1');
     if (isNaN(areaId) || isNaN(sheetId)) { container.innerHTML = '<div class="empty-state">無効なカード名です</div>'; return; }
 
-    // AREA_DATA_NORMAL を取得
+    // フィールド名を自動検出（areaId vs area_id）
+    const sampleSnap = await db.collection('AREA_DATA_NORMAL').limit(1).get();
+    let areaField = 'areaId', sheetField = 'sheetId';
+    if (!sampleSnap.empty) {
+      const keys = Object.keys(sampleSnap.docs[0].data());
+      if (keys.includes('area_id')) areaField = 'area_id';
+      if (keys.includes('sheet_id')) sheetField = 'sheet_id';
+    }
+    console.log('AREA_DATA_NORMAL fields:', areaField, sheetField);
+
+    // AREA_DATA_NORMAL を取得（数値で試し、ダメなら文字列で）
     let addrSnap = await db.collection('AREA_DATA_NORMAL')
-      .where('areaId', '==', areaId).where('sheetId', '==', sheetId).get();
+      .where(areaField, '==', areaId).where(sheetField, '==', sheetId).get();
     if (addrSnap.empty) {
-      // フィールド名違いのフォールバック
       addrSnap = await db.collection('AREA_DATA_NORMAL')
-        .where('area_id', '==', areaId).where('sheet_id', '==', sheetId).get();
+        .where(areaField, '==', areaId.toString()).where(sheetField, '==', sheetId.toString()).get();
     }
 
     if (addrSnap.empty) {
-      container.innerHTML = '<div class="empty-state">データがありません</div>';
+      container.innerHTML = '<div class="empty-state">データがありません（area=' + areaId + ', sheet=' + sheetId + '）</div>';
       return;
     }
+
+    // CONFIG から訪問期間を取得
+    let cvStartDate = '', cvEndDate = '';
+    try {
+      const configSnap = await db.collection('CONFIG').limit(1).get();
+      if (!configSnap.empty) {
+        const cfg = configSnap.docs[0].data();
+        cvStartDate = (cfg.visitStartDate || '').toString();
+        cvEndDate = (cfg.visitEndDate || '').toString();
+      }
+    } catch(e) { console.warn('CONFIG load error:', e); }
 
     // uidマップ
     const uidToAddr = {};
@@ -1709,7 +1729,7 @@ async function loadSenkyoCardView() {
         .where('uid', 'in', batch).get();
       histSnap.docs.forEach(d => {
         const data = d.data();
-        const uid = data.uid || '';
+        const uid = (data.uid || '').toString();
         if (uid) { if (!histByUid[uid]) histByUid[uid] = []; histByUid[uid].push(data); }
       });
     }
@@ -1718,7 +1738,7 @@ async function loadSenkyoCardView() {
     function toDateStr(v) {
       if (!v) return '';
       if (typeof v === 'string') return v;
-      if (v.toDate) { const d = v.toDate(); d.setHours(d.getHours()+9); return d.getFullYear()+'/'+( d.getMonth()+1)+'/'+d.getDate(); }
+      if (v.toDate) { const d = v.toDate(); const jst = new Date(d.getTime() + 9*3600000); return jst.getFullYear()+'/'+(jst.getMonth()+1)+'/'+jst.getDate(); }
       return v.toString();
     }
 
@@ -1726,17 +1746,37 @@ async function loadSenkyoCardView() {
     const results = [];
     Object.entries(uidToAddr).forEach(([uid, addr]) => {
       const townName = (addr.townName || addr.town_name || '').toString();
-      const houseNum = (addr.addressNumber || addr.house_num || '').toString();
+      const houseNum = (addr.addressNumber || addr.house_num || addr.houseNum || '').toString();
       const roomNum = (addr.roomNum || addr.room_num || '').toString();
       const addressNumber = roomNum ? houseNum + '-' + roomNum : houseNum;
       const houseName = (addr.houseName || addr.house_name || '').toString();
-      const mapLink = (addr.mapLink || addr.map_link || '').toString();
+
+      // 地図リンク
+      const ido = (addr.build_ido || addr.ido || '').toString();
+      const keido = (addr.buildKeido || addr.keido || '').toString();
+      let mapLink = '';
+      if (ido && keido) {
+        const lat = parseFloat(ido), lng = parseFloat(keido);
+        if (lat && lng) mapLink = 'https://www.google.com/maps?q=' + lat + ',' + lng;
+      }
 
       const histDocs = (histByUid[uid] || []).sort((a, b) => {
         const aS = toDateStr(a.startDate || a.start_date);
         const bS = toDateStr(b.startDate || b.start_date);
         return bS.localeCompare(aS);
       });
+
+      // 現在期間のステータスを取得
+      let currentStatus = '';
+      if (cvStartDate && cvEndDate) {
+        const visitId = cvStartDate + '_' + cvEndDate;
+        const match = histDocs.find(d => {
+          const sd = toDateStr(d.startDate || d.start_date);
+          const ed = toDateStr(d.endDate || d.end_date);
+          return sd + '_' + ed === visitId;
+        });
+        if (match) currentStatus = (match.visitResult || match.visit_result || '').toString();
+      }
 
       const visits = histDocs.filter(d => {
         const sd = toDateStr(d.startDate || d.start_date);
@@ -1748,7 +1788,7 @@ async function loadSenkyoCardView() {
         return { startDate: sd, endDate: ed, status: (d.visitResult || d.visit_result || '').toString() };
       });
 
-      results.push({ uid, addressNumber, townName, targetName: houseName, mapLink, visits });
+      results.push({ uid, addressNumber, townName, targetName: houseName, mapLink, visits, currentStatus });
     });
 
     // ソート
@@ -1758,12 +1798,6 @@ async function loadSenkyoCardView() {
       if (!isNaN(an) && !isNaN(bn)) return an - bn;
       return a.addressNumber.localeCompare(b.addressNumber);
     });
-
-    // ヘッダー情報（最新の訪問期間）
-    let cvStartDate = '', cvEndDate = '';
-    for (const r of results) {
-      if (r.visits.length > 0) { cvStartDate = r.visits[0].startDate; cvEndDate = r.visits[0].endDate; break; }
-    }
 
     // 描画
     container.innerHTML = '';
@@ -1793,10 +1827,10 @@ async function loadSenkyoCardView() {
         container.appendChild(section);
       }
       addrs.forEach(addr => {
-        const currentStatus = addr.visits.length > 0 ? addr.visits[0].status : '';
+        const cs = addr.currentStatus;
         const row = document.createElement('div');
         row.className = 'cv-row';
-        row.style.background = statusColor(currentStatus);
+        row.style.background = statusColor(cs);
         let mapIcon = '';
         if (addr.mapLink) {
           mapIcon = '<a href="' + esc(addr.mapLink) + '" target="_blank" class="cv-map-icon"><span class="material-icons" style="font-size:20px;color:#F1C232">location_on</span></a>';
@@ -1804,11 +1838,11 @@ async function loadSenkyoCardView() {
           mapIcon = '<span style="width:22px;display:inline-block"></span>';
         }
         const statusEl = document.createElement('span');
-        statusEl.className = 'cv-status' + (currentStatus ? '' : ' cv-status-empty');
-        statusEl.textContent = currentStatus || '入力';
+        statusEl.className = 'cv-status' + (cs ? '' : ' cv-status-empty');
+        statusEl.textContent = cs || '入力';
         statusEl.style.cursor = 'pointer';
         statusEl.addEventListener('click', () => {
-          openCvEditModal(addr.uid, currentStatus, areaId, sheetId, cvStartDate, cvEndDate, statusEl, row);
+          openCvEditModal(addr.uid, cs, areaId, sheetId, cvStartDate, cvEndDate, statusEl, row);
         });
 
         row.innerHTML = mapIcon +
