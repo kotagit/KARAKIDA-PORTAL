@@ -1682,22 +1682,27 @@ async function loadSenkyoCards() {
       return;
     }
 
-    // 2. CARD_ASSIGNMENTS からカード割当て取得（ドキュメントID: groupName_areaId_sheetId）
+    // 2. CARD_ASSIGNMENTS から該当区域のカード割当てを取得
     const assignmentMap = {};
-    for (let i = 0; i < cardNames.length; i += 30) {
-      const batch = cardNames.slice(i, i + 30);
-      const docIds = batch.map(cn => {
-        const parts = cn.split('-');
-        return groupName + '_' + parts[0] + '_' + parts[1];
-      });
-      const snap = await db.collection('CARD_ASSIGNMENTS').where(firebase.firestore.FieldPath.documentId(), 'in', docIds).get();
-      snap.docs.forEach(d => {
-        const data = d.data();
-        const cn = (data.cardName || '').toString().replace(/[−–ー]/g, '-');
-        const member = data.memberName || '';
-        if (cn && member) assignmentMap[cn] = member;
-      });
-    }
+    const assSnap = await db.collection('CARD_ASSIGNMENTS').get();
+    const normCN = (n) => (n || '').toString().replace(/[−–ー]/g, '-');
+    // cardName ごとに最新の startDate のドキュメントを特定
+    const latestPerCard = {};
+    assSnap.docs.forEach(d => {
+      const data = d.data();
+      const cn = normCN(data.cardName);
+      if (!cn || !cn.startsWith(areaId + '-')) return;
+      const sd = data.startDate || data.start_date || '';
+      const dt = parseSimpleDate(sd);
+      if (!dt) return;
+      if (!latestPerCard[cn] || dt > latestPerCard[cn].dt) {
+        latestPerCard[cn] = { dt, sd, member: (data.memberName || '').toString() };
+      }
+    });
+    Object.keys(latestPerCard).forEach(cn => {
+      const info = latestPerCard[cn];
+      if (info.member) assignmentMap[cn] = info.member;
+    });
 
     // 3. メンバーごとにグループ化
     const grouped = {};
