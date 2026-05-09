@@ -1098,7 +1098,6 @@ async function loadJouhouContact() {
       { label: '携帯電話', value: d.phone },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
-      { label: '緊急連絡先', value: d.emergencyCall },
     ];
 
     let html = '<div class="form-container">';
@@ -1183,35 +1182,35 @@ async function loadJouhouCard() {
 // ── 奉仕報告提出 ────────────────────────────────
 let srMemberList = []; // 他の人用のメンバーリスト
 
+function selectSrTarget(mode) {
+  document.getElementById('sr-target').value = mode;
+  document.getElementById('sr-target-overlay').classList.add('hidden');
+  const isOther = mode === 'other';
+  document.getElementById('sr-name-row').classList.toggle('hidden', isOther);
+  document.getElementById('sr-other-name-row').classList.toggle('hidden', !isOther);
+  document.getElementById('sr-other-furigana-row').classList.toggle('hidden', !isOther);
+  document.getElementById('sr-group-row').classList.toggle('hidden', isOther);
+  document.getElementById('sr-other-group-row').classList.toggle('hidden', !isOther);
+  if (isOther) {
+    loadSrGroupList();
+  } else {
+    document.getElementById('sr-group').value = memberUserGroup || '';
+  }
+}
+
 async function initServiceReportForm() {
   document.getElementById('sr-name').value = memberUserName || '';
   document.getElementById('sr-group').value = memberUserGroup || '';
 
-  // 報告対象切替
-  const targetSel = document.getElementById('sr-target');
-  const nameRow = document.getElementById('sr-name-row');
-  const otherNameRow = document.getElementById('sr-other-name-row');
-  const otherFuriganaRow = document.getElementById('sr-other-furigana-row');
-  const groupRow = document.getElementById('sr-group-row');
-  const otherGroupRow = document.getElementById('sr-other-group-row');
-  const groupInput = document.getElementById('sr-group');
-
-  function toggleTarget() {
-    const isOther = targetSel.value === 'other';
-    nameRow.classList.toggle('hidden', isOther);
-    otherNameRow.classList.toggle('hidden', !isOther);
-    otherFuriganaRow.classList.toggle('hidden', !isOther);
-    groupRow.classList.toggle('hidden', isOther);
-    otherGroupRow.classList.toggle('hidden', !isOther);
-    if (isOther) {
-      loadSrGroupList();
-    } else {
-      groupInput.value = memberUserGroup || '';
-    }
-  }
-  targetSel.onchange = toggleTarget;
-  targetSel.value = 'self';
-  toggleTarget();
+  // ポップアップ表示
+  document.getElementById('sr-target-overlay').classList.remove('hidden');
+  document.getElementById('sr-target').value = 'self';
+  // デフォルト：自分モードのフィールド表示
+  document.getElementById('sr-name-row').classList.remove('hidden');
+  document.getElementById('sr-other-name-row').classList.add('hidden');
+  document.getElementById('sr-other-furigana-row').classList.add('hidden');
+  document.getElementById('sr-group-row').classList.remove('hidden');
+  document.getElementById('sr-other-group-row').classList.add('hidden');
 
   // 月プルダウン（デフォルト：先月）
   const monthSel = document.getElementById('sr-month');

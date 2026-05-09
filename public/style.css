@@ -1059,6 +1059,25 @@ body {
 .sr-target-field {
   background: var(--primary); border-radius: 8px; padding: 10px 12px; margin: -4px 0 10px;
 }
+.sr-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 100;
+  background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
+}
+.sr-overlay.hidden { display: none; }
+.sr-overlay-box {
+  background: #fff; border-radius: 16px; padding: 28px 24px; width: 280px;
+  text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.sr-overlay-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 14px; margin-top: 10px; border: 2px solid var(--primary);
+  border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.sr-overlay-self { background: var(--primary); color: #fff; }
+.sr-overlay-self:hover { background: var(--primary-dark); }
+.sr-overlay-other { background: #fff; color: var(--primary); }
+.sr-overlay-other:hover { background: var(--primary-light); }
 .sr-input-wrap input:focus, .sr-input-wrap select:focus, .sr-input-wrap textarea:focus {
   border-color: var(--primary); outline: none;
 }
