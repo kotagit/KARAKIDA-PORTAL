@@ -453,10 +453,12 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
         const opts     = eligible.map(mb =>
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
-        const topicHtml = base === 'T'
+        const needsTopic = base === 'T' || (item.title && item.title.includes('会衆で考えたいこと'));
+        const topicKey = needsTopic ? base : '';
+        const topicHtml = needsTopic
           ? `<div class="aw-topic-row">
-               <input class="aw-topic-input" data-code="${esc(base)}" type="text"
-                 placeholder="主題を入力" value="${esc(topics[base] || '')}">
+               <input class="aw-topic-input" data-code="${esc(topicKey)}" type="text"
+                 placeholder="主題を入力" value="${esc(topics[topicKey] || '')}">
                <button class="aw-topic-save-btn icon-btn" title="主題を保存" data-week-id="${esc(weekId||'')}">
                  <span class="material-icons" style="font-size:18px">save</span>
                </button>
@@ -1452,7 +1454,13 @@ async function loadAssignmentWeekDisplay() {
           assigneeText = parts.join('、');
         }
 
-        const topicText = (item.codes||[]).includes('T') ? (topics['T'] || '') : '';
+        const codes = item.codes || [];
+        let topicText = '';
+        if (codes.includes('T')) topicText = topics['T'] || '';
+        else if (item.title && item.title.includes('会衆で考えたいこと')) {
+          const tCode = codes.find(c => topics[awGetBase(c)]);
+          if (tCode) topicText = topics[awGetBase(tCode)] || '';
+        }
 
         const row = document.createElement('div');
         row.className = 'aw-shukai-row';
