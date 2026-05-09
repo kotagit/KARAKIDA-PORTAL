@@ -1004,17 +1004,17 @@ async function initServiceReportForm() {
   const nameRow = document.getElementById('sr-name-row');
   const otherNameRow = document.getElementById('sr-other-name-row');
   const groupRow = document.getElementById('sr-group-row');
+  const otherGroupRow = document.getElementById('sr-other-group-row');
   const groupInput = document.getElementById('sr-group');
-  const otherNameSel = document.getElementById('sr-other-name');
 
   function toggleTarget() {
     const isOther = targetSel.value === 'other';
     nameRow.classList.toggle('hidden', isOther);
     otherNameRow.classList.toggle('hidden', !isOther);
+    groupRow.classList.toggle('hidden', isOther);
+    otherGroupRow.classList.toggle('hidden', !isOther);
     if (isOther) {
-      groupInput.value = '';
-      // メンバーリスト未取得なら取得
-      if (srMemberList.length === 0) loadSrMemberList();
+      loadSrGroupList();
     } else {
       groupInput.value = memberUserGroup || '';
     }
@@ -1022,12 +1022,6 @@ async function initServiceReportForm() {
   targetSel.onchange = toggleTarget;
   targetSel.value = 'self';
   toggleTarget();
-
-  // 他の人選択時にグループを自動反映
-  otherNameSel.onchange = () => {
-    const selected = srMemberList.find(m => m.name === otherNameSel.value);
-    groupInput.value = selected ? selected.group : '';
-  };
 
   // 月プルダウン（デフォルト：先月）
   const monthSel = document.getElementById('sr-month');
@@ -1062,10 +1056,10 @@ async function initServiceReportForm() {
     const isOther = targetSel.value === 'other';
     let submitName, submitGroup;
     if (isOther) {
-      submitName = otherNameSel.value;
-      if (!submitName) { alert('氏名を選択してください'); return; }
-      const selected = srMemberList.find(m => m.name === submitName);
-      submitGroup = selected ? selected.group : '';
+      submitName = document.getElementById('sr-other-name').value.trim();
+      submitGroup = document.getElementById('sr-other-group').value;
+      if (!submitName) { alert('氏名を入力してください'); return; }
+      if (!submitGroup) { alert('グループを選択してください'); return; }
     } else {
       submitName = memberUserName || '不明';
       submitGroup = memberUserGroup || '';
@@ -1123,7 +1117,10 @@ async function initServiceReportForm() {
       document.getElementById('sr-hours').value = '';
       document.getElementById('sr-bible').value = '';
       document.getElementById('sr-remarks').value = '';
-      if (isOther) otherNameSel.value = '';
+      if (isOther) {
+        document.getElementById('sr-other-name').value = '';
+        document.getElementById('sr-other-group').value = '';
+      }
       targetSel.value = 'self';
       toggleTarget();
       navigate('shinsei');
@@ -1136,26 +1133,27 @@ async function initServiceReportForm() {
   };
 }
 
-async function loadSrMemberList() {
-  const sel = document.getElementById('sr-other-name');
+let srGroupsLoaded = false;
+async function loadSrGroupList() {
+  if (srGroupsLoaded) return;
+  const sel = document.getElementById('sr-other-group');
   sel.innerHTML = '<option value="">読み込み中...</option>';
   try {
     const snap = await db.collection('USER_LIST').get();
-    srMemberList = [];
+    const groupSet = new Set();
     snap.docs.forEach(d => {
-      const data = d.data();
-      const name = String(data.name || '').trim();
-      if (!name) return;
-      srMemberList.push({ name, group: String(data.group || '').trim() });
+      const g = String(d.data().group || '').trim();
+      if (g) groupSet.add(g);
     });
-    srMemberList.sort((a, b) => a.name.localeCompare(b.name));
+    const groups = [...groupSet].sort();
     sel.innerHTML = '<option value="">選択してください</option>';
-    srMemberList.forEach(m => {
+    groups.forEach(g => {
       const opt = document.createElement('option');
-      opt.value = m.name;
-      opt.textContent = m.name + (m.group ? '（' + m.group + '）' : '');
+      opt.value = g;
+      opt.textContent = g;
       sel.appendChild(opt);
     });
+    srGroupsLoaded = true;
   } catch (e) {
     sel.innerHTML = '<option value="">読み込みエラー</option>';
   }
