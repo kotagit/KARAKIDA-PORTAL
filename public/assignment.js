@@ -1495,6 +1495,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('mf-cancel')           ?.addEventListener('click', awCloseMemberModal);
   document.getElementById('member-form')         ?.addEventListener('submit', awSaveMember);
 
+  // 集会曜日プルダウン変更時に再描画
+  document.getElementById('aw-meeting-day')?.addEventListener('change', () => {
+    if (awWeeks.length > 0) awRenderCreateList();
+  });
+
   // ZIPインポート
   awInitImport();
 });
