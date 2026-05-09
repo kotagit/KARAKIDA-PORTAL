@@ -1678,25 +1678,17 @@ async function loadSenkyoCardView() {
     const sheetId = parseInt(parts[1] || '1');
     if (isNaN(areaId) || isNaN(sheetId)) { container.innerHTML = '<div class="empty-state">無効なカード名です</div>'; return; }
 
-    // フィールド名を自動検出（areaId vs area_id）
-    const sampleSnap = await db.collection('AREA_DATA_NORMAL').limit(1).get();
-    let areaField = 'areaId', sheetField = 'sheetId';
-    if (!sampleSnap.empty) {
-      const keys = Object.keys(sampleSnap.docs[0].data());
-      if (keys.includes('area_id')) areaField = 'area_id';
-      if (keys.includes('sheet_id')) sheetField = 'sheet_id';
-    }
-    console.log('AREA_DATA_NORMAL fields:', areaField, sheetField);
+    // AREA_DATA_NORMAL を全件取得してクライアント側でフィルタリング
+    const allSnap = await db.collection('AREA_DATA_NORMAL').get();
+    const matchedDocs = allSnap.docs.filter(d => {
+      const data = d.data();
+      const a = parseInt((data.areaId || data.area_id || '').toString());
+      const s = parseInt((data.sheetId || data.sheet_id || '').toString());
+      return a === areaId && s === sheetId;
+    });
+    console.log('AREA_DATA_NORMAL: total=' + allSnap.docs.length + ', matched=' + matchedDocs.length + ' for area=' + areaId + ' sheet=' + sheetId);
 
-    // AREA_DATA_NORMAL を取得（数値で試し、ダメなら文字列で）
-    let addrSnap = await db.collection('AREA_DATA_NORMAL')
-      .where(areaField, '==', areaId).where(sheetField, '==', sheetId).get();
-    if (addrSnap.empty) {
-      addrSnap = await db.collection('AREA_DATA_NORMAL')
-        .where(areaField, '==', areaId.toString()).where(sheetField, '==', sheetId.toString()).get();
-    }
-
-    if (addrSnap.empty) {
+    if (matchedDocs.length === 0) {
       container.innerHTML = '<div class="empty-state">データがありません（area=' + areaId + ', sheet=' + sheetId + '）</div>';
       return;
     }
@@ -1714,7 +1706,7 @@ async function loadSenkyoCardView() {
 
     // uidマップ
     const uidToAddr = {};
-    addrSnap.docs.forEach(d => {
+    matchedDocs.forEach(d => {
       const data = d.data();
       const uid = data.uid || d.id;
       if (uid) uidToAddr[uid] = data;
