@@ -780,6 +780,60 @@ body {
 }
 .aw-chip-on:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: white; }
 
+/* ── 宣教メニュー ── */
+.senkyo-menu { max-width: 500px; margin: 0 auto; }
+.senkyo-section-tag {
+  display: inline-block; padding: 4px 14px; border-radius: 12px;
+  background: var(--primary); color: white;
+  font-size: 12px; font-weight: 700; margin-bottom: 10px;
+}
+.senkyo-menu-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.senkyo-menu-btn {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px; background: white; border: 2px solid var(--primary);
+  border-radius: 14px; cursor: pointer; font-size: 15px; font-weight: 700;
+  color: var(--primary); transition: all 0.15s; text-align: left;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.senkyo-menu-btn:hover { background: var(--primary-light); transform: translateY(-2px); }
+.senkyo-menu-btn .material-icons:first-child { font-size: 26px; }
+.senkyo-menu-btn span:nth-child(2) { flex: 1; }
+.senkyo-chevron { color: var(--primary); font-size: 22px !important; }
+
+/* 区域チップ */
+.senkyo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
+.senkyo-territory-chip {
+  display: inline-block; padding: 6px 14px; border-radius: 8px;
+  background: white; color: var(--primary); font-size: 14px; font-weight: 700;
+  border: 1.5px solid var(--primary);
+}
+
+/* 公共伝道 */
+.pw-slot-header {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 12px 4px 6px; margin-top: 16px;
+}
+.pw-slot-header:first-child { margin-top: 0; }
+.pw-date { font-size: 15px; font-weight: 700; margin-right: 8px; }
+.pw-weekend { color: #c62828; }
+.pw-time { font-size: 15px; font-weight: 700; color: var(--primary); margin-right: 8px; }
+.pw-place { font-size: 15px; font-weight: 700; }
+.pw-table {
+  border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 8px;
+}
+.pw-row { display: flex; border-bottom: 0.5px solid #999; }
+.pw-row:last-child { border-bottom: none; }
+.pw-row-place { background: #f5f5f5; border-bottom: 1px solid #333; }
+.pw-row-conductor { border-bottom: 1px solid #333; }
+.pw-cell {
+  flex: 1; text-align: center; padding: 8px 4px; font-size: 13px;
+  border-right: 1px solid #333; min-height: 36px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pw-cell:last-child { border-right: none; }
+.pw-cell-place { font-weight: 700; font-size: 12px; }
+.pw-row-conductor .pw-cell { font-weight: 700; color: var(--primary); }
+
 /* ── 組織表 閲覧（Excel再現） ── */
 .org-xl-wrap { margin: 0 auto; }
 .org-xl-title {

@@ -46,6 +46,10 @@ const PAGE_TITLES = {
   'admin-members': 'メンバー管理',
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
+  'senkyo-all': '全ての区域カード',
+  'senkyo-autolock': 'オートロック区域',
+  'senkyo-night': '夜間区域',
+  'senkyo-public': '公共エリア伝道',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -151,8 +155,10 @@ function navigate(page) {
     backBtn.classList.remove('hidden');
   }
 
-  // 管理サブページの戻り先を設定
-  if (page.startsWith('admin-')) {
+  // サブページの戻り先を設定
+  if (page.startsWith('senkyo-')) {
+    backBtn._backTarget = 'senkyo';
+  } else if (page.startsWith('admin-')) {
     const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
     if (subPages.includes(page)) {
       backBtn._backTarget = 'admin-assignment';
@@ -167,7 +173,10 @@ function navigate(page) {
 
   if (page === 'hatsuhy')  loadAnnouncements();
   if (page === 'keikaku')  loadLinks('keikaku');
-  if (page === 'senkyo')   loadLinks('senkyo');
+  if (page === 'senkyo-all')       loadSenkyoTerritories('NORMAL', 'senkyo-all-view');
+  if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
+  if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
+  if (page === 'senkyo-public')    loadSenkyoPublic();
   if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
   if (page === 'shinsei')  loadLinks('shinsei');
   if (page === 'soshiki')  loadOrgView();
@@ -1435,5 +1444,167 @@ async function orgAddRow(section) {
     renderOrgEditor();
   } catch (e) {
     alert('エラー: ' + e.message);
+  }
+}
+
+// ══════════════════════════════════════════════
+// 宣教ページ
+// ══════════════════════════════════════════════
+
+async function loadSenkyoTerritories(type, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('GROUP_ASS_NO').get();
+    const byGroup = {};
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const docType = (data.type || 'NORMAL').toString().trim();
+      if (docType !== type) return;
+      const group = data.groupName || '';
+      const territory = data.territories || '';
+      if (!group || !territory) return;
+      if (!byGroup[group]) byGroup[group] = [];
+      byGroup[group].push(territory);
+    });
+
+    const groups = Object.keys(byGroup).sort();
+    groups.forEach(g => {
+      byGroup[g].sort((a, b) => {
+        const na = parseInt(a), nb = parseInt(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return a.localeCompare(b);
+      });
+    });
+
+    if (groups.length === 0) {
+      container.innerHTML = '<div class="empty-state">区域データがありません</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    groups.forEach(group => {
+      const tag = document.createElement('div');
+      tag.className = 'senkyo-section-tag';
+      tag.textContent = group;
+      container.appendChild(tag);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'senkyo-chips';
+      byGroup[group].forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'senkyo-territory-chip';
+        chip.textContent = t;
+        wrap.appendChild(chip);
+      });
+      container.appendChild(wrap);
+    });
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function loadSenkyoPublic() {
+  const container = document.getElementById('senkyo-public-view');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const [optSnap, assSnap] = await Promise.all([
+      db.collection('PUBLIC_WITNESSING_OPTIONS').get(),
+      db.collection('PUBLIC_WITNESSING_ASSIGNMENTS').get(),
+    ]);
+
+    const options = optSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    options.sort((a, b) => {
+      if (a.order != null && b.order != null) return a.order - b.order;
+      return (a.day || '').localeCompare(b.day || '');
+    });
+
+    const assMap = {};
+    assSnap.docs.forEach(d => { assMap[d.id] = d.data(); });
+
+    if (options.length === 0) {
+      container.innerHTML = '<div class="empty-state">取決め情報がありません</div>';
+      return;
+    }
+
+    function getPlaces(weekday, time, place) {
+      if (place.includes('唐木田')) return ['唐木田駅構内'];
+      if (place.includes('堀之内')) {
+        const base = '堀之内駅';
+        if (weekday === '水' && time === '18:00') return [base+'三和前', base+'FM前'];
+        return [base+'三和前', base+'FM前', base+'信号前'];
+      }
+      return [place];
+    }
+
+    container.innerHTML = '';
+    let prevDay = '';
+
+    options.forEach(opt => {
+      const day = (opt.day || '').toString();
+      const weekday = (opt.dayofweek || '').toString();
+      const time = (opt.starttime || '').toString();
+      const place = (opt.place || '').toString();
+      const placeBase = place.replace('駅', '');
+      const places = getPlaces(weekday, time, place);
+      const isWeekend = weekday === '土' || weekday === '日';
+
+      // ヘッダー
+      const hdr = document.createElement('div');
+      hdr.className = 'pw-slot-header';
+      let hdrHtml = '';
+      if (day !== prevDay) {
+        hdrHtml += `<span class="pw-date${isWeekend ? ' pw-weekend' : ''}">${esc(day)}(${esc(weekday)})</span>`;
+        prevDay = day;
+      }
+      hdrHtml += `<span class="material-icons" style="font-size:16px;color:var(--primary)">access_time</span>
+        <span class="pw-time">${esc(time)}</span>
+        <span class="material-icons" style="font-size:16px;color:var(--text-light)">location_on</span>
+        <span class="pw-place">${esc(placeBase)}</span>`;
+      hdr.innerHTML = hdrHtml;
+      container.appendChild(hdr);
+
+      // テーブル
+      const table = document.createElement('div');
+      table.className = 'pw-table';
+
+      // 場所ヘッダー行
+      let placeRow = '<div class="pw-row pw-row-place">';
+      places.forEach(p => {
+        const short = p.replace('堀之内駅', '').replace('唐木田駅', '').replace('唐木田', '構内');
+        placeRow += `<div class="pw-cell pw-cell-place">${esc(short)}</div>`;
+      });
+      placeRow += '</div>';
+      table.innerHTML = placeRow;
+
+      // 司会者行
+      let cRow = '<div class="pw-row pw-row-conductor">';
+      places.forEach(p => {
+        const docId = `${day}_${time}_${p}`;
+        const ass = (assMap[docId] || {}).assignments || {};
+        cRow += `<div class="pw-cell">${esc(ass['司会者'] || '')}</div>`;
+      });
+      cRow += '</div>';
+      table.innerHTML += cRow;
+
+      // 参加者行（5行）
+      for (let i = 0; i < 5; i++) {
+        let row = '<div class="pw-row">';
+        places.forEach(p => {
+          const docId = `${day}_${time}_${p}`;
+          const ass = (assMap[docId] || {}).assignments || {};
+          const participants = ass['参加者'] || [];
+          row += `<div class="pw-cell">${esc(participants[i] || '')}</div>`;
+        });
+        row += '</div>';
+        table.innerHTML += row;
+      }
+
+      container.appendChild(table);
+    });
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
   }
 }
