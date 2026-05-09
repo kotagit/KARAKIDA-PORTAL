@@ -1385,33 +1385,15 @@ async function loadAssignmentWeekDisplay() {
       return Math.abs(da - today) - Math.abs(db2 - today);
     });
 
-    // 2か月分の確定済み週を収集
-    const now = new Date(); now.setHours(0,0,0,0);
-    const twoMonthsLater = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
+    // 確定済みの全週を収集
     const confirmedWeeks = [];
     for (const week of weeks) {
       const asnap = await db.collection('assignments').doc(week.id).get();
       if (asnap.exists && asnap.data().status === 'confirmed') {
-        const thuDate = awGetThursdayDate(week);
-        if (thuDate && thuDate >= now && thuDate <= twoMonthsLater) {
-          const raw = asnap.data().slots || {};
-          const slots = {};
-          Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
-          confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate });
-        }
-      }
-    }
-    // 過ぎた週も含めて直近のものを表示（まだ何も無い場合）
-    if (confirmedWeeks.length === 0) {
-      for (const week of weeks) {
-        const asnap = await db.collection('assignments').doc(week.id).get();
-        if (asnap.exists && asnap.data().status === 'confirmed') {
-          const raw = asnap.data().slots || {};
-          const slots = {};
-          Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
-          confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate: awGetThursdayDate(week) });
-          break;
-        }
+        const raw = asnap.data().slots || {};
+        const slots = {};
+        Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
+        confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate: awGetThursdayDate(week) });
       }
     }
 
