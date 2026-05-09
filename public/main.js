@@ -50,6 +50,7 @@ const PAGE_TITLES = {
   'admin-reports': '奉仕報告管理',
   'admin-report-card': '伝道者記録',
   'admin-report-check': '奉仕報告',
+  'admin-report-approve': '報告承認',
   'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -252,6 +253,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-reports')            loadAdminReports();
   if (page === 'admin-report-card')        loadAdminReportCard();
   if (page === 'admin-report-check')       loadAdminReportCheck();
+  if (page === 'admin-report-approve')     loadAdminReportApprove();
   if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
@@ -291,6 +293,10 @@ document.getElementById('admin-manage-reports')?.addEventListener('click', () =>
 
 document.getElementById('admin-manage-report-check')?.addEventListener('click', () => {
   navigate('admin-report-check');
+});
+
+document.getElementById('admin-manage-report-approve')?.addEventListener('click', () => {
+  navigate('admin-report-approve');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -1242,7 +1248,7 @@ async function initServiceReportForm() {
   // 送信
   const btn = document.getElementById('sr-submit');
   btn.onclick = async () => {
-    const isOther = targetSel.value === 'other';
+    const isOther = document.getElementById('sr-target').value === 'other';
     let submitName, submitGroup;
     if (isOther) {
       submitName = document.getElementById('sr-other-name').value.trim();
@@ -1300,8 +1306,8 @@ async function initServiceReportForm() {
         timestamp: firebase.firestore.Timestamp.now(),
       };
       if (isOther) reportData.submittedBy = memberUserName || '';
-      await db.collection('PREACHING_REPORT').add(reportData);
-      alert('送信しました');
+      await db.collection('REPORT_DRAFTS').add(reportData);
+      alert('送信しました（管理者の承認後に反映されます）');
       document.getElementById('sr-gender').value = '';
       document.getElementById('sr-participation').value = '';
       document.getElementById('sr-hours').value = '';
@@ -1312,8 +1318,7 @@ async function initServiceReportForm() {
         document.getElementById('sr-other-furigana').value = '';
         document.getElementById('sr-other-group').value = '';
       }
-      targetSel.value = 'self';
-      toggleTarget();
+      document.getElementById('sr-target').value = 'self';
       navigate('shinsei');
     } catch (err) {
       alert('送信エラー: ' + err.message);
@@ -3384,5 +3389,102 @@ async function loadSenkyoPublic() {
     });
   } catch (e) {
     container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── 報告承認 ────────────────────────────────
+async function loadAdminReportApprove() {
+  const view = document.getElementById('approve-view');
+  const countEl = document.getElementById('approve-count');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const snap = await db.collection('REPORT_DRAFTS').orderBy('timestamp', 'desc').get();
+    if (snap.empty) {
+      view.innerHTML = '<div class="empty-state">承認待ちの報告はありません</div>';
+      if (countEl) countEl.textContent = '';
+      return;
+    }
+    if (countEl) countEl.textContent = snap.size + '件';
+
+    let html = '';
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      const id = doc.id;
+      const isProxy = d.submittedBy ? true : false;
+      const dateStr = d.timestamp ? new Date(d.timestamp.seconds * 1000).toLocaleDateString('ja-JP') : '';
+      const isEv = d.role === '伝道者';
+
+      html += '<div class="approve-card" id="approve-' + id + '">';
+      html += '<div class="approve-header">';
+      html += '<div>';
+      html += '<span class="approve-name">' + esc(d.name || '') + '</span>';
+      if (isProxy) html += ' <span class="approve-proxy">代理: ' + esc(d.submittedBy) + '</span>';
+      html += '</div>';
+      html += '<span class="approve-date">' + esc(dateStr) + '</span>';
+      html += '</div>';
+      html += '<div class="approve-body">';
+      html += '<span class="approve-tag">' + esc(d.month + '月') + '</span>';
+      html += '<span class="approve-tag">' + esc(d.role || '') + '</span>';
+      html += '<span class="approve-tag">' + esc(d.groupName || '') + '</span>';
+      if (isEv) {
+        html += '<span class="approve-tag">参加: ' + esc(d.participation || '-') + '</span>';
+      } else {
+        html += '<span class="approve-tag">' + (d.hours || 0) + '時間</span>';
+      }
+      html += '<span class="approve-tag">研究: ' + (d.bibleStudy || 0) + '</span>';
+      if (d.remarks) html += '<span class="approve-tag approve-tag-remark">' + esc(d.remarks) + '</span>';
+      html += '</div>';
+      html += '<div class="approve-actions">';
+      html += '<button class="approve-btn-ok" onclick="approveReport(\'' + id + '\')"><span class="material-icons" style="font-size:16px">check</span> 承認</button>';
+      html += '<button class="approve-btn-ng" onclick="rejectReport(\'' + id + '\')"><span class="material-icons" style="font-size:16px">close</span> 却下</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+async function approveReport(docId) {
+  if (!confirm('この報告を承認してPREACHING_REPORTに反映しますか？')) return;
+  try {
+    const docRef = db.collection('REPORT_DRAFTS').doc(docId);
+    const snap = await docRef.get();
+    if (!snap.exists) { alert('データが見つかりません'); return; }
+    const d = snap.data();
+    const reportData = { ...d, approvedAt: firebase.firestore.Timestamp.now() };
+    await db.collection('PREACHING_REPORT').add(reportData);
+    await docRef.delete();
+    const card = document.getElementById('approve-' + docId);
+    if (card) card.remove();
+    // カウント更新
+    const countEl = document.getElementById('approve-count');
+    const remaining = document.querySelectorAll('.approve-card').length;
+    if (countEl) countEl.textContent = remaining ? remaining + '件' : '';
+    if (!remaining) {
+      document.getElementById('approve-view').innerHTML = '<div class="empty-state">承認待ちの報告はありません</div>';
+    }
+  } catch (err) {
+    alert('承認エラー: ' + err.message);
+  }
+}
+
+async function rejectReport(docId) {
+  if (!confirm('この報告を却下して削除しますか？')) return;
+  try {
+    await db.collection('REPORT_DRAFTS').doc(docId).delete();
+    const card = document.getElementById('approve-' + docId);
+    if (card) card.remove();
+    const countEl = document.getElementById('approve-count');
+    const remaining = document.querySelectorAll('.approve-card').length;
+    if (countEl) countEl.textContent = remaining ? remaining + '件' : '';
+    if (!remaining) {
+      document.getElementById('approve-view').innerHTML = '<div class="empty-state">承認待ちの報告はありません</div>';
+    }
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
   }
 }
