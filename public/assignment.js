@@ -437,6 +437,7 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
     const timeStr = `${h}:${m.toString().padStart(2,'0')}`;
 
     let assigneeCells = '';
+    let topicHtml = '';
     if (item.title === '閉会の言葉') {
       assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
     } else if (item.codes && item.codes.length > 0) {
@@ -463,8 +464,8 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
           </select></div>`;
       }).join('');
       if (isTopicItem && topicKey) {
-        assigneeCells += `<div class="aw-topic-row">
-          <label class="aw-slot-label">主題</label>
+        topicHtml = `<div class="aw-topic-row-full">
+          <label class="aw-topic-label">主題</label>
           <input class="aw-topic-input" data-code="${esc(topicKey)}" type="text"
             placeholder="主題を入力" value="${esc(topics[topicKey] || '')}">
           <button class="aw-topic-save-btn icon-btn" title="主題を保存" data-week-id="${esc(weekId||'')}">
@@ -486,6 +487,11 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
       <div class="aw-row-assignees">${assigneeCells}</div>
     `;
     container.appendChild(row);
+    if (topicHtml) {
+      const topicRow = document.createElement('div');
+      topicRow.innerHTML = topicHtml;
+      container.appendChild(topicRow.firstElementChild);
+    }
     minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
   });
 
