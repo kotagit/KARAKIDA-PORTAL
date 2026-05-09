@@ -787,10 +787,10 @@ async function submitMemberInfo() {
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────
-const S13_ROWS = 24;
-const S13_COLS = 5;
 
 async function loadAdminS13Table() {
+  const S13_ROWS = 24;
+  const S13_COLS = 5;
   const grid = document.getElementById('s13-grid');
   grid.innerHTML = '<div class="loading">読み込み中...</div>';
 
