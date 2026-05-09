@@ -847,6 +847,12 @@ body {
   background: #eee; border: 1px solid #bbb; color: #999;
 }
 
+.cv-edit-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.cv-edit-btns button {
+  padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+}
+
 /* 区域チップ */
 .senkyo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
 .senkyo-territory-chip {

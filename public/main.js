@@ -1760,9 +1760,9 @@ async function loadSenkyoCardView() {
     });
 
     // ヘッダー情報（最新の訪問期間）
-    let startDate = '', endDate = '';
+    let cvStartDate = '', cvEndDate = '';
     for (const r of results) {
-      if (r.visits.length > 0) { startDate = r.visits[0].startDate; endDate = r.visits[0].endDate; break; }
+      if (r.visits.length > 0) { cvStartDate = r.visits[0].startDate; cvEndDate = r.visits[0].endDate; break; }
     }
 
     // 描画
@@ -1773,8 +1773,8 @@ async function loadSenkyoCardView() {
     hdr.className = 'cv-header';
     let hdrInfo = '';
     if (memberUserName) hdrInfo += '<div>担当者：' + esc(memberUserName) + '</div>';
-    if (startDate) hdrInfo += '<div>開始日付：' + esc(formatDateJP(startDate)) + '</div>';
-    if (endDate) hdrInfo += '<div>終了日付：' + esc(formatDateJP(endDate)) + '</div>';
+    if (cvStartDate) hdrInfo += '<div>開始日付：' + esc(formatDateJP(cvStartDate)) + '</div>';
+    if (cvEndDate) hdrInfo += '<div>終了日付：' + esc(formatDateJP(cvEndDate)) + '</div>';
     hdr.innerHTML = hdrInfo;
     container.appendChild(hdr);
 
@@ -1803,10 +1803,18 @@ async function loadSenkyoCardView() {
         } else {
           mapIcon = '<span style="width:22px;display:inline-block"></span>';
         }
+        const statusEl = document.createElement('span');
+        statusEl.className = 'cv-status' + (currentStatus ? '' : ' cv-status-empty');
+        statusEl.textContent = currentStatus || '入力';
+        statusEl.style.cursor = 'pointer';
+        statusEl.addEventListener('click', () => {
+          openCvEditModal(addr.uid, currentStatus, areaId, sheetId, cvStartDate, cvEndDate, statusEl, row);
+        });
+
         row.innerHTML = mapIcon +
           '<span class="cv-no">' + esc(addr.addressNumber) + '</span>' +
-          '<span class="cv-name">' + esc(addr.targetName) + '</span>' +
-          '<span class="cv-status' + (currentStatus ? '' : ' cv-status-empty') + '">' + esc(currentStatus || '入力') + '</span>';
+          '<span class="cv-name">' + esc(addr.targetName) + '</span>';
+        row.appendChild(statusEl);
         container.appendChild(row);
       });
     });
@@ -1817,6 +1825,82 @@ async function loadSenkyoCardView() {
   } catch (e) {
     container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
     console.error('loadSenkyoCardView error:', e);
+  }
+}
+
+// ── ステータス編集モーダル ──
+function openCvEditModal(uid, currentStatus, areaId, sheetId, startDate, endDate, statusEl, rowEl) {
+  const modal = document.getElementById('cv-edit-modal');
+  const input = document.getElementById('cv-edit-input');
+  const btnsContainer = document.getElementById('cv-edit-buttons');
+
+  input.value = currentStatus;
+
+  const statusOptions = [
+    { label: 'ア', bg: '#C8E6C9' },
+    { label: 'ル', bg: '#FFF9C4' },
+    { label: 'アビ', bg: '#E8F5E9' },
+    { label: 'ルビ', bg: '#FFF3E0' },
+    { label: '白', bg: '#eee' },
+    { label: 'クリア', bg: '#eee', value: '' },
+  ];
+
+  btnsContainer.innerHTML = '';
+  statusOptions.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt.label;
+    btn.style.background = opt.bg;
+    btn.addEventListener('click', () => {
+      const val = opt.value !== undefined ? opt.value : opt.label;
+      saveCvStatus(uid, val, areaId, sheetId, startDate, endDate, statusEl, rowEl);
+      modal.classList.add('hidden');
+    });
+    btnsContainer.appendChild(btn);
+  });
+
+  modal.classList.remove('hidden');
+
+  document.getElementById('cv-edit-cancel').onclick = () => modal.classList.add('hidden');
+  document.getElementById('cv-edit-overlay').onclick = () => modal.classList.add('hidden');
+  document.getElementById('cv-edit-save').onclick = () => {
+    saveCvStatus(uid, input.value, areaId, sheetId, startDate, endDate, statusEl, rowEl);
+    modal.classList.add('hidden');
+  };
+}
+
+async function saveCvStatus(uid, value, areaId, sheetId, startDate, endDate, statusEl, rowEl) {
+  if (!startDate || !endDate) { alert('訪問期間が設定されていません'); return; }
+  const safeDateStr = s => s.replace(/\//g, '');
+  const docId = uid + '_' + safeDateStr(startDate) + '_' + safeDateStr(endDate);
+
+  // Timestamp変換
+  function toTimestamp(s) {
+    const p = s.split('/');
+    if (p.length !== 3) return null;
+    return new firebase.firestore.Timestamp(new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2])).getTime() / 1000, 0);
+  }
+
+  try {
+    await db.collection('AREA_DATA_NORMAL_HISTORY').doc(docId).set({
+      uid: uid,
+      type: 'NORMAL',
+      areaId: areaId,
+      sheetId: sheetId,
+      startDate: toTimestamp(startDate),
+      endDate: toTimestamp(endDate),
+      staffName: memberUserName || '',
+      visitResult: value,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // UI即時更新
+    statusEl.textContent = value || '入力';
+    statusEl.className = 'cv-status' + (value ? '' : ' cv-status-empty');
+    statusEl.style.cursor = 'pointer';
+    rowEl.style.background = statusColor(value);
+  } catch (e) {
+    alert('保存エラー: ' + e.message);
+    console.error('saveCvStatus error:', e);
   }
 }
 

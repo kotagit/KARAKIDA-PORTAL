@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=49">
+  <link rel="stylesheet" href="style.css?v=50">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -628,7 +628,21 @@
   </div>
 </div>
 
-<script src="main.js?v=34"></script>
+<!-- ステータス編集モーダル -->
+<div id="cv-edit-modal" class="modal hidden">
+  <div class="modal-overlay" id="cv-edit-overlay"></div>
+  <div class="modal-card modal-small">
+    <h3 style="margin:0 0 12px;font-size:16px">ステータスを編集</h3>
+    <div id="cv-edit-buttons" class="cv-edit-btns"></div>
+    <input type="text" id="cv-edit-input" placeholder="値を入力" style="width:100%;margin-top:12px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;box-sizing:border-box">
+    <div class="form-actions" style="margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" id="cv-edit-cancel">キャンセル</button>
+      <button class="btn-primary" id="cv-edit-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="main.js?v=35"></script>
 <script src="assignment.js?v=27"></script>
 </body>
 </html>
