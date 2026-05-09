@@ -563,14 +563,10 @@ body {
   padding: 12px;
 }
 
-/* レスポンシブ */
+/* レスポンシブ: 横スクロールで全列表示 */
 @media (max-width: 900px) {
-  .s13-header-row, .s13-th-row, .s13-data-row {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .s13-header-cell:nth-child(n+4),
-  .s13-th-cell:nth-child(n+4),
-  .s13-data-cell:nth-child(n+4) { display: none; }
+  .s13-band { min-width: 700px; }
+  .s13-content { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* ── 成員情報登録フォーム ── */
