@@ -161,6 +161,12 @@ body {
 .menu-item[data-page="admin"]:hover {
   box-shadow: 0 8px 20px rgba(241,194,50,0.45), 0 -1px 4px rgba(255,255,255,0.8);
 }
+@media (min-width: 700px) {
+  #page-home { max-width: 900px; }
+  .menu-grid { gap: 20px; padding: 24px 24px 40px; }
+  .menu-icon  { font-size: 96px !important; }
+  .menu-label { font-size: 22px; }
+}
 
 /* ── ページバナー ── */
 .page-banner {
