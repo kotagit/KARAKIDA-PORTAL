@@ -485,8 +485,13 @@ async function loadSchedule() {
   const list = document.getElementById('schedule-list');
   list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
+    var now = new Date();
+    var start = new Date(now.getFullYear(), now.getMonth(), 1);
+    var end = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
     const snap = await db.collection('SCHEDULE')
       .where('type', '==', scheduleType)
+      .where('date', '>=', start)
+      .where('date', '<=', end)
       .orderBy('date', 'asc').get();
     renderSchedule(snap.docs);
   } catch (e) {
