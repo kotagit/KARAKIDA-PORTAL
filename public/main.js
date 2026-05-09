@@ -1548,6 +1548,45 @@ function renderReportCard(member, reportMap, year) {
   view.innerHTML = html;
 }
 
+async function exportS21Pdf() {
+  const card = document.querySelector('.s21-card');
+  if (!card) return;
+  const btn = document.getElementById('s21-pdf-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+
+  try {
+    const canvas = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const maxW = pageW - margin * 2;
+    const imgW = maxW;
+    const imgH = (canvas.height / canvas.width) * imgW;
+
+    if (imgH <= pageH - margin * 2) {
+      pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
+    } else {
+      // 長い場合はページに収まるようスケール
+      const scale = (pageH - margin * 2) / imgH;
+      pdf.addImage(imgData, 'PNG', margin, margin, imgW * scale, imgH * scale);
+    }
+
+    const name = rptCardMember ? rptCardMember.name : 'S-21';
+    pdf.save('S-21_' + name + '.pdf');
+  } catch (e) {
+    console.error('PDF export error:', e);
+    alert('PDF生成に失敗しました');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-icons" style="font-size:18px">picture_as_pdf</span> PDFダウンロード';
+    }
+  }
+}
+
 // ── 奉仕報告チェック（月別提出状況） ────────────────
 let rptChkFilter = 'all';
 let rptChkData = { members: [], reportMap: {} };

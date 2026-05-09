@@ -10,6 +10,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -616,6 +618,11 @@
       </div>
       <div class="page-content">
         <div id="rpt-card-view"><div class="loading">読み込み中...</div></div>
+        <div style="margin-top:16px">
+          <button id="s21-pdf-btn" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px" onclick="exportS21Pdf()">
+            <span class="material-icons" style="font-size:18px">picture_as_pdf</span> PDFダウンロード
+          </button>
+        </div>
       </div>
     </section>
 
@@ -813,7 +820,7 @@
   </div>
 </div>
 
-<script src="main.js?v=51"></script>
+<script src="main.js?v=52"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>
