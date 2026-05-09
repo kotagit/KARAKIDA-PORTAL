@@ -1170,6 +1170,7 @@ async function loadPwApply() {
       card.dataset.key = item.key;
 
       const placeClass = item.place.includes('唐木田') ? 'pwa-place-green' : item.place.includes('堀之内') ? 'pwa-place-blue' : '';
+      const placeDisplay = item.place.replace(/駅/g, '');
       const wdClass = (item.weekday === '土' || item.weekday === '日') ? ' style="color:#c41c3b"' : '';
 
       card.innerHTML = `
@@ -1178,7 +1179,7 @@ async function loadPwApply() {
           <span class="pwa-col">${esc(item.date)}</span>
           <span class="pwa-col"${wdClass}>${esc(item.weekday)}</span>
           <span class="pwa-col">${esc(item.startTime)}</span>
-          <span class="pwa-col ${placeClass}">${esc(item.place)}</span>
+          <span class="pwa-col ${placeClass}">${esc(placeDisplay)}</span>
         </div>
         <div class="pwa-roles hidden"></div>
       `;
@@ -1262,7 +1263,7 @@ async function pwApplySubmit(items) {
     const item = items.find(i => i.key === key);
     if (!item) return;
     msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '〜' + item.endTime + '\n';
-    msg += item.place + ' / ' + pwApplySelected[key] + '\n\n';
+    msg += item.place.replace(/駅/g, '') + ' / ' + pwApplySelected[key] + '\n\n';
   });
   msg += '送信しますか？';
   if (!confirm(msg)) return;
