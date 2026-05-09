@@ -788,35 +788,43 @@ async function submitMemberInfo() {
 
 // ── S-13 区域割当ての記録 ────────────────────────
 
-var s13CityConfig = null;
+var s13TerritoryCity = {};   // 区域番号(string) → City
+var s13GroupsByCity = {};    // City → [groupName]
 var s13SupervisorMap = {};
 var s13AllHistory = {};
 
 async function s13LoadConfig() {
-  const snap = await db.collection('S13_CONFIG').get();
-  const territoryCity = {};
-  const groupCity = {};
-  snap.docs.forEach(doc => {
-    const city = doc.id;
-    const data = doc.data();
-    if (data.territoryCity) territoryCity[city] = data.territoryCity;
-    if (data.groupCity) groupCity[city] = data.groupCity;
+  const [areaSnap, groupSnap] = await Promise.all([
+    db.collection('AREA_LIST').where('type', '==', 'NORMAL').get(),
+    db.collection('GROUP_LIST').get(),
+  ]);
+
+  s13TerritoryCity = {};
+  areaSnap.docs.forEach(doc => {
+    const d = doc.data();
+    const num = String(d.Number || '');
+    const city = (d.City || '').trim();
+    if (num && city) s13TerritoryCity[num] = city;
   });
-  s13CityConfig = { territoryCity, groupCity };
+
+  s13GroupsByCity = {};
+  groupSnap.docs.forEach(doc => {
+    const d = doc.data();
+    const name = (d.groupName || '').trim();
+    const city = (d.City || '').trim();
+    if (name && city) {
+      if (!s13GroupsByCity[city]) s13GroupsByCity[city] = [];
+      s13GroupsByCity[city].push(name);
+    }
+  });
 }
 
 function s13GetCityForTerritory(tNum) {
-  if (!s13CityConfig) return null;
-  const num = parseInt(tNum);
-  for (const [city, nums] of Object.entries(s13CityConfig.territoryCity)) {
-    if ((nums || []).includes(num)) return city;
-  }
-  return null;
+  return s13TerritoryCity[String(tNum)] || null;
 }
 
 function s13GetGroupsForCity(city) {
-  if (!s13CityConfig) return [];
-  return s13CityConfig.groupCity[city] || [];
+  return s13GroupsByCity[city] || [];
 }
 
 async function s13LoadSupervisors() {
@@ -852,8 +860,7 @@ async function s13LoadHistory() {
 }
 
 function s13FindNextTerritory(city) {
-  if (!s13CityConfig) return null;
-  const nums = s13CityConfig.territoryCity[city] || [];
+  const nums = Object.keys(s13TerritoryCity).filter(t => s13TerritoryCity[t] === city);
   let oldest = null;
   let oldestEnd = null;
 
@@ -902,12 +909,11 @@ async function s13RenderAssignPanel() {
   const panel = document.getElementById('s13-assign-panel');
   if (!panel) return;
 
-  if (!s13CityConfig || Object.keys(s13CityConfig.territoryCity).length === 0) {
-    panel.innerHTML = '<div class="s13-assign-note">S13_CONFIGが未設定です</div>';
+  const cities = [...new Set(Object.values(s13TerritoryCity))];
+  if (cities.length === 0) {
+    panel.innerHTML = '<div class="s13-assign-note">AREA_LISTにCity情報がありません</div>';
     return;
   }
-
-  const cities = Object.keys(s13CityConfig.territoryCity);
   let html = '';
 
   for (const city of cities) {
