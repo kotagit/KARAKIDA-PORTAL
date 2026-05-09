@@ -993,16 +993,48 @@ function initAreaInfoForm() {
 }
 
 // ── 奉仕報告提出 ────────────────────────────────
-function initServiceReportForm() {
+let srMemberList = []; // 他の人用のメンバーリスト
+
+async function initServiceReportForm() {
   document.getElementById('sr-name').value = memberUserName || '';
   document.getElementById('sr-group').value = memberUserGroup || '';
+
+  // 報告対象切替
+  const targetSel = document.getElementById('sr-target');
+  const nameRow = document.getElementById('sr-name-row');
+  const otherNameRow = document.getElementById('sr-other-name-row');
+  const groupRow = document.getElementById('sr-group-row');
+  const groupInput = document.getElementById('sr-group');
+  const otherNameSel = document.getElementById('sr-other-name');
+
+  function toggleTarget() {
+    const isOther = targetSel.value === 'other';
+    nameRow.classList.toggle('hidden', isOther);
+    otherNameRow.classList.toggle('hidden', !isOther);
+    if (isOther) {
+      groupInput.value = '';
+      // メンバーリスト未取得なら取得
+      if (srMemberList.length === 0) loadSrMemberList();
+    } else {
+      groupInput.value = memberUserGroup || '';
+    }
+  }
+  targetSel.onchange = toggleTarget;
+  targetSel.value = 'self';
+  toggleTarget();
+
+  // 他の人選択時にグループを自動反映
+  otherNameSel.onchange = () => {
+    const selected = srMemberList.find(m => m.name === otherNameSel.value);
+    groupInput.value = selected ? selected.group : '';
+  };
 
   // 月プルダウン（デフォルト：先月）
   const monthSel = document.getElementById('sr-month');
   if (monthSel && monthSel.options.length <= 1) {
     monthSel.innerHTML = '';
     const now = new Date();
-    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth(); // 先月
+    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
     for (let m = 1; m <= 12; m++) {
       const opt = document.createElement('option');
       opt.value = m;
@@ -1027,6 +1059,18 @@ function initServiceReportForm() {
   // 送信
   const btn = document.getElementById('sr-submit');
   btn.onclick = async () => {
+    const isOther = targetSel.value === 'other';
+    let submitName, submitGroup;
+    if (isOther) {
+      submitName = otherNameSel.value;
+      if (!submitName) { alert('氏名を選択してください'); return; }
+      const selected = srMemberList.find(m => m.name === submitName);
+      submitGroup = selected ? selected.group : '';
+    } else {
+      submitName = memberUserName || '不明';
+      submitGroup = memberUserGroup || '';
+    }
+
     const gender = document.getElementById('sr-gender').value;
     const month = parseInt(document.getElementById('sr-month').value);
     const role = roleSel.value;
@@ -1041,8 +1085,9 @@ function initServiceReportForm() {
 
     const isEv = role === '伝道者';
     let msg = '【送信内容の確認】\n';
-    msg += '氏名: ' + (memberUserName || '') + '\n';
-    msg += 'グループ: ' + (memberUserGroup || '') + '\n';
+    if (isOther) msg += '※ 代理提出\n';
+    msg += '氏名: ' + submitName + '\n';
+    msg += 'グループ: ' + submitGroup + '\n';
     msg += '性別: ' + gender + '\n';
     msg += '月: ' + month + '月\n';
     msg += '立場: ' + role + '\n';
@@ -1057,10 +1102,10 @@ function initServiceReportForm() {
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
 
     try {
-      await db.collection('PREACHING_REPORT').add({
-        name: memberUserName || '不明',
+      const reportData = {
+        name: submitName,
         furigana: '',
-        groupName: memberUserGroup || '',
+        groupName: submitGroup,
         gender,
         month,
         role,
@@ -1069,13 +1114,18 @@ function initServiceReportForm() {
         bibleStudy: parseInt(bible) || 0,
         remarks,
         timestamp: firebase.firestore.Timestamp.now(),
-      });
+      };
+      if (isOther) reportData.submittedBy = memberUserName || '';
+      await db.collection('PREACHING_REPORT').add(reportData);
       alert('送信しました');
       document.getElementById('sr-gender').value = '';
       document.getElementById('sr-participation').value = '';
       document.getElementById('sr-hours').value = '';
       document.getElementById('sr-bible').value = '';
       document.getElementById('sr-remarks').value = '';
+      if (isOther) otherNameSel.value = '';
+      targetSel.value = 'self';
+      toggleTarget();
       navigate('shinsei');
     } catch (err) {
       alert('送信エラー: ' + err.message);
@@ -1084,6 +1134,31 @@ function initServiceReportForm() {
       btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
     }
   };
+}
+
+async function loadSrMemberList() {
+  const sel = document.getElementById('sr-other-name');
+  sel.innerHTML = '<option value="">読み込み中...</option>';
+  try {
+    const snap = await db.collection('USER_LIST').get();
+    srMemberList = [];
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      if (!name) return;
+      srMemberList.push({ name, group: String(data.group || '').trim() });
+    });
+    srMemberList.sort((a, b) => a.name.localeCompare(b.name));
+    sel.innerHTML = '<option value="">選択してください</option>';
+    srMemberList.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name;
+      opt.textContent = m.name + (m.group ? '（' + m.group + '）' : '');
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    sel.innerHTML = '<option value="">読み込みエラー</option>';
+  }
 }
 
 // ── 公共エリア伝道申込み ────────────────────────
