@@ -1570,9 +1570,10 @@ async function loadSenkyoPublic() {
       hdr.innerHTML = hdrHtml;
       container.appendChild(hdr);
 
-      // テーブル
+      // テーブル（列数×110px）
       const table = document.createElement('div');
       table.className = 'pw-table';
+      table.style.width = (places.length * 110) + 'px';
 
       // 場所ヘッダー行
       let placeRow = '<div class="pw-row pw-row-place">';

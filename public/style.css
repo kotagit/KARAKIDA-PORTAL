@@ -169,11 +169,17 @@ body {
 .menu-item[data-page="admin"]:hover {
   box-shadow: 0 8px 20px rgba(241,194,50,0.45), 0 -1px 4px rgba(255,255,255,0.8);
 }
-@media (min-width: 700px) {
-  #page-home { max-width: 900px; }
+@media (min-width: 700px) and (max-width: 1024px) {
+  #page-home { max-width: 520px; margin: 0 auto; }
+  .menu-grid { gap: 16px; padding: 20px 20px 40px; }
+  .menu-icon  { font-size: 72px !important; }
+  .menu-label { font-size: 17px; }
+}
+@media (min-width: 1025px) {
+  #page-home { max-width: 600px; margin: 0 auto; }
   .menu-grid { gap: 20px; padding: 24px 24px 40px; }
-  .menu-icon  { font-size: 96px !important; }
-  .menu-label { font-size: 22px; }
+  .menu-icon  { font-size: 80px !important; }
+  .menu-label { font-size: 19px; }
 }
 
 /* ── ページバナー ── */
@@ -823,7 +829,7 @@ body {
 .pw-time { font-size: 15px; font-weight: 700; color: var(--primary); margin-right: 12px; }
 .pw-place { font-size: 15px; font-weight: 700; color: #212121; }
 .pw-table {
-  width: 330px; border: 1px solid #000; border-radius: 8px;
+  border: 1px solid #000; border-radius: 8px;
   overflow: hidden; margin: 4px 0 0 0;
 }
 .pw-row { display: flex; border-bottom: 0.5px solid #000; }
