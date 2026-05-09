@@ -126,7 +126,7 @@ body {
 /* ── ホームヒーロー ── */
 .home-hero {
   height: 240px;
-  background: url('hero.jpg') center bottom / cover no-repeat;
+  background: url('hero.jpg') center 30% / cover no-repeat;
 }
 @media (min-width: 700px) {
   .home-hero {
