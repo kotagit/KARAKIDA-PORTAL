@@ -1306,7 +1306,7 @@ async function initServiceReportForm() {
         timestamp: firebase.firestore.Timestamp.now(),
       };
       if (isOther) reportData.submittedBy = memberUserName || '';
-      await db.collection('REPORT_DRAFTS').add(reportData);
+      await db.collection('PREACHING_REPORT_DRAFTS').add(reportData);
       alert('送信しました（管理者の承認後に反映されます）');
       document.getElementById('sr-gender').value = '';
       document.getElementById('sr-participation').value = '';
@@ -3400,7 +3400,7 @@ async function loadAdminReportApprove() {
   view.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    const snap = await db.collection('REPORT_DRAFTS').orderBy('timestamp', 'desc').get();
+    const snap = await db.collection('PREACHING_REPORT_DRAFTS').orderBy('timestamp', 'desc').get();
     if (snap.empty) {
       view.innerHTML = '<div class="empty-state">承認待ちの報告はありません</div>';
       if (countEl) countEl.textContent = '';
@@ -3451,7 +3451,7 @@ async function loadAdminReportApprove() {
 async function approveReport(docId) {
   if (!confirm('この報告を承認してPREACHING_REPORTに反映しますか？')) return;
   try {
-    const docRef = db.collection('REPORT_DRAFTS').doc(docId);
+    const docRef = db.collection('PREACHING_REPORT_DRAFTS').doc(docId);
     const snap = await docRef.get();
     if (!snap.exists) { alert('データが見つかりません'); return; }
     const d = snap.data();
@@ -3475,7 +3475,7 @@ async function approveReport(docId) {
 async function rejectReport(docId) {
   if (!confirm('この報告を却下して削除しますか？')) return;
   try {
-    await db.collection('REPORT_DRAFTS').doc(docId).delete();
+    await db.collection('PREACHING_REPORT_DRAFTS').doc(docId).delete();
     const card = document.getElementById('approve-' + docId);
     if (card) card.remove();
     const countEl = document.getElementById('approve-count');
