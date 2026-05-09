@@ -1118,7 +1118,7 @@ async function loadPwApply() {
   pwApplySelected = {};
 
   try {
-    const snap = await db.collection('PUBLIC_WITNESSING_OPTIONS').orderBy('order', 'asc').get();
+    const snap = await db.collection('PUBLIC_WITNESSING_OPTIONS').get();
     const items = [];
     snap.docs.forEach(d => {
       const data = d.data();
@@ -1132,7 +1132,16 @@ async function loadPwApply() {
         startTime: String(data.starttime || ''),
         endTime: String(data.endtime || ''),
         place: place,
+        order: typeof data.order === 'number' ? data.order : 9999,
       });
+    });
+    // APPと同じクライアント側ソート
+    items.sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      const da = a.date.replace(/[^\d]/g, '').padStart(4, '0');
+      const db2 = b.date.replace(/[^\d]/g, '').padStart(4, '0');
+      if (da !== db2) return da.localeCompare(db2);
+      return a.startTime.localeCompare(b.startTime);
     });
 
     if (items.length === 0) {
