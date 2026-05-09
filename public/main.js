@@ -507,45 +507,20 @@ async function loadLinks(section) {
       versionDiv.textContent = 'v1.1 (2026-05-08)';
       listEl.appendChild(versionDiv);
 
-      const memberInfoItem = document.createElement('div');
-      memberInfoItem.className = 'link-item';
-      memberInfoItem.style.cursor = 'pointer';
-      memberInfoItem.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">contact_phone</span></div>
-        <span class="link-item-label">成員情報登録</span>
-      `;
-      memberInfoItem.addEventListener('click', () => navigate('member-info'));
-      listEl.appendChild(memberInfoItem);
-
-      const areaInfoItem = document.createElement('div');
-      areaInfoItem.className = 'link-item';
-      areaInfoItem.style.cursor = 'pointer';
-      areaInfoItem.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">location_on</span></div>
-        <span class="link-item-label">区域情報登録</span>
-      `;
-      areaInfoItem.addEventListener('click', () => navigate('area-info'));
-      listEl.appendChild(areaInfoItem);
-
-      const srItem = document.createElement('div');
-      srItem.className = 'link-item';
-      srItem.style.cursor = 'pointer';
-      srItem.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">summarize</span></div>
-        <span class="link-item-label">奉仕報告提出</span>
-      `;
-      srItem.addEventListener('click', () => navigate('service-report'));
-      listEl.appendChild(srItem);
-
-      const pwItem = document.createElement('div');
-      pwItem.className = 'link-item';
-      pwItem.style.cursor = 'pointer';
-      pwItem.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">location_city</span></div>
-        <span class="link-item-label">公共エリア伝道申込み</span>
-      `;
-      pwItem.addEventListener('click', () => navigate('pw-apply'));
-      listEl.appendChild(pwItem);
+      const formItems = [
+        { icon: 'location_city', label: '公共エリア伝道申込み', page: 'pw-apply' },
+        { icon: 'summarize', label: '奉仕報告', page: 'service-report' },
+        { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
+        { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
+      ];
+      formItems.forEach(fi => {
+        const el = document.createElement('div');
+        el.className = 'link-item';
+        el.style.cursor = 'pointer';
+        el.innerHTML = `<div class="link-item-icon"><span class="material-icons">${fi.icon}</span></div><span class="link-item-label">${fi.label}</span>`;
+        el.addEventListener('click', () => navigate(fi.page));
+        listEl.appendChild(el);
+      });
     }
 
     if (!snap.empty) {
@@ -569,45 +544,20 @@ async function loadLinks(section) {
     console.error('loadLinks error:', section, e);
     if (section === 'shinsei') {
       listEl.innerHTML = '';
-      const memberInfoItem = document.createElement('div');
-      memberInfoItem.className = 'link-item';
-      memberInfoItem.style.cursor = 'pointer';
-      memberInfoItem.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">contact_phone</span></div>
-        <span class="link-item-label">成員情報登録</span>
-      `;
-      memberInfoItem.addEventListener('click', () => navigate('member-info'));
-      listEl.appendChild(memberInfoItem);
-
-      const areaInfoItem2 = document.createElement('div');
-      areaInfoItem2.className = 'link-item';
-      areaInfoItem2.style.cursor = 'pointer';
-      areaInfoItem2.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">location_on</span></div>
-        <span class="link-item-label">区域情報登録</span>
-      `;
-      areaInfoItem2.addEventListener('click', () => navigate('area-info'));
-      listEl.appendChild(areaInfoItem2);
-
-      const srItem2 = document.createElement('div');
-      srItem2.className = 'link-item';
-      srItem2.style.cursor = 'pointer';
-      srItem2.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">summarize</span></div>
-        <span class="link-item-label">奉仕報告提出</span>
-      `;
-      srItem2.addEventListener('click', () => navigate('service-report'));
-      listEl.appendChild(srItem2);
-
-      const pwItem2 = document.createElement('div');
-      pwItem2.className = 'link-item';
-      pwItem2.style.cursor = 'pointer';
-      pwItem2.innerHTML = `
-        <div class="link-item-icon"><span class="material-icons">location_city</span></div>
-        <span class="link-item-label">公共エリア伝道申込み</span>
-      `;
-      pwItem2.addEventListener('click', () => navigate('pw-apply'));
-      listEl.appendChild(pwItem2);
+      const formItems2 = [
+        { icon: 'location_city', label: '公共エリア伝道申込み', page: 'pw-apply' },
+        { icon: 'summarize', label: '奉仕報告', page: 'service-report' },
+        { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
+        { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
+      ];
+      formItems2.forEach(fi => {
+        const el = document.createElement('div');
+        el.className = 'link-item';
+        el.style.cursor = 'pointer';
+        el.innerHTML = `<div class="link-item-icon"><span class="material-icons">${fi.icon}</span></div><span class="link-item-label">${fi.label}</span>`;
+        el.addEventListener('click', () => navigate(fi.page));
+        listEl.appendChild(el);
+      });
     } else {
       listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
     }
