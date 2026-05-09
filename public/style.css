@@ -438,6 +438,69 @@ body {
 }
 .s13-dates span:first-child { border-right: 1px solid #000; }
 
+/* ── S-13 割当パネル ── */
+.s13-assign-panel {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.s13-assign-city {
+  flex: 1;
+  min-width: 280px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.s13-assign-city-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--primary);
+}
+.s13-assign-territory {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.s13-assign-days {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-left: 8px;
+}
+.s13-assign-recommend {
+  font-size: 13px;
+  color: #2e7d32;
+  margin-bottom: 10px;
+}
+.s13-assign-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+.s13-assign-form label {
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.s13-assign-form select,
+.s13-assign-form input[type="date"] {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.s13-assign-btn {
+  align-self: end;
+  white-space: nowrap;
+}
+.s13-assign-note {
+  color: var(--text-light);
+  padding: 12px;
+}
+
 /* レスポンシブ */
 @media (max-width: 900px) {
   .s13-header-row, .s13-th-row, .s13-data-row {

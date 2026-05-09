@@ -788,112 +788,286 @@ async function submitMemberInfo() {
 
 // ── S-13 区域割当ての記録 ────────────────────────
 
-async function loadAdminS13Table() {
+let s13CityConfig = null;    // { territoryCity: {市→[番号]}, groupCity: {市→[グループ]} }
+let s13SupervisorMap = {};   // グループ名→監督名
+let s13AllHistory = {};      // 区域番号→[{name,start,end,groupName}]
+
+async function s13LoadConfig() {
+  const [tcSnap, gcSnap] = await Promise.all([
+    db.collection('S13_CONFIG').doc('territoryCity').get(),
+    db.collection('S13_CONFIG').doc('groupCity').get(),
+  ]);
+  s13CityConfig = {
+    territoryCity: tcSnap.exists ? tcSnap.data() : {},
+    groupCity: gcSnap.exists ? gcSnap.data() : {},
+  };
+}
+
+function s13GetCityForTerritory(tNum) {
+  if (!s13CityConfig) return null;
+  const num = parseInt(tNum);
+  for (const [city, nums] of Object.entries(s13CityConfig.territoryCity)) {
+    if ((nums || []).includes(num)) return city;
+  }
+  return null;
+}
+
+function s13GetGroupsForCity(city) {
+  if (!s13CityConfig) return [];
+  return s13CityConfig.groupCity[city] || [];
+}
+
+async function s13LoadSupervisors() {
+  const svSnap = await db.collection('USER_LIST').where('status4', '==', 'SV').get();
+  s13SupervisorMap = {};
+  svSnap.docs.forEach(doc => {
+    const d = doc.data();
+    const group = (d.group || '').trim();
+    const name = (d.name || '').trim();
+    if (group && name) s13SupervisorMap[group] = name;
+  });
+}
+
+async function s13LoadHistory() {
+  const snap = await db.collection('GROUP_ASS_NO').get();
+  s13AllHistory = {};
+  snap.docs.forEach(doc => {
+    const data = doc.data();
+    if ((data.type || 'NORMAL').toString().trim() !== 'NORMAL') return;
+    const territory = (data.territories || '').toString();
+    if (!territory) return;
+    if (!s13AllHistory[territory]) s13AllHistory[territory] = [];
+    s13AllHistory[territory].push({
+      name: s13SupervisorMap[data.groupName] || data.groupName || '',
+      groupName: data.groupName || '',
+      start: data.startDate || '',
+      end: data.endDate || '',
+    });
+  });
+  Object.keys(s13AllHistory).forEach(t => {
+    s13AllHistory[t].sort((a, b) => b.start.localeCompare(a.start));
+  });
+}
+
+function s13FindNextTerritory(city) {
+  if (!s13CityConfig) return null;
+  const nums = s13CityConfig.territoryCity[city] || [];
+  let oldest = null;
+  let oldestEnd = null;
+
+  for (const num of nums) {
+    const key = String(num);
+    const history = s13AllHistory[key] || [];
+    if (history.length === 0) {
+      return { territory: key, lastEnd: null, daysSince: 99999 };
+    }
+    const latest = history[0];
+    if (!latest.end) continue; // 未返却 = 使用中、スキップ
+    if (!oldestEnd || latest.end < oldestEnd) {
+      oldestEnd = latest.end;
+      oldest = key;
+    }
+  }
+
+  if (!oldest) return null;
+  const days = Math.floor((new Date() - new Date(oldestEnd)) / 86400000);
+  return { territory: oldest, lastEnd: oldestEnd, daysSince: days };
+}
+
+function s13RecommendGroup(territory, city) {
+  const groups = s13GetGroupsForCity(city);
+  if (groups.length === 0) return null;
+
+  const history = s13AllHistory[territory] || [];
+  const lastAssigned = {};
+  history.forEach(h => {
+    if (h.groupName && !lastAssigned[h.groupName]) {
+      lastAssigned[h.groupName] = h.start;
+    }
+  });
+
+  const scored = groups.map(g => {
+    const last = lastAssigned[g];
+    if (!last) return { group: g, score: 99999, reason: '未担当' };
+    const days = Math.floor((new Date() - new Date(last)) / 86400000);
+    return { group: g, score: days, reason: `前回 ${last}` };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+async function s13RenderAssignPanel() {
+  const panel = document.getElementById('s13-assign-panel');
+  if (!panel) return;
+
+  if (!s13CityConfig || Object.keys(s13CityConfig.territoryCity).length === 0) {
+    panel.innerHTML = '<div class="s13-assign-note">S13_CONFIGが未設定です</div>';
+    return;
+  }
+
+  const cities = Object.keys(s13CityConfig.territoryCity);
+  let html = '';
+
+  for (const city of cities) {
+    const next = s13FindNextTerritory(city);
+    const groups = s13GetGroupsForCity(city);
+
+    if (!next) {
+      html += `<div class="s13-assign-city">
+        <div class="s13-assign-city-name">${esc(city)}</div>
+        <div class="s13-assign-info">割当可能な区域がありません（全て使用中）</div>
+      </div>`;
+      continue;
+    }
+
+    const ranked = s13RecommendGroup(next.territory, city);
+    const recommended = ranked && ranked.length > 0 ? ranked[0] : null;
+
+    const groupOptions = (ranked || []).map(r =>
+      `<option value="${esc(r.group)}">${esc(r.group)}（${esc(r.reason)}）</option>`
+    ).join('');
+
+    const daysLabel = next.lastEnd
+      ? `前回返却: ${esc(next.lastEnd)}（${next.daysSince}日経過）`
+      : '未割当（最優先）';
+
+    html += `
+      <div class="s13-assign-city" data-city="${esc(city)}">
+        <div class="s13-assign-city-name">${esc(city)}</div>
+        <div class="s13-assign-territory">
+          次の区域: <strong>No.${esc(next.territory)}</strong>
+          <span class="s13-assign-days">${daysLabel}</span>
+        </div>
+        ${recommended ? `<div class="s13-assign-recommend">推薦: ${esc(recommended.group)}（${esc(recommended.reason)}）</div>` : ''}
+        <div class="s13-assign-form">
+          <label>割当先:
+            <select class="s13-assign-group">${groupOptions}</select>
+          </label>
+          <label>開始日: <input type="date" class="s13-assign-start"></label>
+          <label>終了日: <input type="date" class="s13-assign-end"></label>
+          <button class="btn-primary s13-assign-btn" data-territory="${esc(next.territory)}">割当実行</button>
+        </div>
+      </div>`;
+  }
+
+  panel.innerHTML = html;
+
+  panel.querySelectorAll('.s13-assign-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cityDiv = btn.closest('.s13-assign-city');
+      const territory = btn.dataset.territory;
+      const groupName = cityDiv.querySelector('.s13-assign-group').value;
+      const startDate = cityDiv.querySelector('.s13-assign-start').value;
+      const endDate = cityDiv.querySelector('.s13-assign-end').value;
+
+      if (!groupName || !startDate || !endDate) {
+        alert('グループ・開始日・終了日を全て入力してください');
+        return;
+      }
+      if (!confirm(`区域No.${territory} を ${groupName} に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
+
+      try {
+        await db.collection('GROUP_ASS_NO').add({
+          territories: territory,
+          groupName: groupName,
+          startDate: startDate,
+          endDate: endDate,
+          type: 'NORMAL',
+          assignedAt: firebase.firestore.Timestamp.now(),
+        });
+        alert('割当を登録しました');
+        await s13LoadHistory();
+        s13RenderAssignPanel();
+        s13RenderTable();
+      } catch (e) {
+        alert('エラー: ' + e.message);
+      }
+    });
+  });
+}
+
+function s13RenderTable() {
   const S13_ROWS = 24;
   const S13_COLS = 5;
+  const grid = document.getElementById('s13-grid');
+
+  const sortedTerritories = Object.keys(s13AllHistory).sort((a, b) => {
+    const na = parseInt(a), nb = parseInt(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+
+  if (sortedTerritories.length === 0) {
+    grid.innerHTML = '<div class="empty-state">データがありません</div>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  for (let g = 0; g < sortedTerritories.length; g += S13_COLS) {
+    const chunk = sortedTerritories.slice(g, g + S13_COLS);
+
+    const band = document.createElement('div');
+    band.className = 's13-band';
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 's13-header-row';
+    for (let c = 0; c < S13_COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 's13-header-cell';
+      if (chunk[c]) {
+        cell.innerHTML = `<span class="s13-label">区域番号</span><span class="s13-num">${esc(chunk[c])}</span>`;
+      }
+      headerRow.appendChild(cell);
+    }
+    band.appendChild(headerRow);
+
+    const thRow = document.createElement('div');
+    thRow.className = 's13-th-row';
+    for (let c = 0; c < S13_COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 's13-th-cell';
+      if (chunk[c]) {
+        cell.innerHTML = `
+          <div class="s13-th-name">奉仕者の名前</div>
+          <div class="s13-th-dates">
+            <span>区域が出された日付</span><span>区域が戻された日付</span>
+          </div>`;
+      }
+      thRow.appendChild(cell);
+    }
+    band.appendChild(thRow);
+
+    for (let r = 0; r < S13_ROWS; r++) {
+      const dataRow = document.createElement('div');
+      dataRow.className = 's13-data-row';
+      for (let c = 0; c < S13_COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 's13-data-cell';
+        const history = chunk[c] ? (s13AllHistory[chunk[c]] || []) : [];
+        const h = history[r] || { name: '', start: '', end: '' };
+        cell.innerHTML = `
+          <div class="s13-name">${esc(h.name)}</div>
+          <div class="s13-dates">
+            <span>${esc(h.start)}</span><span>${esc(h.end)}</span>
+          </div>`;
+        dataRow.appendChild(cell);
+      }
+      band.appendChild(dataRow);
+    }
+
+    grid.appendChild(band);
+  }
+}
+
+async function loadAdminS13Table() {
   const grid = document.getElementById('s13-grid');
   grid.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    const svSnap = await db.collection('USER_LIST').where('status4', '==', 'SV').get();
-    const supervisorByGroup = {};
-    svSnap.docs.forEach(doc => {
-      const d = doc.data();
-      const group = (d.group || '').trim();
-      const name = (d.name || '').trim();
-      if (group && name) supervisorByGroup[group] = name;
-    });
-
-    const snap = await db.collection('GROUP_ASS_NO').get();
-    const groupedByTerritory = {};
-
-    snap.docs.forEach(doc => {
-      const data = doc.data();
-      if ((data.type || 'NORMAL').toString().trim() !== 'NORMAL') return;
-      const territory = (data.territories || '').toString();
-      if (!territory) return;
-      if (!groupedByTerritory[territory]) groupedByTerritory[territory] = [];
-      groupedByTerritory[territory].push({
-        name: supervisorByGroup[data.groupName] || data.groupName || '',
-        start: data.startDate || '',
-        end: data.endDate || ''
-      });
-    });
-
-    Object.keys(groupedByTerritory).forEach(t => {
-      groupedByTerritory[t].sort((a, b) => b.start.localeCompare(a.start));
-    });
-
-    const sortedTerritories = Object.keys(groupedByTerritory).sort((a, b) => {
-      const na = parseInt(a), nb = parseInt(b);
-      if (!isNaN(na) && !isNaN(nb)) return na - nb;
-      return a.localeCompare(b);
-    });
-
-    if (sortedTerritories.length === 0) {
-      grid.innerHTML = '<div class="empty-state">データがありません</div>';
-      return;
-    }
-
-    grid.innerHTML = '';
-    for (let g = 0; g < sortedTerritories.length; g += S13_COLS) {
-      const chunk = sortedTerritories.slice(g, g + S13_COLS);
-
-      const band = document.createElement('div');
-      band.className = 's13-band';
-
-      // ヘッダー行（区域番号）
-      const headerRow = document.createElement('div');
-      headerRow.className = 's13-header-row';
-      for (let c = 0; c < S13_COLS; c++) {
-        const cell = document.createElement('div');
-        cell.className = 's13-header-cell';
-        if (chunk[c]) {
-          cell.innerHTML = `<span class="s13-label">区域番号</span><span class="s13-num">${esc(chunk[c])}</span>`;
-        }
-        headerRow.appendChild(cell);
-      }
-      band.appendChild(headerRow);
-
-      // テーブルヘッダー（奉仕者の名前 / 日付ラベル）
-      const thRow = document.createElement('div');
-      thRow.className = 's13-th-row';
-      for (let c = 0; c < S13_COLS; c++) {
-        const cell = document.createElement('div');
-        cell.className = 's13-th-cell';
-        if (chunk[c]) {
-          cell.innerHTML = `
-            <div class="s13-th-name">奉仕者の名前</div>
-            <div class="s13-th-dates">
-              <span>区域が出された日付</span><span>区域が戻された日付</span>
-            </div>`;
-        }
-        thRow.appendChild(cell);
-      }
-      band.appendChild(thRow);
-
-      // データ行（24行）
-      for (let r = 0; r < S13_ROWS; r++) {
-        const dataRow = document.createElement('div');
-        dataRow.className = 's13-data-row';
-        for (let c = 0; c < S13_COLS; c++) {
-          const cell = document.createElement('div');
-          cell.className = 's13-data-cell';
-          const history = chunk[c] ? (groupedByTerritory[chunk[c]] || []) : [];
-          const h = history[r] || { name: '', start: '', end: '' };
-          cell.innerHTML = `
-            <div class="s13-name">${esc(h.name)}</div>
-            <div class="s13-dates">
-              <span>${esc(h.start)}</span><span>${esc(h.end)}</span>
-            </div>`;
-          dataRow.appendChild(cell);
-        }
-        band.appendChild(dataRow);
-      }
-
-      grid.appendChild(band);
-    }
-
+    await Promise.all([s13LoadConfig(), s13LoadSupervisors()]);
+    await s13LoadHistory();
+    s13RenderAssignPanel();
+    s13RenderTable();
   } catch (e) {
     console.error('S-13 load error:', e);
     grid.innerHTML = `<div class="empty-state">エラーが発生しました: ${e.message}</div>`;
