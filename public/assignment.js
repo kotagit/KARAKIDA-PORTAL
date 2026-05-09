@@ -1433,15 +1433,22 @@ async function loadAssignmentWeekDisplay() {
         assigneeText = slots['A'] || '';
       } else if (item.codes && item.codes.length > 0) {
         const parts = [];
-        item.codes.forEach(code => {
-          const base = awGetBase(code);
-          if (PAIR_PARTNER_SET.has(base)) return;
-          const partnerBase = PAIR_OF[base];
-          const name = slots[code] || '';
-          const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
-          if (partnerName) parts.push(`${name} / ${partnerName}`);
-          else if (name) parts.push(name);
-        });
+        const isSongWithPrayer = item.type === 'song' && item.codes.includes('A') && item.codes.includes('B');
+        if (isSongWithPrayer) {
+          const chairName = slots['A'] || '';
+          const prayerName = slots['B'] || '';
+          if (chairName || prayerName) parts.push(`${chairName} / ${prayerName}`);
+        } else {
+          item.codes.forEach(code => {
+            const base = awGetBase(code);
+            if (PAIR_PARTNER_SET.has(base)) return;
+            const partnerBase = PAIR_OF[base];
+            const name = slots[code] || '';
+            const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
+            if (partnerName) parts.push(`${name} / ${partnerName}`);
+            else if (name) parts.push(name);
+          });
+        }
         assigneeText = parts.join('、');
       }
 
