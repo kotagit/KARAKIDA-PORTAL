@@ -1143,7 +1143,6 @@ function awRenderMemberList() {
     item.innerHTML = `
       <div class="admin-list-info">
         <div class="admin-list-title">${esc(member.name)}</div>
-        <div class="admin-list-date">${esc(member.position||'')} / ${esc(member.gender||'')}${member.familyGroup ? ' / ' + esc(member.familyGroup) : ''}</div>
       </div>
       <div class="admin-list-actions">
         <button class="icon-btn am-edit" data-id="${esc(member.docId)}" style="color:var(--primary)" title="編集">
