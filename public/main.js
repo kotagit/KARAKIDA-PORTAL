@@ -42,7 +42,7 @@ const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
   senkyo: '宣教', shukai: '集会', shinsei: 'フォーム',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
-  jouhou: '情報', 'jouhou-contact': '連絡先情報', 'jouhou-card': '伝道者カード',
+  jouhou: '情報', 'jouhou-contact': '会衆登録情報', 'jouhou-card': '伝道者カード',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
@@ -1027,7 +1027,7 @@ async function loadJouhouContact() {
     ];
 
     let html = '<div class="form-container">';
-    html += '<p class="form-description">あなたの登録情報</p>';
+    html += '<p class="form-description">あなたの会衆登録情報</p>';
     fields.forEach(f => {
       html += '<div class="sr-field">';
       html += '<label class="sr-label">' + esc(f.label) + '</label>';
