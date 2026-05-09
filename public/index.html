@@ -87,6 +87,10 @@
           <span class="menu-icon material-icons">wine_bar</span>
           <span class="menu-label">イベント</span>
         </div>
+        <div class="menu-item" data-page="jouhou">
+          <span class="menu-icon material-icons">info</span>
+          <span class="menu-label">情報</span>
+        </div>
         <div class="menu-item" data-page="keikaku">
           <span class="menu-icon material-icons">calendar_month</span>
           <span class="menu-label">計画</span>
@@ -213,6 +217,40 @@
         <div id="keikaku-list" class="link-list">
           <div class="loading">読み込み中...</div>
         </div>
+      </div>
+    </section>
+
+    <!-- 情報メニュー -->
+    <section id="page-jouhou" class="page">
+      <div class="page-content">
+        <div class="senkyo-menu">
+          <div class="senkyo-menu-list">
+            <button class="senkyo-menu-btn" onclick="navigate('jouhou-contact')">
+              <span class="material-icons">contacts</span>
+              <span>連絡先情報</span>
+              <span class="material-icons senkyo-chevron">chevron_right</span>
+            </button>
+            <button class="senkyo-menu-btn" onclick="navigate('jouhou-card')">
+              <span class="material-icons">badge</span>
+              <span>伝道者カード</span>
+              <span class="material-icons senkyo-chevron">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 連絡先情報 -->
+    <section id="page-jouhou-contact" class="page">
+      <div class="page-content">
+        <div id="jouhou-contact-view"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <!-- 伝道者カード -->
+    <section id="page-jouhou-card" class="page">
+      <div class="page-content">
+        <div id="jouhou-card-view"><div class="loading">読み込み中...</div></div>
       </div>
     </section>
 
@@ -838,7 +876,7 @@
   </div>
 </div>
 
-<script src="main.js?v=55"></script>
+<script src="main.js?v=56"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>

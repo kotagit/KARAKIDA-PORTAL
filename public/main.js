@@ -42,6 +42,7 @@ const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
   senkyo: '宣教', shukai: '集会', shinsei: 'フォーム',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
+  jouhou: '情報', 'jouhou-contact': '連絡先情報', 'jouhou-card': '伝道者カード',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
@@ -203,6 +204,8 @@ function navigate(page, pushHistory) {
     backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
   } else if (page.startsWith('senkyo-')) {
     backBtn._backTarget = 'senkyo';
+  } else if (page.startsWith('jouhou-')) {
+    backBtn._backTarget = 'jouhou';
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply') {
     backBtn._backTarget = 'shinsei';
   } else if (page.startsWith('admin-')) {
@@ -234,6 +237,8 @@ function navigate(page, pushHistory) {
   if (page === 'soshiki')  loadOrgView();
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
+  if (page === 'jouhou-contact')        loadJouhouContact();
+  if (page === 'jouhou-card')           loadJouhouCard();
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
   if (page === 'area-info')             initAreaInfoForm();
@@ -992,6 +997,113 @@ function initAreaInfoForm() {
   };
 }
 
+// ── 情報：連絡先情報 ────────────────────────────────
+async function loadJouhouContact() {
+  const view = document.getElementById('jouhou-contact-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const email = currentUser?.email?.trim() || '';
+    let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
+    if (snap.empty) snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+
+    if (snap.empty) {
+      view.innerHTML = '<div class="empty-state">ユーザー情報が見つかりません</div>';
+      return;
+    }
+
+    const d = snap.docs[0].data();
+    const fields = [
+      { label: '氏名', value: d.name },
+      { label: 'ふりがな', value: d.furigana },
+      { label: 'グループ', value: d.group },
+      { label: '性別', value: d.gender },
+      { label: '生年月日', value: d.birthDate },
+      { label: 'バプテスマ日', value: d.baptismDate },
+      { label: '電話番号', value: d.phone },
+      { label: 'メール', value: d.mail },
+      { label: '住所', value: d.address },
+    ];
+
+    let html = '<div class="form-container">';
+    html += '<p class="form-description">あなたの登録情報</p>';
+    fields.forEach(f => {
+      html += '<div class="sr-field">';
+      html += '<label class="sr-label">' + esc(f.label) + '</label>';
+      html += '<div class="sr-input-wrap"><input type="text" value="' + esc(f.value || '') + '" readonly style="background:#f5f5f5"></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── 情報：伝道者カード ────────────────────────────────
+async function loadJouhouCard() {
+  const view = document.getElementById('jouhou-card-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const email = currentUser?.email?.trim() || '';
+    let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
+    if (snap.empty) snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+
+    if (snap.empty) {
+      view.innerHTML = '<div class="empty-state">ユーザー情報が見つかりません</div>';
+      return;
+    }
+
+    const d = snap.docs[0].data();
+    const member = {
+      id: snap.docs[0].id,
+      name: String(d.name || '').trim(),
+      group: String(d.group || '').trim(),
+      gender: String(d.gender || '').trim(),
+      birthDate: String(d.birthDate || '').trim(),
+      baptismDate: String(d.baptismDate || '').trim(),
+      role: String(d.role || d.position || '').trim(),
+      pioneer: String(d.pioneer || '').trim(),
+    };
+
+    const year = getServiceYear();
+
+    const reportSnap = await db.collection('PREACHING_REPORT')
+      .where('name', '==', member.name)
+      .get();
+
+    const reportMap = {};
+    reportSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const mo = data.month;
+      const yr = data.year || null;
+      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+      let belongsYear;
+      if (mo >= 9) belongsYear = yr || year;
+      else belongsYear = (yr ? yr - 1 : null) || year;
+      if (belongsYear !== year) return;
+      if (!reportMap[mo] || ts > reportMap[mo]._ts) {
+        reportMap[mo] = {
+          participation: data.participation || '',
+          bibleStudy: data.bibleStudy,
+          hours: data.hours,
+          role: data.role || '',
+          remarks: data.remarks || '',
+          auxiliary: data.auxiliary || '',
+          _ts: ts,
+        };
+      }
+    });
+
+    renderReportCard(member, reportMap, year, 'jouhou-card-view');
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
 // ── 奉仕報告提出 ────────────────────────────────
 let srMemberList = []; // 他の人用のメンバーリスト
 
@@ -1538,8 +1650,8 @@ async function loadAdminReportCard() {
   }
 }
 
-function renderReportCard(member, reportMap, year) {
-  const view = document.getElementById('rpt-card-view');
+function renderReportCard(member, reportMap, year, targetViewId) {
+  const view = document.getElementById(targetViewId || 'rpt-card-view');
 
   // ヘッダー情報
   let html = '<div class="s21-card">';
