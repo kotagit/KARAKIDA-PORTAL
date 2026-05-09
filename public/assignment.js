@@ -375,23 +375,16 @@ function awBuildWeekSection(week, container) {
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="aw-edit-schedule-btn icon-btn" title="スケジュール編集">
-        <span class="material-icons" style="font-size:20px;color:var(--text-light)">edit_calendar</span>
+        <span class="material-icons" style="font-size:20px;color:rgba(255,255,255,0.85)">edit_calendar</span>
+      </button>
+      <button class="aw-btn-save aw-header-btn" title="保存">
+        <span class="material-icons" style="font-size:18px">save</span>
       </button>
       <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
     </div>
   `;
   hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
   section.appendChild(hdr);
-
-  // ── アクションボタン ──
-  const actions = document.createElement('div');
-  actions.className = 'aw-week-actions';
-  actions.innerHTML = `
-    <button class="btn-secondary aw-btn-save">
-      <span class="material-icons" style="font-size:18px;vertical-align:middle">save</span> 保存
-    </button>
-  `;
-  section.appendChild(actions);
 
   // ── 予定表テーブル ──
   const table = document.createElement('div');
@@ -404,7 +397,7 @@ function awBuildWeekSection(week, container) {
   // ── ボタンイベント ──
   const badge = hdr.querySelector('.aw-status-badge');
 
-  actions.querySelector('.aw-btn-save').addEventListener('click', async () => {
+  hdr.querySelector('.aw-btn-save').addEventListener('click', async () => {
     try {
       await db.collection('assignments').doc(week.id).set({
         weekId: week.id, status: 'draft',
