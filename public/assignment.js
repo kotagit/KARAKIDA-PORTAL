@@ -284,6 +284,7 @@ function awRenderElderList() {
 async function awLoadWeeks() {
   const snap = await db.collection('mwbWeeks').orderBy('importedAt','desc').get();
   awWeeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  awWeeks.sort((a, b) => a.id.localeCompare(b.id));
 
   await Promise.all(awWeeks.map(async week => {
     const asnap = await db.collection('assignments').doc(week.id).get();
