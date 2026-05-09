@@ -137,14 +137,13 @@ body {
 /* ── 奉仕報告バナー ── */
 .home-report-banner {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  margin: 0 16px; padding: 12px 16px;
-  background: linear-gradient(135deg, #ff9800, #f57c00);
-  color: white; border-radius: 12px;
-  font-size: 14px; font-weight: 700;
-  cursor: pointer; box-shadow: 0 2px 8px rgba(245,124,0,0.35);
-  transition: transform 0.15s, box-shadow 0.15s;
+  width: 100%; padding: 12px 16px;
+  background: #F1C232;
+  color: #333; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
 }
-.home-report-banner:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245,124,0,0.45); }
+.home-report-banner:hover { background: #e6b52a; }
 .home-report-banner .material-icons:first-child { font-size: 22px; }
 
 /* ── メニューグリッド ── */
