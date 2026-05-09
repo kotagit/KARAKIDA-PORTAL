@@ -144,18 +144,14 @@ async function awConfirmAll() {
         confirmedBy: currentUser?.email || '', slots, topics,
       }, { merge: true });
 
-      const [ym, wn] = week.id.split('_');
-      const year  = parseInt(ym.substring(0,4)), month = parseInt(ym.substring(4,6));
-      const day   = (parseInt(wn) - 1) * 7 + 1;
-      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-
+      const thuDate = awGetThursdayDate(week) || new Date();
       const batch = db.batch();
       Object.entries(slots).forEach(([code, name]) => {
         if (!name || name === '（該当者なし）') return;
         const member = awMembers.find(mb => mb.name === name);
         batch.set(db.collection('assignmentHistory').doc(), {
           memberId: member?.memberId ?? null, memberName: name,
-          code: awGetBase(code), date: dateStr, weekId: week.id,
+          code: awGetBase(code), date: firebase.firestore.Timestamp.fromDate(thuDate),
         });
       });
       await batch.commit();
@@ -1074,12 +1070,9 @@ async function awConfirmAssignment() {
       slots,
     }, { merge: true });
 
-    // weekIdから日付を推定 (例: "202507_01" → 2025年7月1日)
-    const [ym, wn] = awCurrentWeekId.split('_');
-    const year  = parseInt(ym.substring(0, 4));
-    const month = parseInt(ym.substring(4, 6));
-    const day   = (parseInt(wn) - 1) * 7 + 1;
-    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    // 実際の木曜日の日付を取得
+    const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
+    const thuDate = (currentWeekObj && awGetThursdayDate(currentWeekObj)) || new Date();
 
     // assignmentHistoryにバッチ書き込み
     const batch = db.batch();
@@ -1092,8 +1085,7 @@ async function awConfirmAssignment() {
         memberId:   member?.memberId ?? null,
         memberName: name,
         code:       baseCode,
-        date:       dateStr,
-        weekId:     awCurrentWeekId,
+        date:       firebase.firestore.Timestamp.fromDate(thuDate),
       });
     });
     await batch.commit();
