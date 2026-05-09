@@ -1093,12 +1093,11 @@ async function loadJouhouContact() {
       { label: 'ふりがな', value: d.furigana },
       { label: 'グループ', value: d.group },
       { label: '性別', value: displayGender(d.gender) },
-      { label: '生年月日', value: tsToStr(d.birthDate) },
-      { label: 'バプテスマ日', value: tsToStr(d.baptismDate) },
-      { label: '携帯電話', value: d.phone },
+      { label: '生年月日', value: tsToStr(d.birthDay) },
+      { label: 'バプテスマ日', value: tsToStr(d.bapDate) },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
-      { label: '緊急連絡先', value: d.emergencyContact },
+      { label: '緊急連絡先', value: d.emergencyCall },
     ];
 
     let html = '<div class="form-container">';
@@ -1139,8 +1138,8 @@ async function loadJouhouCard() {
       name: memberName,
       group: String(d.group || '').trim(),
       gender: String(d.gender || '').trim(),
-      birthDate: tsToStr(d.birthDate),
-      baptismDate: tsToStr(d.baptismDate),
+      birthDate: tsToStr(d.birthDay),
+      baptismDate: tsToStr(d.bapDate),
       role: String(d.role || d.position || '').trim(),
       pioneer: String(d.pioneer || '').trim(),
     };
@@ -1593,8 +1592,8 @@ async function loadAdminReports() {
         group: String(data.group || '').trim(),
         role: String(data.role || data.position || '').trim(),
         gender: String(data.gender || '').trim(),
-        birthDate: tsToStr(data.birthDate),
-        baptismDate: tsToStr(data.baptismDate),
+        birthDate: tsToStr(data.birthDay),
+        baptismDate: tsToStr(data.bapDate),
         pioneer: String(data.pioneer || '').trim(),
       });
     });
