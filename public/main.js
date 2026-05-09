@@ -485,17 +485,41 @@ async function loadSchedule() {
   const list = document.getElementById('schedule-list');
   list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
+    const snap = await db.collection('SCHEDULE')
+      .where('type', '==', scheduleType)
+      .orderBy('date', 'asc').get();
     var now = new Date();
     var start = new Date(now.getFullYear(), now.getMonth(), 1);
     var end = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59);
-    const snap = await db.collection('SCHEDULE')
-      .where('type', '==', scheduleType)
-      .where('date', '>=', start)
-      .where('date', '<=', end)
-      .orderBy('date', 'asc').get();
-    renderSchedule(snap.docs);
+    var filtered = snap.docs.filter(function(doc) {
+      var d = doc.data();
+      var date = d.date && d.date.toDate ? d.date.toDate() : new Date(d.date);
+      return date >= start && date <= end;
+    });
+    renderSchedule(filtered);
   } catch (e) {
-    list.innerHTML = '<div class="loading">読み込みエラー: ' + e.message + '</div>';
+    console.error('loadSchedule error:', e);
+    // インデックス未作成の場合はフィルタなしで全件取得
+    try {
+      const snap2 = await db.collection('SCHEDULE')
+        .where('type', '==', scheduleType).get();
+      var now2 = new Date();
+      var start2 = new Date(now2.getFullYear(), now2.getMonth(), 1);
+      var end2 = new Date(now2.getFullYear(), now2.getMonth() + 2, 0, 23, 59, 59);
+      var filtered2 = snap2.docs.filter(function(doc) {
+        var d = doc.data();
+        var date = d.date && d.date.toDate ? d.date.toDate() : new Date(d.date);
+        return date >= start2 && date <= end2;
+      }).sort(function(a, b) {
+        var da = a.data().date, db2 = b.data().date;
+        da = da && da.toDate ? da.toDate() : new Date(da);
+        db2 = db2 && db2.toDate ? db2.toDate() : new Date(db2);
+        return da - db2;
+      });
+      renderSchedule(filtered2);
+    } catch (e2) {
+      list.innerHTML = '<div class="loading">読み込みエラー: ' + e2.message + '</div>';
+    }
   }
 }
 
