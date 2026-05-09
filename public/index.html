@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=64">
+  <link rel="stylesheet" href="style.css?v=65">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -230,6 +230,11 @@
               <span>会衆登録情報</span>
               <span class="material-icons senkyo-chevron">chevron_right</span>
             </button>
+            <button class="senkyo-menu-btn" onclick="navigate('jouhou-renraku')">
+              <span class="material-icons">phone_in_talk</span>
+              <span>連絡先情報</span>
+              <span class="material-icons senkyo-chevron">chevron_right</span>
+            </button>
             <button class="senkyo-menu-btn" onclick="navigate('jouhou-card')">
               <span class="material-icons">badge</span>
               <span>伝道者カード</span>
@@ -241,6 +246,13 @@
     </section>
 
     <!-- 連絡先情報 -->
+    <section id="page-jouhou-renraku" class="page">
+      <div class="page-content">
+        <div id="jouhou-renraku-view"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <!-- 会衆登録情報 -->
     <section id="page-jouhou-contact" class="page">
       <div class="page-content">
         <div id="jouhou-contact-view"><div class="loading">読み込み中...</div></div>
@@ -876,7 +888,7 @@
   </div>
 </div>
 
-<script src="main.js?v=57"></script>
+<script src="main.js?v=58"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>

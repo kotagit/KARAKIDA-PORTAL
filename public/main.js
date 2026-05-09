@@ -42,7 +42,7 @@ const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
   senkyo: '宣教', shukai: '集会', shinsei: 'フォーム',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
-  jouhou: '情報', 'jouhou-contact': '会衆登録情報', 'jouhou-card': '伝道者カード',
+  jouhou: '情報', 'jouhou-contact': '会衆登録情報', 'jouhou-renraku': '連絡先情報', 'jouhou-card': '伝道者カード',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
@@ -238,6 +238,7 @@ function navigate(page, pushHistory) {
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'jouhou-contact')        loadJouhouContact();
+  if (page === 'jouhou-renraku')       loadJouhouRenraku();
   if (page === 'jouhou-card')           loadJouhouCard();
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
@@ -997,7 +998,76 @@ function initAreaInfoForm() {
   };
 }
 
-// ── 情報：連絡先情報 ────────────────────────────────
+// ── 情報：連絡先情報（グループ監督・補佐） ──────────
+async function loadJouhouRenraku() {
+  const view = document.getElementById('jouhou-renraku-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    // ORG_CHARTから長老団（グループ監督・補佐）を取得
+    const [orgSnap, userSnap] = await Promise.all([
+      db.collection('ORG_CHART').where('section', '==', '長老団').orderBy('order', 'asc').get(),
+      db.collection('USER_LIST').get(),
+    ]);
+
+    // USER_LISTを名前でマップ
+    const userMap = {};
+    userSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      if (name) userMap[name] = data;
+    });
+
+    const groups = [];
+    orgSnap.docs.forEach(d => {
+      const data = d.data();
+      const dept = String(data.department || '').trim();
+      const sv = String(data.supervisor || '').trim();
+      const asst = String(data.assistant || '').trim();
+      if (dept && (sv || asst)) groups.push({ dept, sv, asst });
+    });
+
+    if (groups.length === 0) {
+      view.innerHTML = '<div class="empty-state">連絡先情報がありません</div>';
+      return;
+    }
+
+    let html = '';
+    groups.forEach(g => {
+      html += '<div class="renraku-group">';
+      html += '<div class="renraku-group-title">' + esc(g.dept) + '</div>';
+
+      if (g.sv) {
+        const u = userMap[g.sv] || {};
+        html += '<div class="renraku-card">';
+        html += '<div class="renraku-role">グループ監督</div>';
+        html += '<div class="renraku-name">' + esc(g.sv) + '</div>';
+        if (u.address) html += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(u.address) + '</div>';
+        if (u.phone) html += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(u.phone) + '">' + esc(u.phone) + '</a></div>';
+        html += '</div>';
+      }
+
+      if (g.asst) {
+        const u = userMap[g.asst] || {};
+        html += '<div class="renraku-card">';
+        html += '<div class="renraku-role">補佐</div>';
+        html += '<div class="renraku-name">' + esc(g.asst) + '</div>';
+        if (u.address) html += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(u.address) + '</div>';
+        if (u.phone) html += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(u.phone) + '">' + esc(u.phone) + '</a></div>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+    });
+
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── 情報：会衆登録情報 ────────────────────────────────
 async function loadJouhouContact() {
   const view = document.getElementById('jouhou-contact-view');
   if (!view) return;
