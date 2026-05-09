@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=62">
+  <link rel="stylesheet" href="style.css?v=63">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -141,6 +141,10 @@
           <div class="menu-item admin-tile" id="admin-manage-reports">
             <span class="menu-icon material-icons">summarize</span>
             <span class="menu-label">S-21</span>
+          </div>
+          <div class="menu-item admin-tile" id="admin-manage-report-check">
+            <span class="menu-icon material-icons">fact_check</span>
+            <span class="menu-label">奉仕報告</span>
           </div>
         </div>
         <div class="admin-section-tag">宣教</div>
@@ -618,6 +622,28 @@
       </div>
     </section>
 
+    <!-- 奉仕報告チェック -->
+    <section id="page-admin-report-check" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">奉仕報告</h2>
+      </div>
+      <div class="page-content">
+        <div class="rpt-toolbar">
+          <div class="rpt-toolbar-row">
+            <select id="rptchk-month-select" class="aw-toolbar-select"></select>
+            <span id="rptchk-summary" style="font-size:13px;color:var(--text-light);margin-left:8px"></span>
+          </div>
+          <div class="rpt-toolbar-row" style="margin-top:8px;gap:6px">
+            <button id="rptchk-filter-all" class="rpt-filter-btn rpt-filter-active">全員</button>
+            <button id="rptchk-filter-done" class="rpt-filter-btn">提出済</button>
+            <button id="rptchk-filter-none" class="rpt-filter-btn">未提出</button>
+          </div>
+        </div>
+        <div id="rptchk-view"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
     <!-- メンバー管理 -->
     <section id="page-admin-members" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
@@ -790,7 +816,7 @@
   </div>
 </div>
 
-<script src="main.js?v=50"></script>
+<script src="main.js?v=51"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>

@@ -48,6 +48,7 @@ const PAGE_TITLES = {
   'service-report': '奉仕報告提出',
   'admin-reports': '奉仕報告管理',
   'admin-report-card': '伝道者記録',
+  'admin-report-check': '奉仕報告',
   'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -244,6 +245,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-s13')                loadAdminS13Table();
   if (page === 'admin-reports')            loadAdminReports();
   if (page === 'admin-report-card')        loadAdminReportCard();
+  if (page === 'admin-report-check')       loadAdminReportCheck();
   if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
@@ -279,6 +281,10 @@ document.getElementById('admin-manage-org')?.addEventListener('click', () => {
 
 document.getElementById('admin-manage-reports')?.addEventListener('click', () => {
   navigate('admin-reports');
+});
+
+document.getElementById('admin-manage-report-check')?.addEventListener('click', () => {
+  navigate('admin-report-check');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -1538,6 +1544,168 @@ function renderReportCard(member, reportMap, year) {
 
   html += '</tbody></table></div>';
   html += '</div>';
+
+  view.innerHTML = html;
+}
+
+// ── 奉仕報告チェック（月別提出状況） ────────────────
+let rptChkFilter = 'all';
+let rptChkData = { members: [], reportMap: {} };
+
+async function loadAdminReportCheck() {
+  const view = document.getElementById('rptchk-view');
+  const monthSel = document.getElementById('rptchk-month-select');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  if (monthSel && monthSel.options.length === 0) {
+    const now = new Date();
+    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    for (let i = 0; i < 12; i++) {
+      let m = now.getMonth() - i;
+      let y = now.getFullYear();
+      if (m <= 0) { m += 12; y--; }
+      const opt = document.createElement('option');
+      opt.value = y + '-' + m;
+      opt.textContent = y + '年' + m + '月';
+      if (m === defMonth && y === defYear) opt.selected = true;
+      monthSel.appendChild(opt);
+    }
+    monthSel.addEventListener('change', () => loadReportCheckData());
+
+    document.getElementById('rptchk-filter-all')?.addEventListener('click', () => setRptChkFilter('all'));
+    document.getElementById('rptchk-filter-done')?.addEventListener('click', () => setRptChkFilter('done'));
+    document.getElementById('rptchk-filter-none')?.addEventListener('click', () => setRptChkFilter('none'));
+  }
+
+  await loadReportCheckData();
+}
+
+function setRptChkFilter(f) {
+  rptChkFilter = f;
+  document.querySelectorAll('#page-admin-report-check .rpt-filter-btn').forEach(b => b.classList.remove('rpt-filter-active'));
+  const id = f === 'all' ? 'rptchk-filter-all' : f === 'done' ? 'rptchk-filter-done' : 'rptchk-filter-none';
+  document.getElementById(id)?.classList.add('rpt-filter-active');
+  renderReportCheck();
+}
+
+async function loadReportCheckData() {
+  const view = document.getElementById('rptchk-view');
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  const monthSel = document.getElementById('rptchk-month-select');
+  const val = monthSel.value.split('-');
+  const year = parseInt(val[0]);
+  const month = parseInt(val[1]);
+
+  try {
+    const [userSnap, reportSnap] = await Promise.all([
+      db.collection('USER_LIST').get(),
+      db.collection('PREACHING_REPORT').where('month', '==', month).get(),
+    ]);
+
+    const members = [];
+    userSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      if (!name) return;
+      members.push({
+        name,
+        group: String(data.group || '').trim(),
+      });
+    });
+    members.sort((a, b) => {
+      if (a.group !== b.group) return a.group.localeCompare(b.group);
+      return a.name.localeCompare(b.name);
+    });
+
+    const reportMap = {};
+    reportSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+      if (!reportMap[name] || ts > reportMap[name]._ts) {
+        reportMap[name] = {
+          role: data.role || '',
+          participation: data.participation || '',
+          hours: data.hours,
+          bibleStudy: data.bibleStudy,
+          remarks: data.remarks || '',
+          _ts: ts,
+        };
+      }
+    });
+
+    rptChkData = { members, reportMap, month, year };
+    renderReportCheck();
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+function renderReportCheck() {
+  const view = document.getElementById('rptchk-view');
+  const { members, reportMap, month } = rptChkData;
+
+  let submitted = 0;
+  members.forEach(m => { if (reportMap[m.name]) submitted++; });
+  const summary = document.getElementById('rptchk-summary');
+  if (summary) summary.textContent = '提出: ' + submitted + ' / ' + members.length + '名';
+
+  const groups = {};
+  members.forEach(m => {
+    const report = reportMap[m.name] || null;
+    const isDone = !!report;
+    if (rptChkFilter === 'done' && !isDone) return;
+    if (rptChkFilter === 'none' && isDone) return;
+    const g = m.group || '未分類';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push({ ...m, report });
+  });
+
+  if (Object.keys(groups).length === 0) {
+    view.innerHTML = '<div class="empty-state"><span class="material-icons">search_off</span>該当するデータがありません</div>';
+    return;
+  }
+
+  let html = '';
+  Object.keys(groups).sort().forEach(groupName => {
+    const list = groups[groupName];
+    html += '<div class="rpt-group">';
+    html += '<div class="rpt-group-title">' + esc(groupName) + '</div>';
+    html += '<table class="rpt-table"><thead><tr>';
+    html += '<th>氏名</th><th>立場</th><th>参加/時間</th><th>研究</th><th>状態</th>';
+    html += '</tr></thead><tbody>';
+
+    list.forEach(item => {
+      const r = item.report;
+      if (r) {
+        const isEv = r.role === '伝道者';
+        const activity = isEv ? (r.participation || '-') : (r.hours != null ? r.hours + '時間' : '-');
+        html += '<tr>';
+        html += '<td>' + esc(item.name) + '</td>';
+        html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
+        html += '<td class="rpt-cell-sm">' + esc(activity) + '</td>';
+        html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
+        html += '<td><span class="rpt-badge-done">✓ 提出済</span></td>';
+        html += '</tr>';
+        if (r.remarks) {
+          html += '<tr><td colspan="5" class="rpt-remarks">備考: ' + esc(r.remarks) + '</td></tr>';
+        }
+      } else {
+        html += '<tr class="rpt-row-none">';
+        html += '<td>' + esc(item.name) + '</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td><span class="rpt-badge-none">未提出</span></td>';
+        html += '</tr>';
+      }
+    });
+
+    html += '</tbody></table></div>';
+  });
 
   view.innerHTML = html;
 }
