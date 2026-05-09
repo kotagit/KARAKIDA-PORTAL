@@ -730,8 +730,8 @@ body {
   background: white; box-shadow: var(--shadow); border-radius: 6px; overflow: hidden;
 }
 .org-xl th, .org-xl td {
-  border: 1px solid #bbb; padding: 4px 7px; vertical-align: middle;
-  white-space: nowrap; text-align: center;
+  border: 1px solid #bbb; padding: 4px 7px 4px 1em; vertical-align: middle;
+  white-space: nowrap; text-align: left;
 }
 .org-xl thead th {
   background: #d9e2f3; color: #333; font-weight: bold; font-size: 11px;
@@ -740,7 +740,7 @@ body {
 .org-xl-sec {
   background: #4472c4; color: white; font-weight: bold; font-size: 13px;
   letter-spacing: 4px; width: 28px; min-width: 28px; padding: 8px 2px;
-  line-height: 1.4;
+  line-height: 1.4; text-align: center;
 }
 .org-xl-sec-bottom { background: #2e75b6; }
 .org-xl-role {
