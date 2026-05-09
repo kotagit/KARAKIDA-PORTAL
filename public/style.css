@@ -601,11 +601,10 @@ body {
 .aw-editor-insert-btn:hover { opacity: 1; background: var(--primary-light); }
 .aw-editor-insert-btn .material-icons { font-size: 14px; }
 
-.aw-topic-row { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.aw-topic-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .aw-topic-input {
-  display: block; margin-top: 4px; width: 100%; max-width: 260px;
-  padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
-  font-size: 0.85rem; color: var(--text);
+  flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; color: var(--text); font-family: inherit;
 }
 
 .aw-elder-table-wrap {

@@ -447,6 +447,12 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
     if (item.title === '閉会の言葉') {
       assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
     } else if (item.codes && item.codes.length > 0) {
+      const isTopicItem = item.codes.some(c => awGetBase(c) === 'T') || (item.title && item.title.includes('会衆で考えたいこと'));
+      let topicKey = '';
+      if (isTopicItem) {
+        const tc = item.codes.find(c => awGetBase(c) === 'T');
+        topicKey = tc ? 'T' : awGetBase(item.codes[0]);
+      }
       assigneeCells = item.codes.map(code => {
         const base     = awGetBase(code);
         const label    = awCodes[base] || base;
@@ -455,25 +461,24 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
         const opts     = eligible.map(mb =>
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
-        const needsTopic = base === 'T' || (item.title && item.title.includes('会衆で考えたいこと'));
-        const topicKey = needsTopic ? base : '';
-        const topicHtml = needsTopic
-          ? `<div class="aw-topic-row">
-               <input class="aw-topic-input" data-code="${esc(topicKey)}" type="text"
-                 placeholder="主題を入力" value="${esc(topics[topicKey] || '')}">
-               <button class="aw-topic-save-btn icon-btn" title="主題を保存" data-week-id="${esc(weekId||'')}">
-                 <span class="material-icons" style="font-size:18px">save</span>
-               </button>
-             </div>`
-          : '';
         const shortLabels = {A:'司会者',B:'祈り',W:'祈り',E:'朗読者',H:'担当',J:'担当',L:'担当',N:'担当',I:'相手',K:'相手',M:'相手',O:'相手',V:'朗読者'};
         const shortLabel = shortLabels[base] || '';
         return `<div class="aw-slot">
           ${shortLabel ? `<label class="aw-slot-label">${esc(shortLabel)}</label>` : ''}
           <select class="aw-slot-select" data-code="${esc(code)}">
             <option value="">—</option>${opts}
-          </select>${topicHtml}</div>`;
+          </select></div>`;
       }).join('');
+      if (isTopicItem && topicKey) {
+        assigneeCells += `<div class="aw-topic-row">
+          <label class="aw-slot-label">主題</label>
+          <input class="aw-topic-input" data-code="${esc(topicKey)}" type="text"
+            placeholder="主題を入力" value="${esc(topics[topicKey] || '')}">
+          <button class="aw-topic-save-btn icon-btn" title="主題を保存" data-week-id="${esc(weekId||'')}">
+            <span class="material-icons" style="font-size:18px">save</span>
+          </button>
+        </div>`;
+      }
     }
 
     const row = document.createElement('div');
