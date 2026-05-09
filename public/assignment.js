@@ -1417,23 +1417,38 @@ async function loadAssignmentWeekDisplay() {
       const thuLabel = awGetThursdayLabel(week);
       const items = week.items || [];
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'aw-shukai-week-title';
-      titleEl.textContent = `${thuLabel} の集会`;
-      container.appendChild(titleEl);
+      // カードパネル（管理画面と同じ構造）
+      const section = document.createElement('div');
+      section.className = 'aw-inline-section';
 
-      let prevSection = '', minutesOffset = 0;
+      // 青いヘッダー
+      const hdr = document.createElement('div');
+      hdr.className = 'aw-inline-header';
+      hdr.innerHTML = `
+        <div>
+          <div class="aw-inline-title">${esc(thuLabel)}</div>
+          <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
+        </div>
+        <span class="aw-status-badge aw-badge-confirmed">確定</span>
+      `;
+      section.appendChild(hdr);
+
+      // コンテンツ部分
+      const tableDiv = document.createElement('div');
+      tableDiv.className = 'aw-week-table';
+
+      let prevSec = '', minutesOffset = 0;
 
       items.forEach(item => {
-        const section = item.section;
-        if (section !== prevSection && section !== '開会') {
-          if (section === 'クリスチャンとして生活する') minutesOffset = 47;
-          const hdr = document.createElement('div');
-          hdr.className = 'aw-section-header';
-          hdr.style.background = AW_SECTION_COLORS[section] || '#333';
-          hdr.textContent = section;
-          container.appendChild(hdr);
-          prevSection = section;
+        const sec = item.section;
+        if (sec !== prevSec && sec !== '開会') {
+          if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
+          const secHdr = document.createElement('div');
+          secHdr.className = 'aw-section-header';
+          secHdr.style.background = AW_SECTION_COLORS[sec] || '#333';
+          secHdr.textContent = sec;
+          tableDiv.appendChild(secHdr);
+          prevSec = sec;
         }
 
         const h = 19 + Math.floor(minutesOffset / 60);
@@ -1464,27 +1479,39 @@ async function loadAssignmentWeekDisplay() {
           assigneeText = parts.join('、');
         }
 
-        const codes = item.codes || [];
+        const itemCodes = item.codes || [];
         let topicText = '';
-        if (codes.includes('T')) topicText = topics['T'] || '';
+        if (itemCodes.includes('T')) topicText = topics['T'] || '';
         else if (item.title && item.title.includes('会衆で考えたいこと')) {
-          const tCode = codes.find(c => topics[awGetBase(c)]);
+          const tCode = itemCodes.find(c => topics[awGetBase(c)]);
           if (tCode) topicText = topics[awGetBase(tCode)] || '';
         }
 
         const row = document.createElement('div');
-        row.className = 'aw-shukai-row';
+        row.className = 'aw-row';
         row.innerHTML = `
-          <div class="aw-shukai-time">${timeStr}</div>
-          <div class="aw-shukai-info">
-            <div class="aw-shukai-title">${esc(item.title)}</div>
-            ${topicText ? `<div class="aw-shukai-topic">${esc(topicText)}</div>` : ''}
+          <div class="aw-row-time">${timeStr}</div>
+          <div class="aw-row-info">
+            ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+            <span class="aw-row-title">${esc(item.title)}</span>
+            ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
           </div>
-          <div class="aw-shukai-name">${esc(assigneeText)}</div>
+          <div class="aw-row-assignees" style="font-size:0.9rem;color:var(--text)">${esc(assigneeText)}</div>
         `;
-        container.appendChild(row);
+        tableDiv.appendChild(row);
+
+        if (topicText) {
+          const topicRow = document.createElement('div');
+          topicRow.className = 'aw-topic-row-full';
+          topicRow.innerHTML = `<label class="aw-topic-label">主題</label><span style="font-size:13px">${esc(topicText)}</span>`;
+          tableDiv.appendChild(topicRow);
+        }
+
         minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
       });
+
+      section.appendChild(tableDiv);
+      container.appendChild(section);
     });
 
   } catch(e) {
