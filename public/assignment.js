@@ -327,7 +327,7 @@ function awRenderCreateList() {
 // 週の木曜日の Date を返す
 function awGetThursdayDate(week) {
   if (!week.dateRange) return null;
-  const m = week.dateRange.match(/^(\d+)月(\d+)日/);
+  const m = week.dateRange.match(/^(\d+)月(\d+)/);
   if (!m) return null;
   const issueYear  = parseInt(week.id.substring(0, 4));
   const issueMonth = parseInt(week.id.substring(4, 6));
@@ -343,9 +343,7 @@ function awGetThursdayDate(week) {
 
 // 週の開始日（月曜）から木曜日の日付を算出して表示
 function awGetThursdayLabel(week) {
-  const d = awGetThursdayDate(week);
-  if (!d) return week.dateRange || week.id;
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  return week.dateRange || week.id;
 }
 
 function awBuildWeekSection(week, container) {
