@@ -156,7 +156,7 @@ function navigate(page) {
   if (page === 'senkyo')   loadLinks('senkyo');
   if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
   if (page === 'shinsei')  loadLinks('shinsei');
-  if (page === 'soshiki')  loadLinks('soshiki');
+  if (page === 'soshiki')  loadOrgView();
   if (page === 'gyoji')    loadLinks('gyoji');
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'admin-announcements') loadAdminAnnouncements();
@@ -1123,6 +1123,122 @@ async function loadAdminS13Table() {
 
 var orgData = [];
 var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
+
+async function loadOrgView() {
+  const view = document.getElementById('org-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
+    const allData = snap.docs.map(doc => doc.data());
+
+    const elders = allData.filter(d => d.section === '長老団');
+    const committee = allData.filter(d => d.section === '奉仕委員会');
+    const rest = allData.filter(d => d.section === '集会' || d.section === 'その他');
+
+    function mRows(item) {
+      const m = Array.isArray(item.members) ? item.members : [];
+      return Math.max(1, Math.ceil(m.length / 3));
+    }
+
+    // 奉仕委員会の部門を長老団の役職に紐付け
+    var roleGroups = [];
+    if (elders.length === 3 && committee.length >= 3) {
+      var splits = [3, 2, committee.length - 5];
+      if (committee.length === 8) splits = [3, 2, 3];
+      var idx = 0;
+      for (var e = 0; e < 3; e++) {
+        var g = { role: elders[e], depts: committee.slice(idx, idx + splits[e]) };
+        idx += splits[e];
+        roleGroups.push(g);
+      }
+    } else {
+      var per = Math.ceil(committee.length / Math.max(elders.length, 1));
+      for (var e = 0; e < elders.length; e++) {
+        roleGroups.push({ role: elders[e], depts: committee.slice(e * per, (e + 1) * per) });
+      }
+    }
+
+    // 行数計算
+    var colors = ['#e8f5e9', '#fff3e0', '#e3f2fd'];
+    for (var i = 0; i < roleGroups.length; i++) {
+      var g = roleGroups[i];
+      g.totalRows = g.depts.reduce(function(s, d) { return s + mRows(d); }, 0);
+      g.color = colors[i % colors.length];
+    }
+    var totalCommRows = roleGroups.reduce(function(s, g) { return s + g.totalRows; }, 0);
+
+    var html = '<div class="org-xl-wrap">';
+    html += '<h3 class="org-xl-title">東京都多摩市唐木田会衆　組織表</h3>';
+    html += '<div class="org-xl-scroll"><table class="org-xl">';
+    html += '<thead><tr><th colspan="2"></th><th>監督</th><th>補佐</th><th>部門</th><th>責任者</th><th colspan="3">奉仕者</th></tr></thead>';
+    html += '<tbody>';
+
+    var firstRole = true;
+    for (var gi = 0; gi < roleGroups.length; gi++) {
+      var g = roleGroups[gi];
+      var firstDept = true;
+      for (var di = 0; di < g.depts.length; di++) {
+        var dept = g.depts[di];
+        var rows = mRows(dept);
+        var members = Array.isArray(dept.members) ? dept.members : [];
+        for (var r = 0; r < rows; r++) {
+          html += '<tr>';
+          if (firstRole && firstDept && r === 0)
+            html += '<td class="org-xl-sec" rowspan="' + totalCommRows + '">奉<br>仕<br>委<br>員<br>会</td>';
+          if (firstDept && r === 0) {
+            html += '<td class="org-xl-role" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.department || '') + '</td>';
+            html += '<td class="org-xl-sv" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.supervisor || '') + '</td>';
+            html += '<td style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.assistant || '') + '</td>';
+          }
+          if (r === 0) {
+            html += '<td class="org-xl-dept"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.department || '') + '</td>';
+            html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.responsible || '') + '</td>';
+          }
+          for (var c = 0; c < 3; c++) {
+            var mi = r * 3 + c;
+            html += '<td class="org-xl-m">' + (mi < members.length ? esc(members[mi]) : '') + '</td>';
+          }
+          html += '</tr>';
+        }
+        firstDept = false;
+      }
+      firstRole = false;
+    }
+
+    // 下段: 長老団
+    if (rest.length > 0) {
+      var totalRestRows = rest.reduce(function(s, d) { return s + mRows(d); }, 0);
+      var firstRest = true;
+      for (var ri = 0; ri < rest.length; ri++) {
+        var item = rest[ri];
+        var rows = mRows(item);
+        var members = Array.isArray(item.members) ? item.members : [];
+        for (var r = 0; r < rows; r++) {
+          html += '<tr class="org-xl-bottom">';
+          if (firstRest && r === 0)
+            html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + totalRestRows + '">長<br>老<br>団</td>';
+          if (r === 0) {
+            html += '<td class="org-xl-dept" colspan="3"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.department || '') + '</td>';
+            html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.responsible || '') + '</td>';
+          }
+          for (var c = 0; c < 3; c++) {
+            var mi = r * 3 + c;
+            html += '<td class="org-xl-m">' + (mi < members.length ? esc(members[mi]) : '') + '</td>';
+          }
+          html += '</tr>';
+        }
+        firstRest = false;
+      }
+    }
+
+    html += '</tbody></table></div></div>';
+    view.innerHTML = html;
+  } catch (e) {
+    console.error('loadOrgView error:', e);
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+  }
+}
 
 async function loadOrgEditor() {
   const editor = document.getElementById('org-editor');
