@@ -341,10 +341,13 @@ function awGetMeetingDate(week) {
 // 後方互換
 function awGetThursdayDate(week) { return awGetMeetingDate(week); }
 
-// 週の開始日（月曜）から木曜日の日付を算出して表示
-function awGetThursdayLabel(week) {
-  return week.dateRange || week.id;
+function awGetMeetingLabel(week) {
+  const d = awGetMeetingDate(week);
+  if (!d) return week.dateRange || week.id;
+  const dayNames = ['日','月','火','水','木','金','土'];
+  return `${d.getMonth()+1}月${d.getDate()}日（${dayNames[d.getDay()]}）`;
 }
+function awGetThursdayLabel(week) { return awGetMeetingLabel(week); }
 
 function awBuildWeekSection(week, container) {
   const st       = week.assignmentStatus || 'none';
@@ -1404,8 +1407,7 @@ async function loadAssignmentWeekDisplay() {
 
       const titleEl = document.createElement('div');
       titleEl.className = 'aw-shukai-week-title';
-      const dayNames = ['日','月','火','水','木','金','土'];
-      titleEl.textContent = `${thuLabel}（${dayNames[awGetMeetingDayNum()]}）の集会`;
+      titleEl.textContent = `${thuLabel} の集会`;
       container.appendChild(titleEl);
 
       let prevSection = '', minutesOffset = 0;
