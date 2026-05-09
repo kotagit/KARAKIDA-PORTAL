@@ -1088,7 +1088,7 @@ async function loadJouhouContact() {
       { label: '氏名', value: d.name },
       { label: 'ふりがな', value: d.furigana },
       { label: 'グループ', value: d.group },
-      { label: '性別', value: d.gender },
+      { label: '性別', value: displayGender(d.gender) },
       { label: '生年月日', value: d.birthDate },
       { label: 'バプテスマ日', value: d.baptismDate },
       { label: '電話番号', value: d.phone },
@@ -1291,6 +1291,7 @@ async function initServiceReportForm() {
         hours: isEv ? null : parseInt(hours) || 0,
         bibleStudy: parseInt(bible) || 0,
         remarks,
+        year: new Date().getFullYear(),
         timestamp: firebase.firestore.Timestamp.now(),
       };
       if (isOther) reportData.submittedBy = memberUserName || '';
@@ -1610,8 +1611,21 @@ function setRptFilter(f) {
 }
 
 function isPioneer(m) {
-  const p = (m.pioneer || m.role || '').toLowerCase();
-  return p.includes('開拓');
+  const p = (m.pioneer || m.role || '');
+  return p.includes('開拓') || p === 'RP';
+}
+
+function displayGender(g) {
+  if (g === 'M') return '男性';
+  if (g === 'F') return '女性';
+  return g || '-';
+}
+
+function displayRole(m) {
+  const r = m.pioneer || m.role || '';
+  if (r === 'RP') return '正規開拓者';
+  if (r.includes('開拓')) return r;
+  return '伝道者';
 }
 
 function renderAdminReportsIndex() {
@@ -1645,7 +1659,7 @@ function renderAdminReportsIndex() {
     html += '<div class="rpt-group-title">' + esc(groupName) + '（' + list.length + '名）</div>';
     html += '<div class="rpt-member-list">';
     list.forEach(m => {
-      const roleLabel = isPioneer(m) ? (m.pioneer || m.role || '開拓者') : '伝道者';
+      const roleLabel = displayRole(m);
       const roleBadge = isPioneer(m) ? 'rpt-role-pioneer' : 'rpt-role-pub';
       html += '<div class="rpt-member-row" onclick="openReportCard(\'' + esc(m.id) + '\')">';
       html += '<span class="material-icons rpt-member-icon">person</span>';
@@ -1729,11 +1743,11 @@ function renderReportCard(member, reportMap, year, targetViewId) {
   html += '<div class="s21-title">伝道者記録カード（S-21）</div>';
   html += '<table class="s21-info-table">';
   html += '<tr><td class="s21-info-label">氏名</td><td class="s21-info-value">' + esc(member.name) + '</td>';
-  html += '<td class="s21-info-label">性別</td><td class="s21-info-value">' + esc(member.gender || '-') + '</td></tr>';
+  html += '<td class="s21-info-label">性別</td><td class="s21-info-value">' + esc(displayGender(member.gender)) + '</td></tr>';
   html += '<tr><td class="s21-info-label">生年月日</td><td class="s21-info-value">' + esc(member.birthDate || '-') + '</td>';
   html += '<td class="s21-info-label">バプテスマ日</td><td class="s21-info-value">' + esc(member.baptismDate || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value">' + esc(member.group || '-') + '</td>';
-  const roleLabel = isPioneer(member) ? (member.pioneer || member.role || '開拓者') : '伝道者';
+  const roleLabel = displayRole(member);
   html += '<td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td></tr>';
   html += '</table></div>';
 
