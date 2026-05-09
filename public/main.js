@@ -45,6 +45,7 @@ const PAGE_TITLES = {
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
   'admin-s13': '区域割当ての記録',
+  'admin-org': '組織表管理',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -164,6 +165,7 @@ function navigate(page) {
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-s13')                loadAdminS13Table();
+  if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -190,6 +192,10 @@ document.getElementById('admin-manage-members')?.addEventListener('click', () =>
 
 document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
   navigate('admin-s13');
+});
+
+document.getElementById('admin-manage-org')?.addEventListener('click', () => {
+  navigate('admin-org');
 });
 
 // メニューグリッドのクリック
@@ -1110,5 +1116,161 @@ async function loadAdminS13Table() {
   } catch (e) {
     console.error('S-13 load error:', e);
     grid.innerHTML = `<div class="empty-state">エラーが発生しました: ${e.message}</div>`;
+  }
+}
+
+// ── 組織表管理 ────────────────────────────────
+
+var orgData = [];
+var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
+
+async function loadOrgEditor() {
+  const editor = document.getElementById('org-editor');
+  editor.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
+    orgData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderOrgEditor();
+  } catch (e) {
+    console.error('ORG_CHART load error:', e);
+    editor.innerHTML = `<div class="empty-state">エラー: ${e.message}</div>`;
+  }
+}
+
+function renderOrgEditor() {
+  const editor = document.getElementById('org-editor');
+  let html = '<div class="org-editor-wrap">';
+
+  for (const section of orgSections) {
+    const items = orgData.filter(d => d.section === section);
+    html += `<div class="org-section">
+      <div class="org-section-header">
+        <h3>${esc(section)}</h3>
+        <button class="btn-small org-add-btn" data-section="${esc(section)}">＋ 追加</button>
+      </div>
+      <div class="org-section-body">`;
+
+    for (const item of items) {
+      html += renderOrgRow(item);
+    }
+
+    html += '</div></div>';
+  }
+
+  html += '</div>';
+  editor.innerHTML = html;
+
+  editor.querySelectorAll('.org-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => orgAddRow(btn.dataset.section));
+  });
+  editor.querySelectorAll('.org-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => orgSaveRow(btn.dataset.id));
+  });
+  editor.querySelectorAll('.org-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => orgDeleteRow(btn.dataset.id));
+  });
+}
+
+function renderOrgRow(item) {
+  const membersStr = Array.isArray(item.members) ? item.members.join(', ') : (item.members || '');
+  return `<div class="org-row" data-id="${esc(item.id)}">
+    <div class="org-fields">
+      <div class="org-field">
+        <label>部門 / 役割</label>
+        <input type="text" class="org-input org-f-dept" value="${esc(item.department || item.role || '')}" data-id="${esc(item.id)}">
+      </div>
+      <div class="org-field">
+        <label>監督</label>
+        <input type="text" class="org-input org-f-sv" value="${esc(item.supervisor || '')}" data-id="${esc(item.id)}">
+      </div>
+      <div class="org-field">
+        <label>補佐</label>
+        <input type="text" class="org-input org-f-asst" value="${esc(item.assistant || '')}" data-id="${esc(item.id)}">
+      </div>
+      <div class="org-field">
+        <label>責任者</label>
+        <input type="text" class="org-input org-f-resp" value="${esc(item.responsible || '')}" data-id="${esc(item.id)}">
+      </div>
+      <div class="org-field org-field-wide">
+        <label>奉仕者</label>
+        <input type="text" class="org-input org-f-members" value="${esc(membersStr)}" data-id="${esc(item.id)}" placeholder="カンマ区切り">
+      </div>
+    </div>
+    <div class="org-actions">
+      <button class="btn-small org-save-btn" data-id="${esc(item.id)}">保存</button>
+      <button class="btn-small btn-danger org-delete-btn" data-id="${esc(item.id)}">削除</button>
+    </div>
+  </div>`;
+}
+
+async function orgSaveRow(id) {
+  const row = document.querySelector(`.org-row[data-id="${id}"]`);
+  if (!row) return;
+  const dept = row.querySelector('.org-f-dept').value.trim();
+  const sv = row.querySelector('.org-f-sv').value.trim();
+  const asst = row.querySelector('.org-f-asst').value.trim();
+  const resp = row.querySelector('.org-f-resp').value.trim();
+  const membersRaw = row.querySelector('.org-f-members').value.trim();
+  const members = membersRaw ? membersRaw.split(/[,、]/).map(s => s.trim()).filter(Boolean) : [];
+
+  const item = orgData.find(d => d.id === id);
+  if (!item) return;
+
+  const isRole = ['調整者', '書記', '奉仕監督'].includes(dept);
+  const data = {
+    section: item.section,
+    role: isRole ? '' : '',
+    department: dept,
+    supervisor: sv,
+    assistant: asst,
+    responsible: resp,
+    members: members,
+    order: item.order,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+
+  try {
+    await db.collection('ORG_CHART').doc(id).set(data);
+    item.department = dept;
+    item.supervisor = sv;
+    item.assistant = asst;
+    item.responsible = resp;
+    item.members = members;
+    alert('保存しました');
+  } catch (e) {
+    alert('エラー: ' + e.message);
+  }
+}
+
+async function orgDeleteRow(id) {
+  if (!confirm('この行を削除しますか？')) return;
+  try {
+    await db.collection('ORG_CHART').doc(id).delete();
+    orgData = orgData.filter(d => d.id !== id);
+    renderOrgEditor();
+  } catch (e) {
+    alert('エラー: ' + e.message);
+  }
+}
+
+async function orgAddRow(section) {
+  const maxOrder = orgData.reduce((m, d) => Math.max(m, d.order || 0), 0);
+  const data = {
+    section: section,
+    role: '',
+    department: '',
+    supervisor: '',
+    assistant: '',
+    responsible: '',
+    members: [],
+    order: maxOrder + 1,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  try {
+    const ref = await db.collection('ORG_CHART').add(data);
+    orgData.push({ id: ref.id, ...data });
+    renderOrgEditor();
+  } catch (e) {
+    alert('エラー: ' + e.message);
   }
 }
