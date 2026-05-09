@@ -45,6 +45,8 @@ const PAGE_TITLES = {
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
+  'service-report': '奉仕報告提出',
+  'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
   'admin-schedule-editor': 'スケジュール編集',
@@ -185,7 +187,7 @@ function navigate(page, pushHistory) {
     backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
   } else if (page.startsWith('senkyo-')) {
     backBtn._backTarget = 'senkyo';
-  } else if (page === 'member-info' || page === 'area-info') {
+  } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply') {
     backBtn._backTarget = 'shinsei';
   } else if (page.startsWith('admin-')) {
     const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
@@ -217,6 +219,8 @@ function navigate(page, pushHistory) {
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
   if (page === 'area-info')             initAreaInfoForm();
+  if (page === 'service-report')        initServiceReportForm();
+  if (page === 'pw-apply')              loadPwApply();
   if (page === 'admin-assignment')         initAssignmentPage();
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
@@ -516,6 +520,26 @@ async function loadLinks(section) {
       `;
       areaInfoItem.addEventListener('click', () => navigate('area-info'));
       listEl.appendChild(areaInfoItem);
+
+      const srItem = document.createElement('div');
+      srItem.className = 'link-item';
+      srItem.style.cursor = 'pointer';
+      srItem.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">summarize</span></div>
+        <span class="link-item-label">奉仕報告提出</span>
+      `;
+      srItem.addEventListener('click', () => navigate('service-report'));
+      listEl.appendChild(srItem);
+
+      const pwItem = document.createElement('div');
+      pwItem.className = 'link-item';
+      pwItem.style.cursor = 'pointer';
+      pwItem.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">location_city</span></div>
+        <span class="link-item-label">公共エリア伝道申込み</span>
+      `;
+      pwItem.addEventListener('click', () => navigate('pw-apply'));
+      listEl.appendChild(pwItem);
     }
 
     if (!snap.empty) {
@@ -558,6 +582,26 @@ async function loadLinks(section) {
       `;
       areaInfoItem2.addEventListener('click', () => navigate('area-info'));
       listEl.appendChild(areaInfoItem2);
+
+      const srItem2 = document.createElement('div');
+      srItem2.className = 'link-item';
+      srItem2.style.cursor = 'pointer';
+      srItem2.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">summarize</span></div>
+        <span class="link-item-label">奉仕報告提出</span>
+      `;
+      srItem2.addEventListener('click', () => navigate('service-report'));
+      listEl.appendChild(srItem2);
+
+      const pwItem2 = document.createElement('div');
+      pwItem2.className = 'link-item';
+      pwItem2.style.cursor = 'pointer';
+      pwItem2.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">location_city</span></div>
+        <span class="link-item-label">公共エリア伝道申込み</span>
+      `;
+      pwItem2.addEventListener('click', () => navigate('pw-apply'));
+      listEl.appendChild(pwItem2);
     } else {
       listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
     }
@@ -967,6 +1011,275 @@ function initAreaInfoForm() {
       btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
     }
   };
+}
+
+// ── 奉仕報告提出 ────────────────────────────────
+function initServiceReportForm() {
+  document.getElementById('sr-name').value = memberUserName || '';
+  document.getElementById('sr-group').value = memberUserGroup || '';
+
+  // 月プルダウン（デフォルト：先月）
+  const monthSel = document.getElementById('sr-month');
+  if (monthSel && monthSel.options.length <= 1) {
+    monthSel.innerHTML = '';
+    const now = new Date();
+    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth(); // 先月
+    for (let m = 1; m <= 12; m++) {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m + '月';
+      if (m === defMonth) opt.selected = true;
+      monthSel.appendChild(opt);
+    }
+  }
+
+  // 立場切替で伝道参加/時間の表示切替
+  const roleSel = document.getElementById('sr-role');
+  const partRow = document.getElementById('sr-participation-row');
+  const hoursRow = document.getElementById('sr-hours-row');
+  function toggleRoleFields() {
+    const isEv = roleSel.value === '伝道者';
+    partRow.classList.toggle('hidden', !isEv);
+    hoursRow.classList.toggle('hidden', isEv);
+  }
+  roleSel.onchange = toggleRoleFields;
+  toggleRoleFields();
+
+  // 送信
+  const btn = document.getElementById('sr-submit');
+  btn.onclick = async () => {
+    const gender = document.getElementById('sr-gender').value;
+    const month = parseInt(document.getElementById('sr-month').value);
+    const role = roleSel.value;
+    const participation = document.getElementById('sr-participation').value;
+    const hours = document.getElementById('sr-hours').value.trim();
+    const bible = document.getElementById('sr-bible').value.trim();
+    const remarks = document.getElementById('sr-remarks').value.trim();
+
+    if (!gender) { alert('性別を選択してください'); return; }
+    if (role === '伝道者' && !participation) { alert('伝道に参加したか選択してください'); return; }
+    if (role !== '伝道者' && !hours) { alert('時間を入力してください'); return; }
+
+    const isEv = role === '伝道者';
+    let msg = '【送信内容の確認】\n';
+    msg += '氏名: ' + (memberUserName || '') + '\n';
+    msg += 'グループ: ' + (memberUserGroup || '') + '\n';
+    msg += '性別: ' + gender + '\n';
+    msg += '月: ' + month + '月\n';
+    msg += '立場: ' + role + '\n';
+    if (isEv) msg += '伝道に参加: ' + participation + '\n';
+    else msg += '時間: ' + hours + '時間\n';
+    msg += '聖書研究: ' + (bible || '0') + '\n';
+    if (remarks) msg += '備考: ' + remarks + '\n';
+    msg += '\n送信しますか？';
+    if (!confirm(msg)) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
+
+    try {
+      await db.collection('PREACHING_REPORT').add({
+        name: memberUserName || '不明',
+        furigana: '',
+        groupName: memberUserGroup || '',
+        gender,
+        month,
+        role,
+        participation: isEv ? participation : null,
+        hours: isEv ? null : parseInt(hours) || 0,
+        bibleStudy: parseInt(bible) || 0,
+        remarks,
+        timestamp: firebase.firestore.Timestamp.now(),
+      });
+      alert('送信しました');
+      document.getElementById('sr-gender').value = '';
+      document.getElementById('sr-participation').value = '';
+      document.getElementById('sr-hours').value = '';
+      document.getElementById('sr-bible').value = '';
+      document.getElementById('sr-remarks').value = '';
+      navigate('shinsei');
+    } catch (err) {
+      alert('送信エラー: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+    }
+  };
+}
+
+// ── 公共エリア伝道申込み ────────────────────────
+const PW_ROLES = ['参加者', '司会者（カート有）', 'カート運搬車', '司会者（カート無）'];
+let pwApplySelected = {};  // key → role
+
+async function loadPwApply() {
+  const container = document.getElementById('pw-apply-view');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  pwApplySelected = {};
+
+  try {
+    const snap = await db.collection('PUBLIC_WITNESSING_OPTIONS').orderBy('order', 'asc').get();
+    const items = [];
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const day = String(data.day || '');
+      const place = String(data.place || '');
+      if (!day && !place) return;
+      items.push({
+        key: d.id || (day + '_' + data.starttime + '_' + place),
+        date: day,
+        weekday: String(data.dayofweek || ''),
+        startTime: String(data.starttime || ''),
+        endTime: String(data.endtime || ''),
+        place: place,
+      });
+    });
+
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-state"><span class="material-icons">event_busy</span>現在申込み可能な日程がありません</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+
+    // ヘッダー
+    const hdr = document.createElement('div');
+    hdr.className = 'pwa-header';
+    hdr.innerHTML = '<span style="width:36px"></span><span>日付</span><span>曜日</span><span>時間</span><span>場所</span>';
+    container.appendChild(hdr);
+
+    // 各項目
+    items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'pwa-card';
+      card.dataset.key = item.key;
+
+      const placeClass = item.place.includes('唐木田') ? 'pwa-place-green' : item.place.includes('堀之内') ? 'pwa-place-blue' : '';
+      const wdClass = (item.weekday === '土' || item.weekday === '日') ? ' style="color:#c41c3b"' : '';
+
+      card.innerHTML = `
+        <div class="pwa-row-main">
+          <span class="pwa-check"><span class="material-icons">check_circle_outline</span></span>
+          <span class="pwa-col">${esc(item.date)}</span>
+          <span class="pwa-col"${wdClass}>${esc(item.weekday)}</span>
+          <span class="pwa-col">${esc(item.startTime)}</span>
+          <span class="pwa-col ${placeClass}">${esc(item.place)}</span>
+        </div>
+        <div class="pwa-roles hidden"></div>
+      `;
+
+      const mainRow = card.querySelector('.pwa-row-main');
+      const rolesDiv = card.querySelector('.pwa-roles');
+
+      // 役割ラジオボタン
+      PW_ROLES.forEach(role => {
+        const label = document.createElement('label');
+        label.className = 'pwa-role-label';
+        label.innerHTML = `<span class="material-icons pwa-radio">radio_button_unchecked</span><span>${esc(role)}</span>`;
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
+          pwApplySelected[item.key] = role;
+          rolesDiv.querySelectorAll('.pwa-radio').forEach(ic => {
+            ic.textContent = 'radio_button_unchecked';
+            ic.style.color = '#999';
+          });
+          label.querySelector('.pwa-radio').textContent = 'radio_button_checked';
+          label.querySelector('.pwa-radio').style.color = 'var(--primary)';
+        });
+        rolesDiv.appendChild(label);
+      });
+
+      mainRow.addEventListener('click', () => {
+        const isSelected = card.classList.contains('pwa-selected');
+        if (isSelected) {
+          card.classList.remove('pwa-selected');
+          rolesDiv.classList.add('hidden');
+          card.querySelector('.pwa-check .material-icons').textContent = 'check_circle_outline';
+          card.querySelector('.pwa-check .material-icons').style.color = '#999';
+          delete pwApplySelected[item.key];
+          rolesDiv.querySelectorAll('.pwa-radio').forEach(ic => {
+            ic.textContent = 'radio_button_unchecked';
+            ic.style.color = '#999';
+          });
+        } else {
+          card.classList.add('pwa-selected');
+          rolesDiv.classList.remove('hidden');
+          card.querySelector('.pwa-check .material-icons').textContent = 'check_circle';
+          card.querySelector('.pwa-check .material-icons').style.color = 'var(--primary)';
+        }
+      });
+
+      container.appendChild(card);
+    });
+
+    // 送信ボタン
+    const submitWrap = document.createElement('div');
+    submitWrap.style.cssText = 'padding:16px 0';
+    submitWrap.innerHTML = `<button id="pwa-submit-btn" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;height:48px">
+      <span class="material-icons" style="font-size:18px">send</span> 送信する
+    </button>`;
+    container.appendChild(submitWrap);
+
+    document.getElementById('pwa-submit-btn').addEventListener('click', () => pwApplySubmit(items));
+
+  } catch (err) {
+    container.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+async function pwApplySubmit(items) {
+  const keys = Object.keys(pwApplySelected);
+  if (keys.length === 0) { alert('申込む項目を選択してください'); return; }
+
+  // 全選択カードに役割があるかチェック
+  const allCards = document.querySelectorAll('.pwa-card.pwa-selected');
+  for (const card of allCards) {
+    const key = card.dataset.key;
+    if (!pwApplySelected[key]) {
+      alert('すべての項目で役割を選択してください');
+      return;
+    }
+  }
+
+  // 確認メッセージ作成
+  let msg = '【送信内容の確認】' + keys.length + '件\n\n';
+  keys.forEach(key => {
+    const item = items.find(i => i.key === key);
+    if (!item) return;
+    msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '〜' + item.endTime + '\n';
+    msg += item.place + ' / ' + pwApplySelected[key] + '\n\n';
+  });
+  msg += '送信しますか？';
+  if (!confirm(msg)) return;
+
+  const btn = document.getElementById('pwa-submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
+
+  try {
+    for (const key of keys) {
+      const item = items.find(i => i.key === key);
+      if (!item) continue;
+      await db.collection('PUBLIC_WITNESSING').add({
+        name: memberUserName || '不明',
+        day: item.date,
+        dayofweek: item.weekday,
+        starttime: item.startTime,
+        endtime: item.endTime,
+        place: item.place,
+        role: pwApplySelected[key],
+        timestamp: firebase.firestore.Timestamp.now(),
+      });
+    }
+    alert('送信しました（' + keys.length + '件）');
+    pwApplySelected = {};
+    navigate('shinsei');
+  } catch (err) {
+    alert('送信エラー: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+  }
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────

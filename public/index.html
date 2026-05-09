@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=54">
+  <link rel="stylesheet" href="style.css?v=55">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -307,6 +307,72 @@
         <div id="shinsei-list" class="link-list">
           <div class="loading">読み込み中...</div>
         </div>
+      </div>
+    </section>
+
+    <!-- 奉仕報告提出 -->
+    <section id="page-service-report" class="page">
+      <div class="page-banner banner-shinsei"><h2>奉仕報告提出</h2></div>
+      <div class="page-content">
+        <div class="form-container">
+          <div class="sr-field">
+            <label class="sr-label">氏名</label>
+            <div class="sr-input-wrap"><input type="text" id="sr-name" readonly style="background:#f5f5f5"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">グループ</label>
+            <div class="sr-input-wrap"><input type="text" id="sr-group" readonly style="background:#f5f5f5"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">性別 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="sr-gender"><option value="">選択</option><option value="男性">男性</option><option value="女性">女性</option></select>
+            </div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">月 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="sr-month"></select>
+            </div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">立場 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="sr-role"><option value="伝道者">伝道者</option><option value="補助開拓者">補助開拓者</option><option value="正規開拓者">正規開拓者</option></select>
+            </div>
+          </div>
+          <div class="sr-field" id="sr-participation-row">
+            <label class="sr-label">伝道に参加 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="sr-participation"><option value="">選択</option><option value="はい">はい</option><option value="いいえ">いいえ</option></select>
+            </div>
+          </div>
+          <div class="sr-field hidden" id="sr-hours-row">
+            <label class="sr-label">時間 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap"><input type="number" id="sr-hours" min="0" placeholder="時間を入力"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">聖書研究</label>
+            <div class="sr-input-wrap"><input type="number" id="sr-bible" min="0" placeholder="数字を入力"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">備考</label>
+            <div class="sr-input-wrap"><textarea id="sr-remarks" rows="3" placeholder="自由記入"></textarea></div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="button" id="sr-submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span class="material-icons" style="font-size:18px">send</span> 送信する
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 公共エリア伝道申込み -->
+    <section id="page-pw-apply" class="page">
+      <div class="page-banner banner-shinsei"><h2>公共エリア伝道申込み</h2></div>
+      <div class="page-content" style="max-width:700px">
+        <div id="pw-apply-view"><div class="loading">読み込み中...</div></div>
       </div>
     </section>
 
@@ -677,7 +743,7 @@
   </div>
 </div>
 
-<script src="main.js?v=39"></script>
+<script src="main.js?v=40"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>

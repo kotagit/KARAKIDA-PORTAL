@@ -995,3 +995,62 @@ body {
 @media (max-width: 600px) {
   .org-fields { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── 奉仕報告フォーム ── */
+.sr-field {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+}
+.sr-label {
+  min-width: 90px; font-size: 13px; font-weight: 700; color: #555; flex-shrink: 0;
+}
+.sr-input-wrap { flex: 1; }
+.sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
+}
+.sr-input-wrap select { background: white; }
+.sr-input-wrap input:focus, .sr-input-wrap select:focus, .sr-input-wrap textarea:focus {
+  border-color: var(--primary); outline: none;
+}
+
+/* ── 公共エリア伝道申込み ── */
+.pwa-header {
+  display: flex; align-items: center; gap: 0;
+  padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+}
+.pwa-header span {
+  flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--primary);
+}
+.pwa-card {
+  background: white; border: 1px solid #ddd; border-radius: 10px;
+  margin-bottom: 8px; overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pwa-card.pwa-selected {
+  border-color: var(--primary); border-width: 2px;
+  box-shadow: 0 2px 8px rgba(4,124,188,0.12);
+}
+.pwa-row-main {
+  display: flex; align-items: center; gap: 0;
+  padding: 10px 12px; cursor: pointer;
+}
+.pwa-row-main:hover { background: #f9fbff; }
+.pwa-check { width: 36px; flex-shrink: 0; display: flex; align-items: center; }
+.pwa-check .material-icons { font-size: 22px; color: #999; transition: color 0.15s; }
+.pwa-col { flex: 1; text-align: center; font-size: 14px; font-weight: 500; }
+.pwa-place-green {
+  background: #90EE90; border-radius: 4px; padding: 3px 6px; margin: 0 2px;
+}
+.pwa-place-blue {
+  background: #87CEEB; border-radius: 4px; padding: 3px 6px; margin: 0 2px;
+}
+.pwa-roles {
+  padding: 8px 12px 12px 48px; border-top: 1px solid #eee;
+}
+.pwa-role-label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 0; cursor: pointer; font-size: 14px; color: #333;
+}
+.pwa-role-label:hover { color: var(--primary); }
+.pwa-radio { font-size: 20px; color: #999; transition: color 0.15s; }
