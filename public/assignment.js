@@ -1167,11 +1167,33 @@ function awBuildCodesGrid(selectedCodes = []) {
   const grid = document.getElementById('mf-codes-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  Object.entries(awCodes).forEach(([code, label]) => {
-    const lbl = document.createElement('label');
-    lbl.className = 'aw-code-check';
-    lbl.innerHTML = `<input type="checkbox" name="codes" value="${esc(code)}" ${selectedCodes.includes(code) ? 'checked' : ''}><span>${esc(code)}: ${esc(label)}</span>`;
-    grid.appendChild(lbl);
+  const sections = [
+    { label: '開会', codes: ['A','B','W'] },
+    { label: '神の言葉の宝', codes: ['C','D','E'] },
+    { label: '野外奉仕に励む', codes: ['F','G','H','I','J','K','L','M','N','O','Q'] },
+    { label: 'クリスチャンとして生活する', codes: ['R','S','T','U','V'] },
+  ];
+  sections.forEach(sec => {
+    const items = sec.codes.filter(c => awCodes[c]);
+    if (items.length === 0) return;
+    const group = document.createElement('div');
+    group.className = 'aw-code-group';
+    group.innerHTML = `<div class="aw-code-group-title">${esc(sec.label)}</div>`;
+    const list = document.createElement('div');
+    list.className = 'aw-code-group-list';
+    items.forEach(code => {
+      const lbl = document.createElement('label');
+      lbl.className = 'aw-code-chip';
+      const checked = selectedCodes.includes(code);
+      lbl.innerHTML = `<input type="checkbox" name="codes" value="${esc(code)}" ${checked ? 'checked' : ''}>
+        <span class="aw-chip-label${checked ? ' aw-chip-on' : ''}">${esc(awCodes[code])}</span>`;
+      lbl.querySelector('input').addEventListener('change', (e) => {
+        lbl.querySelector('.aw-chip-label').classList.toggle('aw-chip-on', e.target.checked);
+      });
+      list.appendChild(lbl);
+    });
+    group.appendChild(list);
+    grid.appendChild(group);
   });
 }
 

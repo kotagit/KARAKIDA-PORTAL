@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=39">
+  <link rel="stylesheet" href="style.css?v=40">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -431,7 +431,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label>役職</label>
+        <label>立場</label>
         <select id="mf-position">
           <option value="長老">長老</option>
           <option value="援助奉仕者">援助奉仕者</option>
@@ -444,8 +444,8 @@
         <input type="text" id="mf-family" placeholder="例: 家A">
       </div>
       <div class="form-group">
-        <label>担当可能コード</label>
-        <div id="mf-codes-grid" class="aw-codes-grid"></div>
+        <label>担当可能な割当</label>
+        <div id="mf-codes-grid" class="aw-codes-grouped"></div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="mf-cancel">キャンセル</button>
@@ -548,6 +548,6 @@
 </div>
 
 <script src="main.js?v=25"></script>
-<script src="assignment.js?v=23"></script>
+<script src="assignment.js?v=24"></script>
 </body>
 </html>
