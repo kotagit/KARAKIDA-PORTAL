@@ -151,6 +151,20 @@ function navigate(page) {
     backBtn.classList.remove('hidden');
   }
 
+  // 管理サブページの戻り先を設定
+  if (page.startsWith('admin-')) {
+    const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
+    if (subPages.includes(page)) {
+      backBtn._backTarget = 'admin-assignment';
+    } else {
+      backBtn._backTarget = 'admin';
+    }
+  } else if (page === 'admin') {
+    backBtn._backTarget = 'home';
+  } else {
+    backBtn._backTarget = 'home';
+  }
+
   if (page === 'hatsuhy')  loadAnnouncements();
   if (page === 'keikaku')  loadLinks('keikaku');
   if (page === 'senkyo')   loadLinks('senkyo');
@@ -203,7 +217,7 @@ document.querySelectorAll('.menu-item').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
-backBtn.addEventListener('click', () => navigate('home'));
+backBtn.addEventListener('click', () => navigate(backBtn._backTarget || 'home'));
 headerHomeBtn.addEventListener('click', () => navigate('home'));
 
 // ── 発表 ──────────────────────────────────────
