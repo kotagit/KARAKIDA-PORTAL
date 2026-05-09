@@ -1136,9 +1136,13 @@ async function loadOrgView() {
     const committee = allData.filter(d => d.section === '奉仕委員会');
     const rest = allData.filter(d => d.section === '集会' || d.section === 'その他');
 
+    function toArr(v) {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string' && v) return v.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+      return [];
+    }
     function mRows(item) {
-      const m = Array.isArray(item.members) ? item.members : [];
-      return Math.max(1, Math.ceil(m.length / 3));
+      return Math.max(1, Math.ceil(toArr(item.members).length / 3));
     }
 
     // 奉仕委員会の部門を長老団の役職に紐付け
@@ -1181,7 +1185,7 @@ async function loadOrgView() {
       for (var di = 0; di < g.depts.length; di++) {
         var dept = g.depts[di];
         var rows = mRows(dept);
-        var members = Array.isArray(dept.members) ? dept.members : [];
+        var members = toArr(dept.members);
         for (var r = 0; r < rows; r++) {
           html += '<tr>';
           if (firstRole && firstDept && r === 0)
@@ -1213,13 +1217,13 @@ async function loadOrgView() {
       for (var ri = 0; ri < rest.length; ri++) {
         var item = rest[ri];
         var rows = mRows(item);
-        var members = Array.isArray(item.members) ? item.members : [];
+        var members = toArr(item.members);
         for (var r = 0; r < rows; r++) {
           html += '<tr class="org-xl-bottom">';
           if (firstRest && r === 0)
             html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + totalRestRows + '">長<br>老<br>団</td>';
           if (r === 0) {
-            html += '<td class="org-xl-dept" colspan="3"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.department || '') + '</td>';
+            html += '<td class="org-xl-dept" colspan="4"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.department || '') + '</td>';
             html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.responsible || '') + '</td>';
           }
           for (var c = 0; c < 3; c++) {
