@@ -768,41 +768,41 @@ body {
 .aw-code-check input { cursor: pointer; }
 
 /* ── 組織表 閲覧（Excel再現） ── */
-.org-xl-wrap { max-width: 1100px; margin: 0 auto; }
+.org-xl-wrap { margin: 0 auto; }
 .org-xl-title {
-  text-align: center; font-size: 15px; font-weight: bold;
-  margin: 0 0 10px; color: var(--text);
+  text-align: center; font-size: 18px; font-weight: bold;
+  margin: 0 0 16px; color: var(--text);
 }
 .org-xl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .org-xl {
-  width: 100%; border-collapse: collapse; font-size: 12px;
+  width: 100%; border-collapse: collapse; font-size: 14px;
   background: white; box-shadow: var(--shadow); border-radius: 6px; overflow: hidden;
 }
 .org-xl th, .org-xl td {
-  border: 1px solid #bbb; padding: 4px 7px 4px 1em; vertical-align: middle;
+  border: 1px solid #bbb; padding: 8px 14px 8px 14px; vertical-align: middle;
   white-space: nowrap; text-align: left;
 }
 .org-xl thead th {
-  background: #d9e2f3; color: #333; font-weight: bold; font-size: 11px;
-  padding: 5px 7px;
+  background: #d9e2f3; color: #333; font-weight: bold; font-size: 13px;
+  padding: 10px 14px; text-align: center;
 }
 .org-xl-sec {
-  background: #4472c4; color: white; font-weight: bold; font-size: 13px;
-  letter-spacing: 4px; width: 28px; min-width: 28px; padding: 8px 2px;
-  line-height: 1.4; text-align: center;
+  background: #4472c4; color: white; font-weight: bold; font-size: 15px;
+  letter-spacing: 6px; width: 36px; min-width: 36px; padding: 12px 4px;
+  line-height: 1.5; text-align: center;
 }
 .org-xl-sec-bottom { background: #2e75b6; }
 .org-xl-role {
-  font-weight: bold; font-size: 12px; white-space: nowrap;
-  min-width: 70px;
+  font-weight: bold; font-size: 14px; white-space: nowrap;
+  min-width: 100px;
 }
-.org-xl-sv { font-weight: bold; min-width: 60px; }
+.org-xl-sv { font-weight: bold; font-size: 14px; min-width: 80px; }
 .org-xl-dept {
-  text-align: left; font-weight: bold; font-size: 11px;
-  min-width: 100px; white-space: normal;
+  text-align: left; font-weight: bold; font-size: 13px;
+  min-width: 140px; white-space: normal;
 }
 .org-xl-m {
-  font-size: 11px; min-width: 70px; white-space: nowrap;
+  font-size: 14px; min-width: 90px; white-space: nowrap;
   text-align: center;
 }
 .org-xl-bottom td { border-top: 2px solid #888; }
@@ -810,9 +810,11 @@ body {
 @media (max-width: 700px) {
   .org-xl { font-size: 10px; }
   .org-xl th, .org-xl td { padding: 3px 4px; }
-  .org-xl-sec { font-size: 11px; letter-spacing: 2px; width: 22px; min-width: 22px; }
-  .org-xl-dept { min-width: 70px; }
-  .org-xl-m { min-width: 50px; }
+  .org-xl-sec { font-size: 11px; letter-spacing: 2px; width: 22px; min-width: 22px; padding: 8px 2px; }
+  .org-xl-role { font-size: 10px; min-width: 60px; }
+  .org-xl-sv { font-size: 10px; min-width: 50px; }
+  .org-xl-dept { min-width: 70px; font-size: 10px; }
+  .org-xl-m { min-width: 50px; font-size: 10px; }
 }
 
 /* ── 組織表編集 ── */
