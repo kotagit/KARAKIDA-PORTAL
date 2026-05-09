@@ -1084,16 +1084,21 @@ async function loadJouhouContact() {
     }
 
     const d = snap.docs[0].data();
+    console.log('USER_LIST raw data:', JSON.stringify(d, (k, v) => {
+      if (v && typeof v === 'object' && v.seconds !== undefined) return '__Timestamp__' + new Date(v.seconds * 1000).toLocaleDateString('ja-JP');
+      return v;
+    }));
     const fields = [
       { label: '氏名', value: d.name },
       { label: 'ふりがな', value: d.furigana },
       { label: 'グループ', value: d.group },
       { label: '性別', value: displayGender(d.gender) },
-      { label: '生年月日', value: d.birthDate },
-      { label: 'バプテスマ日', value: d.baptismDate },
-      { label: '電話番号', value: d.phone },
+      { label: '生年月日', value: tsToStr(d.birthDate) },
+      { label: 'バプテスマ日', value: tsToStr(d.baptismDate) },
+      { label: '携帯電話', value: d.phone },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
+      { label: '緊急連絡先', value: d.emergencyContact },
     ];
 
     let html = '<div class="form-container">';
@@ -1128,13 +1133,14 @@ async function loadJouhouCard() {
     }
 
     const d = snap.docs[0].data();
+    const memberName = String(d.name || '').trim();
     const member = {
       id: snap.docs[0].id,
-      name: String(d.name || '').trim(),
+      name: memberName,
       group: String(d.group || '').trim(),
       gender: String(d.gender || '').trim(),
-      birthDate: String(d.birthDate || '').trim(),
-      baptismDate: String(d.baptismDate || '').trim(),
+      birthDate: tsToStr(d.birthDate),
+      baptismDate: tsToStr(d.baptismDate),
       role: String(d.role || d.position || '').trim(),
       pioneer: String(d.pioneer || '').trim(),
     };
@@ -1587,8 +1593,8 @@ async function loadAdminReports() {
         group: String(data.group || '').trim(),
         role: String(data.role || data.position || '').trim(),
         gender: String(data.gender || '').trim(),
-        birthDate: String(data.birthDate || '').trim(),
-        baptismDate: String(data.baptismDate || '').trim(),
+        birthDate: tsToStr(data.birthDate),
+        baptismDate: tsToStr(data.baptismDate),
         pioneer: String(data.pioneer || '').trim(),
       });
     });
@@ -1619,6 +1625,20 @@ function displayGender(g) {
   if (g === 'M') return '男性';
   if (g === 'F') return '女性';
   return g || '-';
+}
+
+function tsToStr(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (val.seconds !== undefined) {
+    const dt = new Date(val.seconds * 1000);
+    return dt.getFullYear() + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getDate()).padStart(2,'0');
+  }
+  if (val.toDate) {
+    const dt = val.toDate();
+    return dt.getFullYear() + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getDate()).padStart(2,'0');
+  }
+  return String(val);
 }
 
 function displayRole(m) {
