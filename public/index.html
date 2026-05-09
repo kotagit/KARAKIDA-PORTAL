@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -284,27 +284,36 @@
         <h2>割当管理</h2>
       </div>
       <div class="page-content">
-        <div class="admin-actions-bar" style="flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600">
-            集会曜日
-            <select id="aw-meeting-day" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:13px">
-              <option value="0">日曜</option><option value="1">月曜</option><option value="2">火曜</option>
-              <option value="3">水曜</option><option value="4" selected>木曜</option><option value="5">金曜</option><option value="6">土曜</option>
-            </select>
-          </label>
-          <button class="btn-secondary" id="aw-import-btn">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
-          </button>
-          <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
-          <button class="btn-secondary" id="aw-generate-all-btn">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">auto_fix_high</span> 自動生成
-          </button>
-          <button class="btn-primary" id="aw-confirm-all-btn">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 確定
-          </button>
-          <button class="btn-secondary" onclick="navigate('admin-assignment-history')" style="margin-left:auto">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">history</span> 履歴
-          </button>
+        <div class="aw-toolbar">
+          <div class="aw-toolbar-row">
+            <div class="aw-toolbar-group">
+              <label class="aw-toolbar-label">
+                <span class="material-icons">calendar_today</span>
+                集会曜日
+              </label>
+              <select id="aw-meeting-day" class="aw-toolbar-select">
+                <option value="0">日曜</option><option value="1">月曜</option><option value="2">火曜</option>
+                <option value="3">水曜</option><option value="4" selected>木曜</option><option value="5">金曜</option><option value="6">土曜</option>
+              </select>
+            </div>
+            <button class="aw-toolbar-btn" id="aw-import-btn">
+              <span class="material-icons">upload_file</span>
+              <span>インポート</span>
+            </button>
+            <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+            <button class="aw-toolbar-btn" id="aw-generate-all-btn">
+              <span class="material-icons">auto_fix_high</span>
+              <span>自動生成</span>
+            </button>
+            <button class="aw-toolbar-btn aw-toolbar-btn-accent" id="aw-confirm-all-btn">
+              <span class="material-icons">check_circle</span>
+              <span>全確定</span>
+            </button>
+            <button class="aw-toolbar-btn" onclick="navigate('admin-assignment-history')">
+              <span class="material-icons">history</span>
+              <span>履歴</span>
+            </button>
+          </div>
         </div>
         <div id="assignment-create-list"></div>
       </div>
@@ -539,6 +548,6 @@
 </div>
 
 <script src="main.js?v=25"></script>
-<script src="assignment.js?v=22"></script>
+<script src="assignment.js?v=23"></script>
 </body>
 </html>

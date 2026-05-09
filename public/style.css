@@ -550,6 +550,43 @@ body {
   margin-bottom: 16px;
 }
 
+/* ── 割当管理ツールバー ── */
+.aw-toolbar {
+  background: white; border-radius: 12px; padding: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 24px;
+}
+.aw-toolbar-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.aw-toolbar-group {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--primary-light); border-radius: 8px; padding: 6px 12px;
+}
+.aw-toolbar-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 700; color: var(--primary); white-space: nowrap;
+}
+.aw-toolbar-label .material-icons { font-size: 18px; }
+.aw-toolbar-select {
+  padding: 5px 8px; border-radius: 6px; border: 1px solid var(--primary);
+  font-size: 13px; font-weight: 600; color: var(--primary);
+  background: white; cursor: pointer;
+}
+.aw-toolbar-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; min-width: 56px; height: 52px; padding: 4px 8px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: #fafafa; color: var(--text); cursor: pointer;
+  font-size: 10px; font-weight: 600; transition: all 0.15s;
+}
+.aw-toolbar-btn:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+.aw-toolbar-btn .material-icons { font-size: 22px; }
+.aw-toolbar-btn-accent {
+  background: var(--primary); color: white; border-color: var(--primary);
+}
+.aw-toolbar-btn-accent:hover { background: var(--primary-dark); color: white; }
+.aw-toolbar-btn-accent .material-icons { color: white; }
+
 /* ── 割当管理 ── */
 .aw-week-row { cursor: pointer; transition: background 0.15s; }
 .aw-week-row:hover { background: var(--primary-light); }
