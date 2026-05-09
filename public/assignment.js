@@ -1137,10 +1137,11 @@ function awRenderMemberList() {
     return;
   }
   list.innerHTML = '';
-  awMembers.forEach(member => {
+  awMembers.forEach((member, idx) => {
     const item = document.createElement('div');
     item.className = 'admin-list-item';
     item.innerHTML = `
+      <div class="am-num">${idx + 1}</div>
       <div class="admin-list-info">
         <div class="admin-list-title">${esc(member.name)}</div>
       </div>

@@ -212,6 +212,10 @@ body {
 }
 .admin-list-item:last-child { border-bottom: none; }
 .admin-list-info { flex: 1; }
+.am-num {
+  min-width: 28px; text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--text-light); flex-shrink: 0;
+}
 .admin-list-date { font-size: 12px; color: var(--text-light); font-weight: bold; }
 .admin-list-title { font-size: 15px; font-weight: 600; }
 .admin-list-actions { display: flex; gap: 8px; }
