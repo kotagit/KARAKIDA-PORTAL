@@ -218,7 +218,12 @@ body {
 }
 .admin-card:hover { transform: translateY(-4px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .admin-card .material-icons { font-size: 48px; color: var(--primary); margin-bottom: 12px; }
-.admin-card h3 { font-size: 16px; margin-bottom: 8px; }
+.admin-card h3 { font-size: 16px; margin-bottom: 0; }
+.admin-section-tag {
+  display: inline-block; padding: 4px 14px; border-radius: 12px;
+  background: #F1C232; color: #333;
+  font-size: 12px; font-weight: 700; margin-bottom: 10px;
+}
 .admin-card p { font-size: 13px; color: var(--text-light); }
 
 /* ── 管理用リスト ── */

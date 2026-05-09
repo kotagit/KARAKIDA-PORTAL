@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=57">
+  <link rel="stylesheet" href="style.css?v=58">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -121,31 +121,33 @@
         <h2>管理画面</h2>
       </div>
       <div class="page-content">
-        <div class="admin-dashboard">
+        <div class="admin-section-tag">集会</div>
+        <div class="admin-dashboard" style="margin-bottom:24px">
           <div class="admin-card" id="admin-manage-announcements">
             <span class="material-icons">article</span>
             <h3>発表管理</h3>
-            <p>発表の追加・編集・削除を行います。</p>
           </div>
           <div class="admin-card" id="admin-manage-assignment">
             <span class="material-icons">event_seat</span>
             <h3>割当管理</h3>
-            <p>週ごとの割当を自動生成・管理します。</p>
           </div>
           <div class="admin-card" id="admin-manage-members">
             <span class="material-icons">people</span>
-            <h3>メンバー管理</h3>
-            <p>割当メンバーの追加・編集・削除を行います。</p>
+            <h3>生徒管理</h3>
           </div>
+        </div>
+        <div class="admin-section-tag">宣教</div>
+        <div class="admin-dashboard" style="margin-bottom:24px">
           <div class="admin-card" id="admin-manage-s13">
             <span class="material-icons">table_rows</span>
-            <h3>S-13</h3>
-            <p>区域割当ての記録を確認します。</p>
+            <h3>S-13管理</h3>
           </div>
+        </div>
+        <div class="admin-section-tag">会衆</div>
+        <div class="admin-dashboard">
           <div class="admin-card" id="admin-manage-org">
             <span class="material-icons">account_tree</span>
             <h3>組織表管理</h3>
-            <p>組織表の編集・管理を行います。</p>
           </div>
         </div>
       </div>
