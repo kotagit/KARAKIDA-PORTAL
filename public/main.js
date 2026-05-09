@@ -1518,7 +1518,7 @@ async function loadSenkyoMyCards() {
     }
 
     // 個人カード: 各カード名の最新startDateのみ抽出
-    const normCard = (n) => n.replace(/[−–ー]/g, '-');
+    const normCard = (n) => (n || '').toString().replace(/[−–ー]/g, '-');
     const latestPerCard = {};
     cardSnap.docs.forEach(d => {
       const data = d.data();
@@ -1693,7 +1693,7 @@ async function loadSenkyoCards() {
       const snap = await db.collection('CARD_ASSIGNMENTS').where(firebase.firestore.FieldPath.documentId(), 'in', docIds).get();
       snap.docs.forEach(d => {
         const data = d.data();
-        const cn = (data.cardName || '').replace(/[−–ー]/g, '-');
+        const cn = (data.cardName || '').toString().replace(/[−–ー]/g, '-');
         const member = data.memberName || '';
         if (cn && member) assignmentMap[cn] = member;
       });
