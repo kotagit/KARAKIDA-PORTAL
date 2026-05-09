@@ -556,12 +556,8 @@ body {
 .aw-inline-section {
   border: none; border-radius: 10px;
   margin-bottom: 40px; overflow: hidden; background: white;
-  border-left: 5px solid #bbb;
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
 }
-.aw-inline-section[data-status="confirmed"] { border-left-color: #4caf50; }
-.aw-inline-section[data-status="draft"]     { border-left-color: #ff9800; }
-.aw-inline-section[data-status="none"]      { border-left-color: #bbb; }
 .aw-inline-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px; background: var(--primary); border-bottom: 1px solid var(--border);
