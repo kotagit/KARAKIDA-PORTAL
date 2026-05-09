@@ -466,8 +466,10 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
                </button>
              </div>`
           : '';
+        const shortLabels = {A:'司会者',B:'祈り',W:'祈り',E:'朗読者',H:'担当',J:'担当',L:'担当',N:'担当',I:'相手',K:'相手',M:'相手',O:'相手',V:'朗読者'};
+        const shortLabel = shortLabels[base] || '';
         return `<div class="aw-slot">
-          <label class="aw-slot-label">${esc(label)}</label>
+          ${shortLabel ? `<label class="aw-slot-label">${esc(shortLabel)}</label>` : ''}
           <select class="aw-slot-select" data-code="${esc(code)}">
             <option value="">—</option>${opts}
           </select>${topicHtml}</div>`;
