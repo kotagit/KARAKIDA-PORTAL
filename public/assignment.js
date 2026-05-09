@@ -28,7 +28,7 @@ let awEditingMemberId = null;
 let awIsHistoryView   = false;
 let awEditorWeekId    = null;
 let awEditorItems     = [];
-let awMeetingDay      = 4; // 0=日,1=月,...,4=木,...,6=土
+const AW_MEETING_DAY  = 4; // 0=日,1=月,...,4=木,...,6=土
 
 // ── ユーティリティ ────────────────────────────
 function awNorm(s) {
@@ -68,24 +68,8 @@ async function awLoadHistory() {
   });
 }
 
-async function awLoadMeetingDay() {
-  try {
-    const doc = await db.collection('APP_SETTINGS').doc('meeting').get();
-    if (doc.exists && doc.data().meetingDay != null) {
-      awMeetingDay = doc.data().meetingDay;
-    }
-  } catch(e) { console.error('meetingDay load error:', e); }
-  const sel = document.getElementById('aw-meeting-day');
-  if (sel) sel.value = String(awMeetingDay);
-}
-
-async function awSaveMeetingDay(day) {
-  awMeetingDay = day;
-  await db.collection('APP_SETTINGS').doc('meeting').set({ meetingDay: day }, { merge: true });
-}
-
 async function awLoadAll() {
-  await Promise.all([awLoadCodes(), awLoadMembers(), awLoadHistory(), awLoadMeetingDay()]);
+  await Promise.all([awLoadCodes(), awLoadMembers(), awLoadHistory()]);
 }
 
 async function awLoadHistoryWeeks() {
@@ -335,7 +319,7 @@ function awRenderCreateList() {
   awWeeks.forEach(week => awBuildWeekSection(week, list));
 }
 
-// 週の集会日の Date を返す（awMeetingDay に基づく）
+// 週の集会日の Date を返す（AW_MEETING_DAY に基づく）
 function awGetMeetingDate(week) {
   if (!week.dateRange) return null;
   const m = week.dateRange.match(/^(\d+)月(\d+)/);
@@ -346,7 +330,7 @@ function awGetMeetingDate(week) {
   const startDay   = parseInt(m[2]);
   const startYear  = (issueMonth === 12 && startMonth === 1) ? issueYear + 1 : issueYear;
   const startDate  = new Date(startYear, startMonth - 1, startDay);
-  const daysTo     = (awMeetingDay - startDate.getDay() + 7) % 7;
+  const daysTo     = (AW_MEETING_DAY - startDate.getDay() + 7) % 7;
   const meetDate   = new Date(startDate);
   meetDate.setDate(startDate.getDate() + daysTo);
   return meetDate;
@@ -1371,8 +1355,6 @@ async function loadAssignmentWeekDisplay() {
   container.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    // 集会曜日設定を読み込み
-    await awLoadMeetingDay();
     // コード定義を取得
     const codesSnap = await db.collection('assignmentCodes').get();
     const codes = {};
@@ -1420,7 +1402,7 @@ async function loadAssignmentWeekDisplay() {
       const titleEl = document.createElement('div');
       titleEl.className = 'aw-shukai-week-title';
       const dayNames = ['日','月','火','水','木','金','土'];
-      titleEl.textContent = `${thuLabel}（${dayNames[awMeetingDay]}）の集会`;
+      titleEl.textContent = `${thuLabel}（${dayNames[AW_MEETING_DAY]}）の集会`;
       container.appendChild(titleEl);
 
       let prevSection = '', minutesOffset = 0;
@@ -1507,11 +1489,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('member-overlay')      ?.addEventListener('click', awCloseMemberModal);
   document.getElementById('mf-cancel')           ?.addEventListener('click', awCloseMemberModal);
   document.getElementById('member-form')         ?.addEventListener('submit', awSaveMember);
-
-  // 集会曜日プルダウン
-  document.getElementById('aw-meeting-day')?.addEventListener('change', (e) => {
-    awSaveMeetingDay(parseInt(e.target.value));
-  });
 
   // ZIPインポート
   awInitImport();
