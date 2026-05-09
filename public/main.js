@@ -44,6 +44,7 @@ const PAGE_TITLES = {
   'admin-assignment-history': '割当履歴',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
+  'admin-s13': '区域割当ての記録',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -162,6 +163,7 @@ function navigate(page) {
   if (page === 'admin-assignment')         initAssignmentPage();
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
+  if (page === 'admin-s13')                loadAdminS13Table();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -180,6 +182,14 @@ document.getElementById('admin-manage-announcements')?.addEventListener('click',
 
 document.getElementById('admin-add-announce-btn')?.addEventListener('click', () => {
   openAnnounceModal(null);
+});
+
+document.getElementById('admin-manage-members')?.addEventListener('click', () => {
+  navigate('admin-members');
+});
+
+document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
+  navigate('admin-s13');
 });
 
 // メニューグリッドのクリック
@@ -773,5 +783,100 @@ async function submitMemberInfo() {
   } finally {
     btn.innerHTML = originalText;
     btn.disabled = false;
+  }
+}
+
+// ── S-13 区域割当ての記録 ────────────────────────
+async function loadAdminS13Table() {
+  const grid = document.getElementById('s13-grid');
+  grid.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    // 1. 監督名マップの作成 (USER_LIST から status4 == 'SV' を抽出)
+    const svSnap = await db.collection('USER_LIST').where('status4', '==', 'SV').get();
+    const supervisorByGroup = {};
+    svSnap.docs.forEach(doc => {
+      const d = doc.data();
+      const group = (d.group || '').trim();
+      const name = (d.name || '').trim();
+      if (group && name) supervisorByGroup[group] = name;
+    });
+
+    // 2. 割当てデータの取得 (GROUP_ASS_NO)
+    const snap = await db.collection('GROUP_ASS_NO').get();
+    const groupedByTerritory = {};
+
+    snap.docs.forEach(doc => {
+      const data = doc.data();
+      // 通常区域のみ対象
+      if ((data.type || 'NORMAL').toString().trim() !== 'NORMAL') return;
+      
+      const territory = (data.territories || '').toString();
+      if (!territory) return;
+
+      if (!groupedByTerritory[territory]) groupedByTerritory[territory] = [];
+      
+      groupedByTerritory[territory].push({
+        name: supervisorByGroup[data.groupName] || data.groupName || '',
+        start: data.startDate || '',
+        end: data.endDate || ''
+      });
+    });
+
+    // 3. 各区域の履歴を日付順にソート (降順: 新しい順)
+    Object.keys(groupedByTerritory).forEach(t => {
+      groupedByTerritory[t].sort((a, b) => b.start.localeCompare(a.start));
+    });
+
+    // 4. 区域番号順にソートして表示
+    const sortedTerritories = Object.keys(groupedByTerritory).sort((a, b) => {
+      const na = parseInt(a);
+      const nb = parseInt(b);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+
+    if (sortedTerritories.length === 0) {
+      grid.innerHTML = '<div class="empty-state">データがありません</div>';
+      return;
+    }
+
+    grid.innerHTML = sortedTerritories.map(t => {
+      const history = groupedByTerritory[t];
+      // カード内には最大8件程度の履歴枠を表示 (画像フォーマット準拠)
+      let rowsHtml = '';
+      for (let i = 0; i < 8; i++) {
+        const h = history[i] || { name: '', start: '', end: '' };
+        rowsHtml += `
+          <tr><td colspan="2" class="name">${esc(h.name)}</td></tr>
+          <tr class="date-row">
+            <td>${esc(h.start)}</td>
+            <td>${esc(h.end)}</td>
+          </tr>
+        `;
+      }
+
+      return `
+        <div class="s13-card">
+          <div class="s13-card-header">
+            <span class="label">区域番号</span>
+            <span class="value">${esc(t)}</span>
+          </div>
+          <table class="s13-card-table">
+            <thead>
+              <tr><th colspan="2">奉仕者の名前</th></tr>
+              <tr><th>区域が出された日付</th><th>区域が戻された日付</th></tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    console.error('S-13 load error:', e);
+    grid.innerHTML = `<div class="empty-state">エラーが発生しました: ${e.message}</div>`;
   }
 }

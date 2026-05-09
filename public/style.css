@@ -164,22 +164,8 @@ body {
 
 /* ── ページバナー ── */
 .page-banner {
-  height: 180px;
-  display: flex; align-items: center; justify-content: center;
+  display: none;
 }
-.page-banner h2 {
-  font-size: 32px; font-weight: bold; color: white;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.banner-hatsuhy  { background: linear-gradient(135deg, #1565c0, #42a5f5); }
-.banner-keikaku  { background: linear-gradient(135deg, #37474f, #78909c); }
-.banner-senkyo   { background: linear-gradient(135deg, #2e7d32, #66bb6a); }
-.banner-shukai   { background: linear-gradient(135deg, #1a237e, #5c6bc0); }
-.banner-shinsei  { background: linear-gradient(135deg, #4a148c, #ab47bc); }
-.banner-soshiki  { background: linear-gradient(135deg, #01579b, #29b6f6); }
-.banner-gyoji    { background: linear-gradient(135deg, #b71c1c, #ef5350); }
-.banner-saigai   { background: linear-gradient(135deg, #e65100, #ffa726); }
-.banner-admin    { background: linear-gradient(135deg, #263238, #546e7a); }
 
 /* ── ページコンテンツ ── */
 .page-content {
@@ -368,6 +354,59 @@ body {
   background: #d32f2f; color: white; border: none;
   border-radius: 8px; padding: 10px 24px; font-size: 15px; font-weight: 600; cursor: pointer;
 }
+
+/* ── S-13 カードレイアウト ── */
+.s13-header-info {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+.s13-example {
+  border: 1px solid #000;
+  padding: 10px;
+  font-family: serif;
+  font-size: 12px;
+  background: #fff;
+}
+.s13-example-row { margin-bottom: 4px; }
+.s13-example .box { border: 1px solid #000; padding: 2px 10px; display: inline-block; min-width: 80px; text-align: center; }
+.s13-example .box-small { border: 1px solid #000; padding: 2px 5px; display: inline-block; min-width: 50px; text-align: center; }
+
+.s13-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+.s13-card {
+  background: #e3f2fd; /* 薄い青 */
+  border: 1px solid #000;
+  padding: 15px;
+  color: #000;
+  font-family: serif;
+}
+.s13-card-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 12px;
+  padding-bottom: 4px;
+}
+.s13-card-header .label { font-size: 14px; margin-right: 12px; border-bottom: 1px solid #000; }
+.s13-card-header .value { font-size: 24px; font-weight: bold; border-bottom: 1px solid #000; min-width: 80px; text-align: center; }
+
+.s13-card-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.s13-card-table th, .s13-card-table td {
+  border: 1px solid #000;
+  padding: 6px;
+  font-size: 12px;
+  height: 24px;
+  text-align: center;
+}
+.s13-card-table th { background: rgba(0,0,0,0.05); font-weight: normal; }
+.s13-card-table td.name { height: 28px; font-size: 14px; }
+.s13-card-table .date-row td { width: 50%; }
 
 /* ── 成員情報登録フォーム ── */
 .form-container {
