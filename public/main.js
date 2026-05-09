@@ -40,7 +40,7 @@ function isMobile() {
 // ── ページタイトル ────────────────────────────
 const PAGE_TITLES = {
   home: '唐木田PORTAL', hatsuhy: '発表', keikaku: '計画',
-  senkyo: '宣教', shukai: '集会', shinsei: '申請',
+  senkyo: '宣教', shukai: '集会', shinsei: 'フォーム',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
