@@ -1464,12 +1464,15 @@ async function loadAssignmentWeekDisplay() {
       // 青いヘッダー
       const hdr = document.createElement('div');
       hdr.className = 'aw-inline-header';
+      const chairName = slots['A'] || '';
       hdr.innerHTML = `
         <div>
           <div class="aw-inline-title">${esc(thuLabel)}</div>
           <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
         </div>
-        <span class="aw-status-badge aw-badge-confirmed">確定</span>
+        <div style="text-align:right;color:white;font-size:13px">
+          <div style="font-weight:700">司会者：${esc(chairName)}</div>
+        </div>
       `;
       section.appendChild(hdr);
 
