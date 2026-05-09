@@ -361,6 +361,7 @@ function awBuildWeekSection(week, container) {
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
   section.dataset.weekId = week.id;
+  section.dataset.status = st;
   awLiveSlots[week.id]  = slots;
   awLiveTopics[week.id] = topics;
 

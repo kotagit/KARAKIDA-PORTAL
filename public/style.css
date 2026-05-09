@@ -555,14 +555,18 @@ body {
 .aw-week-row:hover { background: var(--primary-light); }
 .aw-inline-section {
   border: 1px solid var(--border); border-radius: 8px;
-  margin-bottom: 24px; overflow: hidden; background: white;
+  margin-bottom: 40px; overflow: hidden; background: white;
+  border-left: 5px solid #bbb;
 }
+.aw-inline-section[data-status="confirmed"] { border-left-color: #4caf50; }
+.aw-inline-section[data-status="draft"]     { border-left-color: #ff9800; }
+.aw-inline-section[data-status="none"]      { border-left-color: #bbb; }
 .aw-inline-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; background: #f9f9f9; border-bottom: 1px solid var(--border);
+  padding: 14px 16px; background: var(--primary); border-bottom: 1px solid var(--border);
 }
-.aw-inline-title { font-weight: bold; font-size: 1rem; }
-.aw-inline-sub   { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
+.aw-inline-title { font-weight: bold; font-size: 1.05rem; color: white; }
+.aw-inline-sub   { font-size: 0.82rem; color: rgba(255,255,255,0.8); margin-top: 2px; }
 .aw-inline-section .aw-week-actions { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .aw-inline-section .aw-week-table   { padding: 0 8px 8px; }
 /* 集会ページ — 予定表表示 */
