@@ -284,7 +284,14 @@
         <h2>割当管理</h2>
       </div>
       <div class="page-content">
-        <div class="admin-actions-bar">
+        <div class="admin-actions-bar" style="flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600">
+            集会曜日
+            <select id="aw-meeting-day" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:13px">
+              <option value="0">日曜</option><option value="1">月曜</option><option value="2">火曜</option>
+              <option value="3">水曜</option><option value="4" selected>木曜</option><option value="5">金曜</option><option value="6">土曜</option>
+            </select>
+          </label>
           <button class="btn-secondary" id="aw-import-btn">
             <span class="material-icons" style="font-size:18px;vertical-align:middle">upload_file</span> ZIPインポート
           </button>
@@ -532,6 +539,6 @@
 </div>
 
 <script src="main.js?v=25"></script>
-<script src="assignment.js?v=9"></script>
+<script src="assignment.js?v=10"></script>
 </body>
 </html>

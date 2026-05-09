@@ -28,7 +28,10 @@ let awEditingMemberId = null;
 let awIsHistoryView   = false;
 let awEditorWeekId    = null;
 let awEditorItems     = [];
-const AW_MEETING_DAY  = 4; // 0=日,1=月,...,4=木,...,6=土
+function awGetMeetingDayNum() {
+  const sel = document.getElementById('aw-meeting-day');
+  return sel ? parseInt(sel.value) : 4;
+}
 
 // ── ユーティリティ ────────────────────────────
 function awNorm(s) {
@@ -319,7 +322,7 @@ function awRenderCreateList() {
   awWeeks.forEach(week => awBuildWeekSection(week, list));
 }
 
-// 週の集会日の Date を返す（AW_MEETING_DAY に基づく）
+// 週の集会日の Date を返す（awGetMeetingDayNum() に基づく）
 function awGetMeetingDate(week) {
   if (!week.dateRange) return null;
   const m = week.dateRange.match(/^(\d+)月(\d+)/);
@@ -330,7 +333,7 @@ function awGetMeetingDate(week) {
   const startDay   = parseInt(m[2]);
   const startYear  = (issueMonth === 12 && startMonth === 1) ? issueYear + 1 : issueYear;
   const startDate  = new Date(startYear, startMonth - 1, startDay);
-  const daysTo     = (AW_MEETING_DAY - startDate.getDay() + 7) % 7;
+  const daysTo     = (awGetMeetingDayNum() - startDate.getDay() + 7) % 7;
   const meetDate   = new Date(startDate);
   meetDate.setDate(startDate.getDate() + daysTo);
   return meetDate;
@@ -1402,7 +1405,7 @@ async function loadAssignmentWeekDisplay() {
       const titleEl = document.createElement('div');
       titleEl.className = 'aw-shukai-week-title';
       const dayNames = ['日','月','火','水','木','金','土'];
-      titleEl.textContent = `${thuLabel}（${dayNames[AW_MEETING_DAY]}）の集会`;
+      titleEl.textContent = `${thuLabel}（${dayNames[awGetMeetingDayNum()]}）の集会`;
       container.appendChild(titleEl);
 
       let prevSection = '', minutesOffset = 0;
