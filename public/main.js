@@ -788,9 +788,9 @@ async function submitMemberInfo() {
 
 // ── S-13 区域割当ての記録 ────────────────────────
 
-let s13CityConfig = null;    // { territoryCity: {市→[番号]}, groupCity: {市→[グループ]} }
-let s13SupervisorMap = {};   // グループ名→監督名
-let s13AllHistory = {};      // 区域番号→[{name,start,end,groupName}]
+var s13CityConfig = null;
+var s13SupervisorMap = {};
+var s13AllHistory = {};
 
 async function s13LoadConfig() {
   const snap = await db.collection('S13_CONFIG').get();
