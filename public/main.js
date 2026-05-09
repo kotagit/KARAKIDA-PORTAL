@@ -156,9 +156,16 @@ initApp();
 
 // ── ルーティング ──────────────────────────────
 function navigate(page, pushHistory) {
+  if (!page) { page = 'home'; }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById('page-' + page);
-  if (targetPage) targetPage.classList.add('active');
+  if (targetPage) {
+    targetPage.classList.add('active');
+  } else {
+    // 存在しないページ → ホームに戻す
+    document.getElementById('page-home')?.classList.add('active');
+    page = 'home';
+  }
 
   // ブラウザ履歴に追加（戻る/進むボタン対応）
   if (pushHistory !== false) {
@@ -264,8 +271,8 @@ document.getElementById('admin-manage-org')?.addEventListener('click', () => {
   navigate('admin-org');
 });
 
-// メニューグリッドのクリック
-document.querySelectorAll('.menu-item').forEach(item => {
+// メニューグリッドのクリック（data-page属性があるもののみ）
+document.querySelectorAll('.menu-item[data-page]').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
