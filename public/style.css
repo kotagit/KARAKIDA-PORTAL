@@ -733,7 +733,7 @@ body {
 .aw-row:last-child { border-bottom: none; }
 
 .aw-row-time {
-  font-size: 11px; color: var(--text-light);
+  font-size: 11px; color: var(--text-light); font-weight: 700;
   min-width: 36px; padding-top: 4px; flex-shrink: 0;
 }
 .aw-row-info {
@@ -741,7 +741,7 @@ body {
   flex-wrap: wrap; gap: 4px;
 }
 .aw-row-num   { font-size: 12px; color: var(--text-light); }
-.aw-row-title { font-size: 14px; font-weight: 500; }
+.aw-row-title { font-size: 14px; font-weight: 700; }
 .aw-row-min   { font-size: 12px; color: var(--text-light); }
 
 .aw-row-assignees {

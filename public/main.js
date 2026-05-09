@@ -44,6 +44,7 @@ const PAGE_TITLES = {
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
+  'area-info': '区域情報登録',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
   'admin-schedule-editor': 'スケジュール編集',
@@ -208,6 +209,7 @@ function navigate(page) {
   if (page === 'saigai')   loadLinks('saigai');
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
+  if (page === 'area-info')             initAreaInfoForm();
   if (page === 'admin-assignment')         initAssignmentPage();
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
@@ -489,6 +491,16 @@ async function loadLinks(section) {
       `;
       memberInfoItem.addEventListener('click', () => navigate('member-info'));
       listEl.appendChild(memberInfoItem);
+
+      const areaInfoItem = document.createElement('div');
+      areaInfoItem.className = 'link-item';
+      areaInfoItem.style.cursor = 'pointer';
+      areaInfoItem.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">location_on</span></div>
+        <span class="link-item-label">区域情報登録</span>
+      `;
+      areaInfoItem.addEventListener('click', () => navigate('area-info'));
+      listEl.appendChild(areaInfoItem);
     }
 
     if (!snap.empty) {
@@ -521,6 +533,16 @@ async function loadLinks(section) {
       `;
       memberInfoItem.addEventListener('click', () => navigate('member-info'));
       listEl.appendChild(memberInfoItem);
+
+      const areaInfoItem2 = document.createElement('div');
+      areaInfoItem2.className = 'link-item';
+      areaInfoItem2.style.cursor = 'pointer';
+      areaInfoItem2.innerHTML = `
+        <div class="link-item-icon"><span class="material-icons">location_on</span></div>
+        <span class="link-item-label">区域情報登録</span>
+      `;
+      areaInfoItem2.addEventListener('click', () => navigate('area-info'));
+      listEl.appendChild(areaInfoItem2);
     } else {
       listEl.innerHTML = '<div class="empty-state"><span class="material-icons">link</span>準備中</div>';
     }
@@ -880,6 +902,56 @@ async function submitMemberInfo() {
     btn.innerHTML = originalText;
     btn.disabled = false;
   }
+}
+
+// ── 区域情報登録 ────────────────────────────────
+function initAreaInfoForm() {
+  const form = document.getElementById('area-info-form');
+  if (!form) return;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const address = document.getElementById('ai-address').value.trim();
+    if (!address) { alert('住所を入力してください'); return; }
+    const building = document.getElementById('ai-building').value.trim();
+    const reject = document.getElementById('ai-reject').value.trim();
+    const memo = document.getElementById('ai-memo').value.trim();
+
+    const msg = `【送信内容の確認】\n住所: ${address}` +
+      (building ? `\n建物名: ${building}` : '') +
+      (reject ? `\n拒否理由: ${reject}` : '') +
+      (memo ? `\nメモ: ${memo}` : '') +
+      `\n\n送信しますか？`;
+    if (!confirm(msg)) return;
+
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
+
+    try {
+      await db.collection('AREA_INFO_REQUESTS').add({
+        name: memberUserName || '不明',
+        address, buildingName: building, rejectReason: reject, memo,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'pending',
+      });
+      await db.collection('ADMIN_NOTIFICATIONS').add({
+        type: 'area_info',
+        message: (memberUserName || '不明') + 'さんが新規物件情報を登録しました',
+        fromUser: memberUserName || '不明',
+        extra: { address, buildingName: building },
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+      alert('登録しました');
+      form.reset();
+      navigate('shinsei');
+    } catch (err) {
+      alert('登録エラー: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+    }
+  };
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────

@@ -1503,11 +1503,10 @@ async function loadAssignmentWeekDisplay() {
           assigneeText = slots['A'] || '';
         } else if (item.codes && item.codes.length > 0) {
           const parts = [];
-          const isSongWithPrayer = item.type === 'song' && item.codes.includes('A') && item.codes.includes('B');
+          const isSongWithPrayer = item.type === 'song' && item.codes.includes('B');
           if (isSongWithPrayer) {
-            const chairName = slots['A'] || '';
             const prayerName = slots['B'] || '';
-            if (chairName || prayerName) parts.push(`${chairName} / ${prayerName}`);
+            if (prayerName) parts.push(prayerName);
           } else {
             item.codes.forEach(code => {
               const base = awGetBase(code);
