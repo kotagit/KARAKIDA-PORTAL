@@ -148,10 +148,8 @@ async function awConfirmAll() {
       const batch = db.batch();
       Object.entries(slots).forEach(([code, name]) => {
         if (!name || name === '（該当者なし）') return;
-        const member = awMembers.find(mb => mb.name === name);
         batch.set(db.collection('assignmentHistory').doc(), {
-          memberId: member?.memberId ?? null, memberName: name,
-          code: awGetBase(code), date: firebase.firestore.Timestamp.fromDate(thuDate),
+          memberName: name, code: awGetBase(code), date: firebase.firestore.Timestamp.fromDate(thuDate),
         });
       });
       await batch.commit();
@@ -1080,12 +1078,8 @@ async function awConfirmAssignment() {
       if (!name || name === '（該当者なし）') return;
       const baseCode = awGetBase(code);
       const ref    = db.collection('assignmentHistory').doc();
-      const member = awMembers.find(mb => mb.name === name);
       batch.set(ref, {
-        memberId:   member?.memberId ?? null,
-        memberName: name,
-        code:       baseCode,
-        date:       firebase.firestore.Timestamp.fromDate(thuDate),
+        memberName: name, code: baseCode, date: firebase.firestore.Timestamp.fromDate(thuDate),
       });
     });
     await batch.commit();
