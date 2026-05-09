@@ -1081,3 +1081,53 @@ body {
 }
 .pwa-role-label:hover { color: var(--primary); }
 .pwa-radio { font-size: 20px; color: #999; transition: color 0.15s; }
+
+/* ── 奉仕報告管理 ── */
+.rpt-toolbar {
+  background: white; border-radius: 12px; padding: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 16px;
+}
+.rpt-toolbar-row { display: flex; align-items: center; flex-wrap: wrap; }
+.rpt-filter-btn {
+  padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px;
+  background: white; font-size: 12px; font-weight: 700; cursor: pointer;
+  color: var(--text-light); transition: all 0.15s;
+}
+.rpt-filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+.rpt-filter-active {
+  background: var(--primary); color: white !important; border-color: var(--primary);
+}
+.rpt-group { margin-bottom: 20px; }
+.rpt-group-title {
+  font-size: 13px; font-weight: 700; color: var(--primary);
+  padding: 8px 4px; border-bottom: 2px solid var(--primary); margin-bottom: 0;
+}
+.rpt-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  background: white; box-shadow: var(--shadow); border-radius: 0 0 8px 8px; overflow: hidden;
+}
+.rpt-table th {
+  background: #f5f5f5; padding: 8px 6px; text-align: left;
+  font-size: 11px; font-weight: 700; color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+}
+.rpt-table td {
+  padding: 10px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: middle;
+}
+.rpt-table tr:last-child td { border-bottom: none; }
+.rpt-cell-sm { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+.rpt-row-none td { color: #bbb; }
+.rpt-badge-done {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 12px;
+  background: #e8f5e9; color: #2e7d32;
+}
+.rpt-badge-none {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 12px;
+  background: #ffebee; color: #c62828;
+}
+.rpt-remarks {
+  font-size: 11px; color: var(--text-light); font-style: italic;
+  padding-top: 0 !important; padding-left: 12px !important;
+}

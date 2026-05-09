@@ -46,6 +46,7 @@ const PAGE_TITLES = {
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
   'service-report': '奉仕報告提出',
+  'admin-reports': '奉仕報告管理',
   'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -238,6 +239,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-s13')                loadAdminS13Table();
+  if (page === 'admin-reports')            loadAdminReports();
   if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
@@ -269,6 +271,10 @@ document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
 
 document.getElementById('admin-manage-org')?.addEventListener('click', () => {
   navigate('admin-org');
+});
+
+document.getElementById('admin-manage-reports')?.addEventListener('click', () => {
+  navigate('admin-reports');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -1253,6 +1259,173 @@ async function pwApplySubmit(items) {
     btn.disabled = false;
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
   }
+}
+
+// ── 奉仕報告管理 ────────────────────────────────
+let rptFilter = 'all'; // all, done, none
+let rptData = { members: [], reports: [] };
+
+async function loadAdminReports() {
+  const view = document.getElementById('rpt-view');
+  const monthSel = document.getElementById('rpt-month-select');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  // 月セレクト初期化
+  if (monthSel && monthSel.options.length === 0) {
+    const now = new Date();
+    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    for (let i = 0; i < 12; i++) {
+      let m = now.getMonth() - i;
+      let y = now.getFullYear();
+      if (m <= 0) { m += 12; y--; }
+      const opt = document.createElement('option');
+      opt.value = y + '-' + m;
+      opt.textContent = y + '年' + m + '月';
+      if (m === defMonth && y === defYear) opt.selected = true;
+      monthSel.appendChild(opt);
+    }
+    monthSel.addEventListener('change', () => loadAdminReportsData());
+
+    // フィルターボタン
+    document.getElementById('rpt-filter-all')?.addEventListener('click', () => setRptFilter('all'));
+    document.getElementById('rpt-filter-done')?.addEventListener('click', () => setRptFilter('done'));
+    document.getElementById('rpt-filter-none')?.addEventListener('click', () => setRptFilter('none'));
+  }
+
+  await loadAdminReportsData();
+}
+
+function setRptFilter(f) {
+  rptFilter = f;
+  document.querySelectorAll('.rpt-filter-btn').forEach(b => b.classList.remove('rpt-filter-active'));
+  const id = f === 'all' ? 'rpt-filter-all' : f === 'done' ? 'rpt-filter-done' : 'rpt-filter-none';
+  document.getElementById(id)?.classList.add('rpt-filter-active');
+  renderAdminReports();
+}
+
+async function loadAdminReportsData() {
+  const view = document.getElementById('rpt-view');
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  const monthSel = document.getElementById('rpt-month-select');
+  const val = monthSel.value.split('-');
+  const year = parseInt(val[0]);
+  const month = parseInt(val[1]);
+
+  try {
+    const [userSnap, reportSnap] = await Promise.all([
+      db.collection('USER_LIST').get(),
+      db.collection('PREACHING_REPORT').where('month', '==', month).get(),
+    ]);
+
+    // 成員一覧
+    const members = [];
+    userSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      if (!name) return;
+      members.push({
+        name,
+        group: String(data.group || '').trim(),
+      });
+    });
+    members.sort((a, b) => {
+      if (a.group !== b.group) return a.group.localeCompare(b.group);
+      return a.name.localeCompare(b.name);
+    });
+
+    // 報告データ（同じ名前+月は最新のみ）
+    const reportMap = {};
+    reportSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+      if (!reportMap[name] || ts > reportMap[name]._ts) {
+        reportMap[name] = {
+          role: data.role || '',
+          participation: data.participation || '',
+          hours: data.hours,
+          bibleStudy: data.bibleStudy,
+          remarks: data.remarks || '',
+          _ts: ts,
+        };
+      }
+    });
+
+    rptData = { members, reportMap, month, year };
+    renderAdminReports();
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+function renderAdminReports() {
+  const view = document.getElementById('rpt-view');
+  const { members, reportMap, month } = rptData;
+
+  // 統計
+  let submitted = 0;
+  members.forEach(m => { if (reportMap[m.name]) submitted++; });
+  const summary = document.getElementById('rpt-summary');
+  if (summary) summary.textContent = '提出: ' + submitted + ' / ' + members.length + '名';
+
+  // グループ別にまとめる
+  const groups = {};
+  members.forEach(m => {
+    const report = reportMap[m.name] || null;
+    const isDone = !!report;
+    if (rptFilter === 'done' && !isDone) return;
+    if (rptFilter === 'none' && isDone) return;
+    if (!groups[m.group]) groups[m.group] = [];
+    groups[m.group].push({ ...m, report });
+  });
+
+  if (Object.keys(groups).length === 0) {
+    view.innerHTML = '<div class="empty-state"><span class="material-icons">search_off</span>該当するデータがありません</div>';
+    return;
+  }
+
+  let html = '';
+  Object.keys(groups).sort().forEach(groupName => {
+    const list = groups[groupName];
+    html += '<div class="rpt-group">';
+    html += '<div class="rpt-group-title">' + esc(groupName || '未分類') + '</div>';
+    html += '<table class="rpt-table"><thead><tr>';
+    html += '<th>氏名</th><th>立場</th><th>参加/時間</th><th>研究</th><th>状態</th>';
+    html += '</tr></thead><tbody>';
+
+    list.forEach(item => {
+      const r = item.report;
+      if (r) {
+        const isEv = r.role === '伝道者';
+        const activity = isEv ? (r.participation || '-') : (r.hours != null ? r.hours + '時間' : '-');
+        html += '<tr>';
+        html += '<td>' + esc(item.name) + '</td>';
+        html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
+        html += '<td class="rpt-cell-sm">' + esc(activity) + '</td>';
+        html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
+        html += '<td><span class="rpt-badge-done">✓ 提出済</span></td>';
+        html += '</tr>';
+        if (r.remarks) {
+          html += '<tr><td colspan="5" class="rpt-remarks">備考: ' + esc(r.remarks) + '</td></tr>';
+        }
+      } else {
+        html += '<tr class="rpt-row-none">';
+        html += '<td>' + esc(item.name) + '</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td class="rpt-cell-sm">-</td>';
+        html += '<td><span class="rpt-badge-none">未提出</span></td>';
+        html += '</tr>';
+      }
+    });
+
+    html += '</tbody></table></div>';
+  });
+
+  view.innerHTML = html;
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────
