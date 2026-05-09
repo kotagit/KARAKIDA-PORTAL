@@ -126,14 +126,11 @@ body {
 /* ── ホームヒーロー ── */
 .home-hero {
   height: 240px;
-  background: url('hero.jpg') center 30% / contain no-repeat;
-  background-color: #e8f0f5;
+  background: url('hero.jpg') center 30% / cover no-repeat;
 }
 @media (min-width: 700px) {
   .home-hero {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    height: 320px;
+    height: 480px;
   }
 }
 
