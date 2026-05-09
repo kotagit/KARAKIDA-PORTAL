@@ -23,6 +23,8 @@ let deleteTargetId     = null;
 let deleteTargetType   = null;
 let senkyoCardsBackTarget = 'senkyo-all';
 let senkyoCardsContext = {}; // { territory, groupName, fromPage }
+let senkyoCardViewBack = 'senkyo-cards';
+let senkyoCardViewName = ''; // e.g. '1-1'
 
 // ── ユーティリティ ────────────────────────────
 function esc(str) {
@@ -49,6 +51,7 @@ const PAGE_TITLES = {
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
+  'senkyo-cardview': '区域カード',
   'senkyo-cards': '区域カード',
   'senkyo-all': '全ての区域カード',
   'senkyo-autolock': 'オートロック区域',
@@ -155,7 +158,9 @@ function navigate(page) {
   if (targetPage) targetPage.classList.add('active');
   
   currentPage = page;
-  if (page === 'senkyo-cards' && senkyoCardsContext.territory) {
+  if (page === 'senkyo-cardview' && senkyoCardViewName) {
+    headerTitle.textContent = '区域No.' + senkyoCardViewName;
+  } else if (page === 'senkyo-cards' && senkyoCardsContext.territory) {
     headerTitle.textContent = '区域No.' + senkyoCardsContext.territory;
   } else {
     headerTitle.textContent = PAGE_TITLES[page] || page;
@@ -168,7 +173,9 @@ function navigate(page) {
   }
 
   // サブページの戻り先を設定
-  if (page === 'senkyo-cards') {
+  if (page === 'senkyo-cardview') {
+    backBtn._backTarget = senkyoCardViewBack || 'senkyo-cards';
+  } else if (page === 'senkyo-cards') {
     backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
   } else if (page.startsWith('senkyo-')) {
     backBtn._backTarget = 'senkyo';
@@ -189,6 +196,7 @@ function navigate(page) {
   if (page === 'keikaku')  loadLinks('keikaku');
   if (page === 'senkyo-mycard')    loadSenkyoMyCards();
   if (page === 'senkyo-cards')     loadSenkyoCards();
+  if (page === 'senkyo-cardview')  loadSenkyoCardView();
   if (page === 'senkyo-all')       loadSenkyoTerritories('NORMAL', 'senkyo-all-view');
   if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
@@ -1599,20 +1607,27 @@ async function loadSenkyoMyCards() {
     tag1.textContent = userName;
     container.appendChild(tag1);
 
+    function mkBtn(cn) {
+      const btn = document.createElement('button');
+      btn.className = 'mycard-item';
+      btn.innerHTML = `<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>
+        <span class="mycard-name">区域No.${esc(cn)}</span>
+        <span class="material-icons senkyo-chevron">chevron_right</span>`;
+      btn.addEventListener('click', () => {
+        senkyoCardViewName = cn;
+        senkyoCardViewBack = 'senkyo-mycard';
+        navigate('senkyo-cardview');
+      });
+      return btn;
+    }
+
     if (personalCards.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'mycard-empty';
       empty.textContent = '割当てられたカードがありません';
       container.appendChild(empty);
     } else {
-      personalCards.forEach(cn => {
-        const btn = document.createElement('button');
-        btn.className = 'mycard-item';
-        btn.innerHTML = `<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>
-          <span class="mycard-name">区域No.${esc(cn)}</span>
-          <span class="material-icons senkyo-chevron">chevron_right</span>`;
-        container.appendChild(btn);
-      });
+      personalCards.forEach(cn => container.appendChild(mkBtn(cn)));
     }
 
     // グループカード
@@ -1632,14 +1647,7 @@ async function loadSenkyoMyCards() {
         empty.textContent = '割り当てられた区域はありません';
         container.appendChild(empty);
       } else {
-        groupCards.forEach(cn => {
-          const btn = document.createElement('button');
-          btn.className = 'mycard-item';
-          btn.innerHTML = `<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>
-            <span class="mycard-name">区域No.${esc(cn)}</span>
-            <span class="material-icons senkyo-chevron">chevron_right</span>`;
-          container.appendChild(btn);
-        });
+        groupCards.forEach(cn => container.appendChild(mkBtn(cn)));
       }
     }
   } catch (e) {
@@ -1655,6 +1663,184 @@ function parseSimpleDate(s) {
   const m = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
   return null;
+}
+
+async function loadSenkyoCardView() {
+  const container = document.getElementById('senkyo-cardview-view');
+  if (!container) return;
+  const cardName = senkyoCardViewName;
+  if (!cardName) { container.innerHTML = '<div class="empty-state">カード名が指定されていません</div>'; return; }
+
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const parts = cardName.split('-');
+    const areaId = parseInt(parts[0]);
+    const sheetId = parseInt(parts[1] || '1');
+    if (isNaN(areaId) || isNaN(sheetId)) { container.innerHTML = '<div class="empty-state">無効なカード名です</div>'; return; }
+
+    // AREA_DATA_NORMAL を取得
+    let addrSnap = await db.collection('AREA_DATA_NORMAL')
+      .where('areaId', '==', areaId).where('sheetId', '==', sheetId).get();
+    if (addrSnap.empty) {
+      // フィールド名違いのフォールバック
+      addrSnap = await db.collection('AREA_DATA_NORMAL')
+        .where('area_id', '==', areaId).where('sheet_id', '==', sheetId).get();
+    }
+
+    if (addrSnap.empty) {
+      container.innerHTML = '<div class="empty-state">データがありません</div>';
+      return;
+    }
+
+    // uidマップ
+    const uidToAddr = {};
+    addrSnap.docs.forEach(d => {
+      const data = d.data();
+      const uid = data.uid || d.id;
+      if (uid) uidToAddr[uid] = data;
+    });
+
+    // 履歴取得
+    const uids = Object.keys(uidToAddr);
+    const histByUid = {};
+    for (let i = 0; i < uids.length; i += 30) {
+      const batch = uids.slice(i, i + 30);
+      const histSnap = await db.collection('AREA_DATA_NORMAL_HISTORY')
+        .where('uid', 'in', batch).get();
+      histSnap.docs.forEach(d => {
+        const data = d.data();
+        const uid = data.uid || '';
+        if (uid) { if (!histByUid[uid]) histByUid[uid] = []; histByUid[uid].push(data); }
+      });
+    }
+
+    // Timestamp→文字列
+    function toDateStr(v) {
+      if (!v) return '';
+      if (typeof v === 'string') return v;
+      if (v.toDate) { const d = v.toDate(); d.setHours(d.getHours()+9); return d.getFullYear()+'/'+( d.getMonth()+1)+'/'+d.getDate(); }
+      return v.toString();
+    }
+
+    // 結果構築
+    const results = [];
+    Object.entries(uidToAddr).forEach(([uid, addr]) => {
+      const townName = (addr.townName || addr.town_name || '').toString();
+      const houseNum = (addr.addressNumber || addr.house_num || '').toString();
+      const roomNum = (addr.roomNum || addr.room_num || '').toString();
+      const addressNumber = roomNum ? houseNum + '-' + roomNum : houseNum;
+      const houseName = (addr.houseName || addr.house_name || '').toString();
+      const mapLink = (addr.mapLink || addr.map_link || '').toString();
+
+      const histDocs = (histByUid[uid] || []).sort((a, b) => {
+        const aS = toDateStr(a.startDate || a.start_date);
+        const bS = toDateStr(b.startDate || b.start_date);
+        return bS.localeCompare(aS);
+      });
+
+      const visits = histDocs.filter(d => {
+        const sd = toDateStr(d.startDate || d.start_date);
+        const ed = toDateStr(d.endDate || d.end_date);
+        return sd && ed;
+      }).slice(0, 5).map(d => {
+        const sd = toDateStr(d.startDate || d.start_date);
+        const ed = toDateStr(d.endDate || d.end_date);
+        return { startDate: sd, endDate: ed, status: (d.visitResult || d.visit_result || '').toString() };
+      });
+
+      results.push({ uid, addressNumber, townName, targetName: houseName, mapLink, visits });
+    });
+
+    // ソート
+    results.sort((a, b) => {
+      if (a.townName !== b.townName) return a.townName.localeCompare(b.townName);
+      const an = parseInt(a.addressNumber), bn = parseInt(b.addressNumber);
+      if (!isNaN(an) && !isNaN(bn)) return an - bn;
+      return a.addressNumber.localeCompare(b.addressNumber);
+    });
+
+    // ヘッダー情報（最新の訪問期間）
+    let startDate = '', endDate = '';
+    for (const r of results) {
+      if (r.visits.length > 0) { startDate = r.visits[0].startDate; endDate = r.visits[0].endDate; break; }
+    }
+
+    // 描画
+    container.innerHTML = '';
+
+    // ヘッダー
+    const hdr = document.createElement('div');
+    hdr.className = 'cv-header';
+    let hdrInfo = '';
+    if (memberUserName) hdrInfo += '<div>担当者：' + esc(memberUserName) + '</div>';
+    if (startDate) hdrInfo += '<div>開始日付：' + esc(formatDateJP(startDate)) + '</div>';
+    if (endDate) hdrInfo += '<div>終了日付：' + esc(formatDateJP(endDate)) + '</div>';
+    hdr.innerHTML = hdrInfo;
+    container.appendChild(hdr);
+
+    // アドレス一覧
+    const groups = {};
+    results.forEach(r => {
+      if (!groups[r.townName]) groups[r.townName] = [];
+      groups[r.townName].push(r);
+    });
+
+    Object.entries(groups).forEach(([town, addrs]) => {
+      if (town) {
+        const section = document.createElement('div');
+        section.className = 'cv-section';
+        section.textContent = town;
+        container.appendChild(section);
+      }
+      addrs.forEach(addr => {
+        const currentStatus = addr.visits.length > 0 ? addr.visits[0].status : '';
+        const row = document.createElement('div');
+        row.className = 'cv-row';
+        row.style.background = statusColor(currentStatus);
+        let mapIcon = '';
+        if (addr.mapLink) {
+          mapIcon = '<a href="' + esc(addr.mapLink) + '" target="_blank" class="cv-map-icon"><span class="material-icons" style="font-size:20px;color:#F1C232">location_on</span></a>';
+        } else {
+          mapIcon = '<span style="width:22px;display:inline-block"></span>';
+        }
+        row.innerHTML = mapIcon +
+          '<span class="cv-no">' + esc(addr.addressNumber) + '</span>' +
+          '<span class="cv-name">' + esc(addr.targetName) + '</span>' +
+          '<span class="cv-status' + (currentStatus ? '' : ' cv-status-empty') + '">' + esc(currentStatus || '入力') + '</span>';
+        container.appendChild(row);
+      });
+    });
+
+    if (results.length === 0) {
+      container.innerHTML = '<div class="empty-state">データがありません</div>';
+    }
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+    console.error('loadSenkyoCardView error:', e);
+  }
+}
+
+function formatDateJP(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split(/[\/\-]/);
+    if (parts.length === 3) {
+      const y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      const wd = ['日','月','火','水','木','金','土'][dt.getUTCDay()];
+      return y + '年' + m + '月' + d + '日（' + wd + '）';
+    }
+  } catch(e) {}
+  return dateStr;
+}
+
+function statusColor(s) {
+  if (s === 'ア') return '#C8E6C9';
+  if (s === 'アビ') return '#E8F5E9';
+  if (s === 'ル') return '#FFF9C4';
+  if (s === 'ルビ') return '#FFF3E0';
+  if (s === '白') return '#f5f5f5';
+  return 'transparent';
 }
 
 async function loadSenkyoCards() {
@@ -1715,6 +1901,20 @@ async function loadSenkyoCards() {
     // ソート: 名前あり → アルファベット順、名前なし（未割当て）は最後
     const members = Object.keys(grouped).filter(k => k !== '').sort();
 
+    function makeCardBtn(cn, backPage) {
+      const btn = document.createElement('button');
+      btn.className = 'mycard-item';
+      btn.innerHTML = '<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>' +
+        '<span class="mycard-name">区域No.' + esc(cn) + '</span>' +
+        '<span class="material-icons senkyo-chevron">chevron_right</span>';
+      btn.addEventListener('click', () => {
+        senkyoCardViewName = cn;
+        senkyoCardViewBack = backPage;
+        navigate('senkyo-cardview');
+      });
+      return btn;
+    }
+
     container.innerHTML = '';
     members.forEach(member => {
       const tag = document.createElement('div');
@@ -1722,14 +1922,7 @@ async function loadSenkyoCards() {
       tag.textContent = member;
       container.appendChild(tag);
 
-      grouped[member].forEach(cn => {
-        const btn = document.createElement('button');
-        btn.className = 'mycard-item';
-        btn.innerHTML = '<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>' +
-          '<span class="mycard-name">区域No.' + esc(cn) + '</span>' +
-          '<span class="material-icons senkyo-chevron">chevron_right</span>';
-        container.appendChild(btn);
-      });
+      grouped[member].forEach(cn => container.appendChild(makeCardBtn(cn, 'senkyo-cards')));
 
       const spacer = document.createElement('div');
       spacer.style.height = '16px';
@@ -1743,14 +1936,7 @@ async function loadSenkyoCards() {
       tag.textContent = '未割当て';
       container.appendChild(tag);
 
-      grouped[''].forEach(cn => {
-        const btn = document.createElement('button');
-        btn.className = 'mycard-item';
-        btn.innerHTML = '<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>' +
-          '<span class="mycard-name">区域No.' + esc(cn) + '</span>' +
-          '<span class="material-icons senkyo-chevron">chevron_right</span>';
-        container.appendChild(btn);
-      });
+      grouped[''].forEach(cn => container.appendChild(makeCardBtn(cn, 'senkyo-cards')));
     }
 
     if (members.length === 0 && (!grouped[''] || grouped[''].length === 0)) {

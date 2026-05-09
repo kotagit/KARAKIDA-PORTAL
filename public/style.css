@@ -821,6 +821,32 @@ body {
 .mycard-name { flex: 1; font-size: 15px; font-weight: 700; color: var(--primary); }
 .mycard-empty { font-size: 13px; color: #999; padding: 4px 0 16px; }
 
+/* カード詳細ビュー */
+.cv-header {
+  padding: 12px; background: rgba(4,124,188,0.1);
+  font-size: 12px; color: #616161; line-height: 1.6;
+  border-bottom: 1px solid #e0e0e0;
+}
+.cv-section {
+  padding: 6px 12px; background: rgba(4,124,188,0.15);
+  font-size: 13px; font-weight: 700; color: var(--primary);
+}
+.cv-row {
+  display: flex; align-items: center; gap: 2px;
+  padding: 4px 8px; min-height: 44px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.cv-map-icon { display: flex; align-items: center; text-decoration: none; }
+.cv-no { width: 40px; text-align: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.cv-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-status {
+  width: 48px; text-align: center; font-size: 13px; font-weight: 700;
+  padding: 6px 8px; border-radius: 8px; flex-shrink: 0;
+}
+.cv-status-empty {
+  background: #eee; border: 1px solid #bbb; color: #999;
+}
+
 /* 区域チップ */
 .senkyo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
 .senkyo-territory-chip {
