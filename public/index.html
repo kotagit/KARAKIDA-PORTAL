@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=63">
+  <link rel="stylesheet" href="style.css?v=64">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -332,8 +332,8 @@
       <div class="page-banner banner-shinsei"><h2>奉仕報告提出</h2></div>
       <div class="page-content">
         <div class="form-container">
-          <div class="sr-field">
-            <label class="sr-label">報告対象 <span style="color:#d32f2f">*</span></label>
+          <div class="sr-field sr-target-field">
+            <label class="sr-label" style="color:#fff">報告対象 <span style="color:#ffcdd2">*</span></label>
             <div class="sr-input-wrap">
               <select id="sr-target"><option value="self">自分の報告</option><option value="other">他の人の報告</option></select>
             </div>
@@ -345,6 +345,10 @@
           <div class="sr-field hidden" id="sr-other-name-row">
             <label class="sr-label">氏名 <span style="color:#d32f2f">*</span></label>
             <div class="sr-input-wrap"><input type="text" id="sr-other-name" placeholder="氏名を入力"></div>
+          </div>
+          <div class="sr-field hidden" id="sr-other-furigana-row">
+            <label class="sr-label">ふりがな</label>
+            <div class="sr-input-wrap"><input type="text" id="sr-other-furigana" placeholder="ふりがなを入力"></div>
           </div>
           <div class="sr-field" id="sr-group-row">
             <label class="sr-label">グループ</label>
@@ -834,7 +838,7 @@
   </div>
 </div>
 
-<script src="main.js?v=54"></script>
+<script src="main.js?v=55"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>

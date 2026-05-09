@@ -1003,6 +1003,7 @@ async function initServiceReportForm() {
   const targetSel = document.getElementById('sr-target');
   const nameRow = document.getElementById('sr-name-row');
   const otherNameRow = document.getElementById('sr-other-name-row');
+  const otherFuriganaRow = document.getElementById('sr-other-furigana-row');
   const groupRow = document.getElementById('sr-group-row');
   const otherGroupRow = document.getElementById('sr-other-group-row');
   const groupInput = document.getElementById('sr-group');
@@ -1011,6 +1012,7 @@ async function initServiceReportForm() {
     const isOther = targetSel.value === 'other';
     nameRow.classList.toggle('hidden', isOther);
     otherNameRow.classList.toggle('hidden', !isOther);
+    otherFuriganaRow.classList.toggle('hidden', !isOther);
     groupRow.classList.toggle('hidden', isOther);
     otherGroupRow.classList.toggle('hidden', !isOther);
     if (isOther) {
@@ -1098,7 +1100,7 @@ async function initServiceReportForm() {
     try {
       const reportData = {
         name: submitName,
-        furigana: '',
+        furigana: isOther ? (document.getElementById('sr-other-furigana').value.trim()) : '',
         groupName: submitGroup,
         gender,
         month,
@@ -1119,6 +1121,7 @@ async function initServiceReportForm() {
       document.getElementById('sr-remarks').value = '';
       if (isOther) {
         document.getElementById('sr-other-name').value = '';
+        document.getElementById('sr-other-furigana').value = '';
         document.getElementById('sr-other-group').value = '';
       }
       targetSel.value = 'self';

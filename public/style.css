@@ -1036,6 +1036,9 @@ body {
   border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
 }
 .sr-input-wrap select { background: white; }
+.sr-target-field {
+  background: var(--primary); border-radius: 8px; padding: 10px 12px; margin: -4px 0 10px;
+}
 .sr-input-wrap input:focus, .sr-input-wrap select:focus, .sr-input-wrap textarea:focus {
   border-color: var(--primary); outline: none;
 }
