@@ -374,11 +374,13 @@ function awBuildWeekSection(week, container) {
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <button class="aw-edit-schedule-btn icon-btn" title="スケジュール編集">
-        <span class="material-icons" style="font-size:20px;color:rgba(255,255,255,0.85)">edit_calendar</span>
+      <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
+        <span class="material-icons">edit_calendar</span>
+        <span>編集</span>
       </button>
-      <button class="aw-btn-save aw-header-btn" title="保存">
-        <span class="material-icons" style="font-size:18px">save</span>
+      <button class="aw-btn-save aw-header-sq-btn" title="保存">
+        <span class="material-icons">save</span>
+        <span>保存</span>
       </button>
       <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
     </div>
