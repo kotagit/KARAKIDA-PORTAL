@@ -1146,11 +1146,14 @@ function awRenderMemberList() {
         <div class="admin-list-date">${esc(member.position||'')} / ${esc(member.gender||'')}${member.familyGroup ? ' / ' + esc(member.familyGroup) : ''}</div>
       </div>
       <div class="admin-list-actions">
-        <button class="icon-btn am-edit" data-id="${esc(member.docId)}" style="color:var(--primary)">
+        <button class="icon-btn am-edit" data-id="${esc(member.docId)}" style="color:var(--primary)" title="編集">
           <span class="material-icons">edit</span>
         </button>
-        <button class="icon-btn am-toggle" data-id="${esc(member.docId)}" style="color:#d32f2f">
+        <button class="icon-btn am-toggle" data-id="${esc(member.docId)}" style="color:#e65100" title="無効化">
           <span class="material-icons">person_off</span>
+        </button>
+        <button class="icon-btn am-delete" data-id="${esc(member.docId)}" style="color:#d32f2f" title="削除">
+          <span class="material-icons">delete</span>
         </button>
       </div>
     `;
@@ -1161,6 +1164,8 @@ function awRenderMemberList() {
     btn.addEventListener('click', () => awOpenMemberModal(btn.dataset.id)));
   list.querySelectorAll('.am-toggle').forEach(btn =>
     btn.addEventListener('click', () => awDeactivateMember(btn.dataset.id)));
+  list.querySelectorAll('.am-delete').forEach(btn =>
+    btn.addEventListener('click', () => awDeleteMember(btn.dataset.id)));
 }
 
 function awBuildCodesGrid(selectedCodes = []) {
@@ -1232,6 +1237,19 @@ async function awDeactivateMember(id) {
     awRenderMemberList();
   } catch(e) {
     alert('エラー: ' + e.message);
+  }
+}
+
+async function awDeleteMember(id) {
+  const member = awMembers.find(mb => mb.docId === id);
+  const name = member ? member.name : id;
+  if (!confirm(`「${name}」を完全に削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    await db.collection('mwbMembers').doc(id).delete();
+    await awLoadMembers();
+    awRenderMemberList();
+  } catch(e) {
+    alert('削除エラー: ' + e.message);
   }
 }
 
