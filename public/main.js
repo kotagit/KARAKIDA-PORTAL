@@ -1541,6 +1541,7 @@ async function loadSenkyoPublic() {
 
     container.innerHTML = '';
     let prevDay = '';
+    let isFirst = true;
 
     options.forEach(opt => {
       const day = (opt.day || '').toString();
@@ -1554,14 +1555,17 @@ async function loadSenkyoPublic() {
       // ヘッダー
       const hdr = document.createElement('div');
       hdr.className = 'pw-slot-header';
+      if (!isFirst) hdr.style.marginTop = '24px';
+      isFirst = false;
       let hdrHtml = '';
-      if (day !== prevDay) {
+      const showDate = day !== prevDay;
+      if (showDate) {
         hdrHtml += `<span class="pw-date${isWeekend ? ' pw-weekend' : ''}">${esc(day)}(${esc(weekday)})</span>`;
         prevDay = day;
       }
-      hdrHtml += `<span class="material-icons" style="font-size:16px;color:var(--primary)">access_time</span>
+      hdrHtml += `<span class="material-icons" style="font-size:18px;color:var(--primary)">access_time</span>
         <span class="pw-time">${esc(time)}</span>
-        <span class="material-icons" style="font-size:16px;color:var(--text-light)">location_on</span>
+        <span class="material-icons" style="font-size:18px;color:#808080">location_on</span>
         <span class="pw-place">${esc(placeBase)}</span>`;
       hdr.innerHTML = hdrHtml;
       container.appendChild(hdr);

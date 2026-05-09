@@ -814,28 +814,30 @@ body {
 
 /* 公共伝道 */
 .pw-slot-header {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  padding: 12px 4px 6px; margin-top: 16px;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 8px 12px;
 }
-.pw-slot-header:first-child { margin-top: 0; }
-.pw-date { font-size: 15px; font-weight: 700; margin-right: 8px; }
-.pw-weekend { color: #c62828; }
-.pw-time { font-size: 15px; font-weight: 700; color: var(--primary); margin-right: 8px; }
-.pw-place { font-size: 15px; font-weight: 700; }
+.pw-slot-header + .pw-slot-header { margin-top: 24px; }
+.pw-date { font-size: 15px; font-weight: 700; color: #212121; margin-right: 12px; }
+.pw-weekend { color: #c41c3b; }
+.pw-time { font-size: 15px; font-weight: 700; color: var(--primary); margin-right: 12px; }
+.pw-place { font-size: 15px; font-weight: 700; color: #212121; }
 .pw-table {
-  border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 8px;
+  width: 330px; border: 1px solid #000; border-radius: 8px;
+  overflow: hidden; margin: 4px 0 0 0;
 }
-.pw-row { display: flex; border-bottom: 0.5px solid #999; }
+.pw-row { display: flex; border-bottom: 0.5px solid #000; }
 .pw-row:last-child { border-bottom: none; }
-.pw-row-place { background: #f5f5f5; border-bottom: 1px solid #333; }
-.pw-row-conductor { border-bottom: 1px solid #333; }
+.pw-row-place { background: #fafafa; border-bottom: 1px solid #000; }
+.pw-row-conductor { border-bottom: 1px solid #000; }
 .pw-cell {
-  flex: 1; text-align: center; padding: 8px 4px; font-size: 13px;
-  border-right: 1px solid #333; min-height: 36px;
+  flex: 1; text-align: center; font-size: 13px;
+  border-right: 1px solid #000; height: 36px; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center;
+  background: #fff; padding: 0 2px;
 }
 .pw-cell:last-child { border-right: none; }
-.pw-cell-place { font-weight: 700; font-size: 12px; }
+.pw-cell-place { font-weight: 700; font-size: 12px; background: #fafafa; }
 .pw-row-conductor .pw-cell { font-weight: 700; color: var(--primary); }
 
 /* ── 組織表 閲覧（Excel再現） ── */
