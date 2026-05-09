@@ -153,10 +153,15 @@ logoutBtn.addEventListener('click', () => auth.signOut());
 initApp();
 
 // ── ルーティング ──────────────────────────────
-function navigate(page) {
+function navigate(page, pushHistory) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById('page-' + page);
   if (targetPage) targetPage.classList.add('active');
+
+  // ブラウザ履歴に追加（戻る/進むボタン対応）
+  if (pushHistory !== false) {
+    history.pushState({ page }, '', '#' + page);
+  }
   
   currentPage = page;
   if (page === 'senkyo-cardview' && senkyoCardViewName) {
@@ -180,6 +185,8 @@ function navigate(page) {
     backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
   } else if (page.startsWith('senkyo-')) {
     backBtn._backTarget = 'senkyo';
+  } else if (page === 'member-info' || page === 'area-info') {
+    backBtn._backTarget = 'shinsei';
   } else if (page.startsWith('admin-')) {
     const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
     if (subPages.includes(page)) {
@@ -254,6 +261,14 @@ document.querySelectorAll('.menu-item').forEach(item => {
 
 backBtn.addEventListener('click', () => navigate(backBtn._backTarget || 'home'));
 headerHomeBtn.addEventListener('click', () => navigate('home'));
+
+// ブラウザの戻る/進むボタン対応
+window.addEventListener('popstate', (e) => {
+  const page = (e.state && e.state.page) || 'home';
+  navigate(page, false);
+});
+// 初期状態をhistoryに設定
+history.replaceState({ page: 'home' }, '', '#home');
 
 // ── 発表 ──────────────────────────────────────
 async function loadAnnouncements() {
