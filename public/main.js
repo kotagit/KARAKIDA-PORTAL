@@ -1095,6 +1095,7 @@ async function loadJouhouContact() {
       { label: '性別', value: displayGender(d.gender) },
       { label: '生年月日', value: tsToStr(d.birthDay) },
       { label: 'バプテスマ日', value: tsToStr(d.bapDate) },
+      { label: '携帯電話', value: d.phone },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
       { label: '緊急連絡先', value: d.emergencyCall },
