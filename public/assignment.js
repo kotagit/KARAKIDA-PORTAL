@@ -969,14 +969,18 @@ function awGenerateAssignments() {
   awUpdateClosingNote();
 }
 
+const AW_FIELD_MINISTRY_CODES = new Set(['F','G','H','I','J','K','L','M','N','O','P','Q']);
+
 function awRunGeneration(allCodes, members, history) {
   const eligibility = {};
   const genderMap   = {};
   const familyMap   = {};
+  const positionMap = {};
   members.forEach(mb => {
     eligibility[mb.name] = new Set(mb.eligibleCodes || []);
     genderMap[mb.name]   = mb.gender || '';
     familyMap[mb.name]   = mb.familyGroup || '';
+    positionMap[mb.name] = mb.position || '';
   });
 
   const assignedPersons = new Set();
@@ -996,6 +1000,8 @@ function awRunGeneration(allCodes, members, history) {
 
     for (const [name, codes] of Object.entries(eligibility)) {
       if (!codes.has(base) || assignedPersons.has(name)) continue;
+
+      if (AW_FIELD_MINISTRY_CODES.has(base) && positionMap[name] === '長老') continue;
 
       // ペア制約チェック（異性の場合は同家族のみ）
       if (AW_PARTNER_CODES.has(base)) {
