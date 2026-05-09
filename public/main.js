@@ -1628,16 +1628,18 @@ function displayGender(g) {
 
 function tsToStr(val) {
   if (!val) return '';
-  if (typeof val === 'string') return val;
-  if (val.seconds !== undefined) {
-    const dt = new Date(val.seconds * 1000);
-    return dt.getFullYear() + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getDate()).padStart(2,'0');
+  let dt;
+  if (typeof val === 'string') {
+    dt = new Date(val);
+    if (isNaN(dt.getTime())) return val;
+  } else if (val.seconds !== undefined) {
+    dt = new Date(val.seconds * 1000);
+  } else if (val.toDate) {
+    dt = val.toDate();
+  } else {
+    return String(val);
   }
-  if (val.toDate) {
-    const dt = val.toDate();
-    return dt.getFullYear() + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + String(dt.getDate()).padStart(2,'0');
-  }
-  return String(val);
+  return dt.getFullYear() + '年' + (dt.getMonth()+1) + '月' + dt.getDate() + '日';
 }
 
 function displayRole(m) {
