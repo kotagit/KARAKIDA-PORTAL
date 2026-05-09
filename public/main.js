@@ -793,14 +793,16 @@ let s13SupervisorMap = {};   // グループ名→監督名
 let s13AllHistory = {};      // 区域番号→[{name,start,end,groupName}]
 
 async function s13LoadConfig() {
-  const [tcSnap, gcSnap] = await Promise.all([
-    db.collection('S13_CONFIG').doc('territoryCity').get(),
-    db.collection('S13_CONFIG').doc('groupCity').get(),
-  ]);
-  s13CityConfig = {
-    territoryCity: tcSnap.exists ? tcSnap.data() : {},
-    groupCity: gcSnap.exists ? gcSnap.data() : {},
-  };
+  const snap = await db.collection('S13_CONFIG').get();
+  const territoryCity = {};
+  const groupCity = {};
+  snap.docs.forEach(doc => {
+    const city = doc.id;
+    const data = doc.data();
+    if (data.territoryCity) territoryCity[city] = data.territoryCity;
+    if (data.groupCity) groupCity[city] = data.groupCity;
+  });
+  s13CityConfig = { territoryCity, groupCity };
 }
 
 function s13GetCityForTerritory(tNum) {
