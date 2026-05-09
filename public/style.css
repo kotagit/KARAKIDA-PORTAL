@@ -749,6 +749,23 @@ body {
   min-width: 180px; flex-shrink: 0;
 }
 
+@media (max-width: 767px) {
+  .aw-row {
+    flex-wrap: wrap; gap: 0;
+  }
+  .aw-row-time {
+    min-width: 38px; padding-top: 2px;
+  }
+  .aw-row-info {
+    flex: 1; min-width: 0;
+  }
+  .aw-row-assignees {
+    min-width: 0; width: 100%;
+    padding-left: 38px; padding-top: 2px; padding-bottom: 2px;
+    font-size: 13px; color: var(--primary);
+  }
+}
+
 .aw-slot { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .aw-slot-label {
   font-size: 12px; color: var(--text); font-weight: bold; min-width: 80px; text-align: right; white-space: nowrap;
