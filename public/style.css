@@ -810,6 +810,17 @@ body {
 .senkyo-menu-btn span:nth-child(2) { flex: 1; }
 .senkyo-chevron { color: var(--primary); font-size: 22px !important; }
 
+/* マイ区域カード */
+.mycard-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 14px 12px; background: white; border: 1px solid #ccc;
+  border-radius: 10px; cursor: pointer; margin-bottom: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04); text-align: left;
+}
+.mycard-item:hover { background: #f5faff; }
+.mycard-name { flex: 1; font-size: 15px; font-weight: 700; color: var(--primary); }
+.mycard-empty { font-size: 13px; color: #999; padding: 4px 0 16px; }
+
 /* 区域チップ */
 .senkyo-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
 .senkyo-territory-chip {

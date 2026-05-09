@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=46">
+  <link rel="stylesheet" href="style.css?v=47">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -205,6 +205,11 @@
         <div class="senkyo-menu">
           <div class="senkyo-section-tag">区域情報</div>
           <div class="senkyo-menu-list">
+            <button class="senkyo-menu-btn" onclick="navigate('senkyo-mycard')">
+              <span class="material-icons">map</span>
+              <span>個人の区域カード</span>
+              <span class="material-icons senkyo-chevron">chevron_right</span>
+            </button>
             <button class="senkyo-menu-btn" onclick="navigate('senkyo-all')">
               <span class="material-icons">map</span>
               <span>全ての区域カード</span>
@@ -230,6 +235,13 @@
             </button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- 個人の区域カード -->
+    <section id="page-senkyo-mycard" class="page">
+      <div class="page-content">
+        <div id="senkyo-mycard-view"><div class="loading">読み込み中...</div></div>
       </div>
     </section>
 
@@ -602,7 +614,7 @@
   </div>
 </div>
 
-<script src="main.js?v=29"></script>
+<script src="main.js?v=30"></script>
 <script src="assignment.js?v=27"></script>
 </body>
 </html>

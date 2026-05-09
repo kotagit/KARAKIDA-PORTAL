@@ -46,6 +46,7 @@ const PAGE_TITLES = {
   'admin-members': 'メンバー管理',
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
+  'senkyo-mycard': '割当て区域カード',
   'senkyo-all': '全ての区域カード',
   'senkyo-autolock': 'オートロック区域',
   'senkyo-night': '夜間区域',
@@ -102,14 +103,18 @@ async function initApp() {
           console.log('User data loaded:', userData.name);
           // USER_LISTにある漢字の名前等に書き換える
           userNameEl.textContent = userData.name || user.displayName || '';
-          
+          memberUserName = userData.name || user.displayName || '';
+          memberUserGroup = userData.group || '';
+
           const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
           isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
-          
+
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
         } else {
           console.warn('User not found in USER_LIST');
+          memberUserName = user.displayName || '';
+          memberUserGroup = '';
         }
       } catch (e) {
         console.error('Auth Check Error:', e);
@@ -173,6 +178,7 @@ function navigate(page) {
 
   if (page === 'hatsuhy')  loadAnnouncements();
   if (page === 'keikaku')  loadLinks('keikaku');
+  if (page === 'senkyo-mycard')    loadSenkyoMyCards();
   if (page === 'senkyo-all')       loadSenkyoTerritories('NORMAL', 'senkyo-all-view');
   if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
@@ -1450,6 +1456,196 @@ async function orgAddRow(section) {
 // ══════════════════════════════════════════════
 // 宣教ページ
 // ══════════════════════════════════════════════
+
+async function loadSenkyoMyCards() {
+  const container = document.getElementById('senkyo-mycard-view');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">あなたに割り当てられた区域カードを読み込んでいます...</div>';
+
+  const userName = memberUserName.trim();
+  if (!userName) {
+    container.innerHTML = '<div class="empty-state">ユーザー情報が取得できません</div>';
+    return;
+  }
+
+  try {
+    // 個人カードとグループ情報を並列取得
+    const [cardSnap, groupSnap] = await Promise.all([
+      db.collection('CARD_ASSIGNMENTS').where('memberName', '==', userName).get(),
+      memberUserGroup
+        ? db.collection('GROUP_ASS_NO').get()
+        : Promise.resolve(null),
+    ]);
+
+    // グループに割当てられた区域番号リスト（フィルター用）
+    let groupTerritories = [];
+    let groupCardSnap = null;
+    if (memberUserGroup && groupSnap) {
+      const gName = memberUserGroup.trim();
+      const today = new Date(); today.setHours(0,0,0,0);
+      let latestDate = null, latestStr = null;
+      groupSnap.docs.forEach(d => {
+        const data = d.data();
+        if ((data.groupName || '').trim() !== gName) return;
+        if ((data.type || 'NORMAL') !== 'NORMAL') return;
+        const sd = data.startDate || data.start_date || '';
+        const dt = parseSimpleDate(sd);
+        if (dt && dt <= today && (!latestDate || dt > latestDate)) {
+          latestDate = dt; latestStr = sd;
+        }
+      });
+      if (latestStr) {
+        groupSnap.docs.forEach(d => {
+          const data = d.data();
+          if ((data.groupName || '').trim() !== gName) return;
+          if ((data.type || 'NORMAL') !== 'NORMAL') return;
+          const sd = data.startDate || data.start_date || '';
+          if (sd === latestStr && data.territories) groupTerritories.push(data.territories.toString());
+        });
+      }
+      // グループ区域カードも取得
+      groupCardSnap = await db.collection('CARD_ASSIGNMENTS').where('memberName', '==', 'グループ区域').get();
+    }
+
+    // 個人カード: 各カード名の最新startDateのみ抽出
+    const normCard = (n) => n.replace(/[−–ー]/g, '-');
+    const latestPerCard = {};
+    cardSnap.docs.forEach(d => {
+      const data = d.data();
+      const cn = normCard(data.cardName || '');
+      const sd = data.startDate || data.start_date || '';
+      const dt = parseSimpleDate(sd);
+      if (!cn || !dt) return;
+      if (!latestPerCard[cn] || dt > latestPerCard[cn].dt) {
+        latestPerCard[cn] = { dt, sd };
+      }
+    });
+    let personalCards = [];
+    cardSnap.docs.forEach(d => {
+      const data = d.data();
+      const cn = normCard(data.cardName || '');
+      const sd = data.startDate || data.start_date || '';
+      if (cn && latestPerCard[cn] && sd === latestPerCard[cn].sd) {
+        if (!personalCards.includes(cn)) personalCards.push(cn);
+      }
+    });
+
+    // グループ区域でフィルター
+    if (groupTerritories.length > 0) {
+      personalCards = personalCards.filter(cn => {
+        const t = cn.split('-')[0];
+        return groupTerritories.includes(t);
+      });
+    }
+
+    // ソート
+    personalCards.sort((a, b) => {
+      const am = a.match(/(\d+)-(\d+)/), bm = b.match(/(\d+)-(\d+)/);
+      if (am && bm) {
+        const d = parseInt(am[1]) - parseInt(bm[1]);
+        return d !== 0 ? d : parseInt(am[2]) - parseInt(bm[2]);
+      }
+      return a.localeCompare(b);
+    });
+
+    // グループカード
+    let groupCards = [];
+    if (groupCardSnap) {
+      const gcLatest = {};
+      groupCardSnap.docs.forEach(d => {
+        const data = d.data();
+        const cn = normCard(data.cardName || '');
+        const sd = data.startDate || data.start_date || '';
+        const dt = parseSimpleDate(sd);
+        if (!cn || !dt) return;
+        if (!gcLatest[cn] || dt > gcLatest[cn].dt) gcLatest[cn] = { dt, sd };
+      });
+      groupCardSnap.docs.forEach(d => {
+        const data = d.data();
+        const cn = normCard(data.cardName || '');
+        const sd = data.startDate || data.start_date || '';
+        if (cn && gcLatest[cn] && sd === gcLatest[cn].sd && !groupCards.includes(cn)) {
+          groupCards.push(cn);
+        }
+      });
+      if (groupTerritories.length > 0) {
+        groupCards = groupCards.filter(cn => groupTerritories.includes(cn.split('-')[0]));
+      }
+      groupCards.sort((a, b) => {
+        const am = a.match(/(\d+)-(\d+)/), bm = b.match(/(\d+)-(\d+)/);
+        if (am && bm) {
+          const d = parseInt(am[1]) - parseInt(bm[1]);
+          return d !== 0 ? d : parseInt(am[2]) - parseInt(bm[2]);
+        }
+        return a.localeCompare(b);
+      });
+    }
+
+    // 描画
+    container.innerHTML = '';
+    // 個人カード
+    const tag1 = document.createElement('div');
+    tag1.className = 'senkyo-section-tag';
+    tag1.textContent = userName;
+    container.appendChild(tag1);
+
+    if (personalCards.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'mycard-empty';
+      empty.textContent = '割当てられたカードがありません';
+      container.appendChild(empty);
+    } else {
+      personalCards.forEach(cn => {
+        const btn = document.createElement('button');
+        btn.className = 'mycard-item';
+        btn.innerHTML = `<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>
+          <span class="mycard-name">区域No.${esc(cn)}</span>
+          <span class="material-icons senkyo-chevron">chevron_right</span>`;
+        container.appendChild(btn);
+      });
+    }
+
+    // グループカード
+    if (memberUserGroup) {
+      const spacer = document.createElement('div');
+      spacer.style.height = '16px';
+      container.appendChild(spacer);
+
+      const tag2 = document.createElement('div');
+      tag2.className = 'senkyo-section-tag';
+      tag2.textContent = 'グループカード';
+      container.appendChild(tag2);
+
+      if (groupCards.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'mycard-empty';
+        empty.textContent = '割り当てられた区域はありません';
+        container.appendChild(empty);
+      } else {
+        groupCards.forEach(cn => {
+          const btn = document.createElement('button');
+          btn.className = 'mycard-item';
+          btn.innerHTML = `<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>
+            <span class="mycard-name">区域No.${esc(cn)}</span>
+            <span class="material-icons senkyo-chevron">chevron_right</span>`;
+          container.appendChild(btn);
+        });
+      }
+    }
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+    console.error('loadSenkyoMyCards error:', e);
+  }
+}
+
+function parseSimpleDate(s) {
+  if (!s) return null;
+  const str = s.toString().trim();
+  // yyyy/MM/dd or yyyy-MM-dd
+  const m = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+  return null;
+}
 
 async function loadSenkyoTerritories(type, containerId) {
   const container = document.getElementById(containerId);
