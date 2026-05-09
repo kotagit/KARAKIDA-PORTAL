@@ -176,6 +176,12 @@ function navigate(page, pushHistory) {
 
   if (page === 'home') {
     backBtn.classList.add('hidden');
+    // 毎月1〜7日に奉仕報告バナー表示
+    const banner = document.getElementById('home-report-banner');
+    if (banner) {
+      const today = new Date().getDate();
+      banner.classList.toggle('hidden', today < 1 || today > 7);
+    }
   } else {
     backBtn.classList.remove('hidden');
   }

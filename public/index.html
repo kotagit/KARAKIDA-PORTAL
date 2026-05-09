@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=55">
+  <link rel="stylesheet" href="style.css?v=56">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -55,6 +55,11 @@
     <!-- ホーム -->
     <section id="page-home" class="page active">
       <div class="home-hero"></div>
+      <div id="home-report-banner" class="home-report-banner hidden" onclick="navigate('service-report')">
+        <span class="material-icons">edit_note</span>
+        <span>奉仕報告を提出してください</span>
+        <span class="material-icons" style="font-size:18px">chevron_right</span>
+      </div>
       <div class="menu-grid">
         <div class="menu-item" data-page="hatsuhy">
           <span class="menu-icon material-icons">article</span>
@@ -743,7 +748,7 @@
   </div>
 </div>
 
-<script src="main.js?v=42"></script>
+<script src="main.js?v=43"></script>
 <script src="assignment.js?v=29"></script>
 </body>
 </html>
