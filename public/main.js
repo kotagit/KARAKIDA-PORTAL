@@ -21,6 +21,8 @@ let editingAnnounceId  = null;
 let editingScheduleId  = null;
 let deleteTargetId     = null;
 let deleteTargetType   = null;
+let senkyoCardsBackTarget = 'senkyo-all';
+let senkyoCardsContext = {}; // { territory, groupName, fromPage }
 
 // ── ユーティリティ ────────────────────────────
 function esc(str) {
@@ -47,6 +49,7 @@ const PAGE_TITLES = {
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
+  'senkyo-cards': '区域カード',
   'senkyo-all': '全ての区域カード',
   'senkyo-autolock': 'オートロック区域',
   'senkyo-night': '夜間区域',
@@ -152,7 +155,11 @@ function navigate(page) {
   if (targetPage) targetPage.classList.add('active');
   
   currentPage = page;
-  headerTitle.textContent = PAGE_TITLES[page] || page;
+  if (page === 'senkyo-cards' && senkyoCardsContext.territory) {
+    headerTitle.textContent = '区域No.' + senkyoCardsContext.territory;
+  } else {
+    headerTitle.textContent = PAGE_TITLES[page] || page;
+  }
 
   if (page === 'home') {
     backBtn.classList.add('hidden');
@@ -161,7 +168,9 @@ function navigate(page) {
   }
 
   // サブページの戻り先を設定
-  if (page.startsWith('senkyo-')) {
+  if (page === 'senkyo-cards') {
+    backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
+  } else if (page.startsWith('senkyo-')) {
     backBtn._backTarget = 'senkyo';
   } else if (page.startsWith('admin-')) {
     const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
@@ -179,6 +188,7 @@ function navigate(page) {
   if (page === 'hatsuhy')  loadAnnouncements();
   if (page === 'keikaku')  loadLinks('keikaku');
   if (page === 'senkyo-mycard')    loadSenkyoMyCards();
+  if (page === 'senkyo-cards')     loadSenkyoCards();
   if (page === 'senkyo-all')       loadSenkyoTerritories('NORMAL', 'senkyo-all-view');
   if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
@@ -1647,6 +1657,106 @@ function parseSimpleDate(s) {
   return null;
 }
 
+async function loadSenkyoCards() {
+  const container = document.getElementById('senkyo-cards-view');
+  if (!container) return;
+  const { territory, groupName } = senkyoCardsContext;
+  if (!territory) { container.innerHTML = '<div class="empty-state">区域番号が指定されていません</div>'; return; }
+
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const areaId = parseInt(territory);
+    if (isNaN(areaId)) { container.innerHTML = '<div class="empty-state">無効な区域番号です</div>'; return; }
+
+    // 1. AREA_DATA_NORMAL から sheetId 一覧を取得 → カード名生成
+    const areaSnap = await db.collection('AREA_DATA_NORMAL').where('areaId', '==', areaId).get();
+    const sheetIds = new Set();
+    areaSnap.docs.forEach(d => {
+      const sid = d.data().sheetId;
+      if (typeof sid === 'number') sheetIds.add(sid);
+    });
+    const cardNames = [...sheetIds].sort((a, b) => a - b).map(sid => areaId + '-' + sid);
+
+    if (cardNames.length === 0) {
+      container.innerHTML = '<div class="empty-state">カードが見つかりません</div>';
+      return;
+    }
+
+    // 2. CARD_ASSIGNMENTS からカード割当て取得（ドキュメントID: groupName_areaId_sheetId）
+    const assignmentMap = {};
+    for (let i = 0; i < cardNames.length; i += 30) {
+      const batch = cardNames.slice(i, i + 30);
+      const docIds = batch.map(cn => {
+        const parts = cn.split('-');
+        return groupName + '_' + parts[0] + '_' + parts[1];
+      });
+      const snap = await db.collection('CARD_ASSIGNMENTS').where(firebase.firestore.FieldPath.documentId(), 'in', docIds).get();
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const cn = (data.cardName || '').replace(/[−–ー]/g, '-');
+        const member = data.memberName || '';
+        if (cn && member) assignmentMap[cn] = member;
+      });
+    }
+
+    // 3. メンバーごとにグループ化
+    const grouped = {};
+    cardNames.forEach(cn => {
+      const member = assignmentMap[cn] || '';
+      if (!grouped[member]) grouped[member] = [];
+      grouped[member].push(cn);
+    });
+
+    // ソート: 名前あり → アルファベット順、名前なし（未割当て）は最後
+    const members = Object.keys(grouped).filter(k => k !== '').sort();
+
+    container.innerHTML = '';
+    members.forEach(member => {
+      const tag = document.createElement('div');
+      tag.className = 'senkyo-section-tag';
+      tag.textContent = member;
+      container.appendChild(tag);
+
+      grouped[member].forEach(cn => {
+        const btn = document.createElement('button');
+        btn.className = 'mycard-item';
+        btn.innerHTML = '<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>' +
+          '<span class="mycard-name">区域No.' + esc(cn) + '</span>' +
+          '<span class="material-icons senkyo-chevron">chevron_right</span>';
+        container.appendChild(btn);
+      });
+
+      const spacer = document.createElement('div');
+      spacer.style.height = '16px';
+      container.appendChild(spacer);
+    });
+
+    // 未割当て
+    if (grouped[''] && grouped[''].length > 0) {
+      const tag = document.createElement('div');
+      tag.className = 'senkyo-section-tag';
+      tag.textContent = '未割当て';
+      container.appendChild(tag);
+
+      grouped[''].forEach(cn => {
+        const btn = document.createElement('button');
+        btn.className = 'mycard-item';
+        btn.innerHTML = '<span class="material-icons" style="color:var(--primary);font-size:24px">map</span>' +
+          '<span class="mycard-name">区域No.' + esc(cn) + '</span>' +
+          '<span class="material-icons senkyo-chevron">chevron_right</span>';
+        container.appendChild(btn);
+      });
+    }
+
+    if (members.length === 0 && (!grouped[''] || grouped[''].length === 0)) {
+      container.innerHTML = '<div class="empty-state">カードが見つかりません</div>';
+    }
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';
+    console.error('loadSenkyoCards error:', e);
+  }
+}
+
 async function loadSenkyoTerritories(type, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -1692,6 +1802,12 @@ async function loadSenkyoTerritories(type, containerId) {
         const chip = document.createElement('span');
         chip.className = 'senkyo-territory-chip';
         chip.textContent = t;
+        chip.style.cursor = 'pointer';
+        chip.addEventListener('click', () => {
+          senkyoCardsContext = { territory: t.toString(), groupName: group, fromPage: currentPage };
+          senkyoCardsBackTarget = currentPage;
+          navigate('senkyo-cards');
+        });
         wrap.appendChild(chip);
       });
       container.appendChild(wrap);
