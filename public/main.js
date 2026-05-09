@@ -795,28 +795,32 @@ var s13AllHistory = {};
 
 async function s13LoadConfig() {
   const [areaSnap, groupSnap] = await Promise.all([
-    db.collection('AREA_LIST').where('type', '==', 'NORMAL').get(),
+    db.collection('AREA_LIST').get(),
     db.collection('GROUP_LIST').get(),
   ]);
 
   s13TerritoryCity = {};
   areaSnap.docs.forEach(doc => {
     const d = doc.data();
-    const num = String(d.Number || '');
-    const city = (d.City || '').trim();
+    const type = String(d.type || '').trim();
+    if (type !== 'NORMAL') return;
+    const num = String(d.Number ?? d.number ?? '');
+    const city = String(d.City ?? d.city ?? '').trim();
     if (num && city) s13TerritoryCity[num] = city;
   });
+  console.log('s13TerritoryCity:', JSON.stringify(s13TerritoryCity));
 
   s13GroupsByCity = {};
   groupSnap.docs.forEach(doc => {
     const d = doc.data();
-    const name = (d.groupName || '').trim();
-    const city = (d.City || '').trim();
+    const name = String(d.groupName ?? d.name ?? '').trim();
+    const city = String(d.City ?? d.city ?? '').trim();
     if (name && city) {
       if (!s13GroupsByCity[city]) s13GroupsByCity[city] = [];
       s13GroupsByCity[city].push(name);
     }
   });
+  console.log('s13GroupsByCity:', JSON.stringify(s13GroupsByCity));
 }
 
 function s13GetCityForTerritory(tNum) {
