@@ -141,6 +141,10 @@
             <span class="menu-icon material-icons">people</span>
             <span class="menu-label">生徒</span>
           </div>
+          <div class="menu-item admin-tile" id="admin-manage-attendance">
+            <span class="menu-icon material-icons">how_to_reg</span>
+            <span class="menu-label">出席</span>
+          </div>
         </div>
         <div class="admin-section-tag">宣教</div>
         <div class="menu-grid admin-tile-grid">
@@ -808,7 +812,73 @@
       </div>
     </section>
 
+    <!-- 出席管理 -->
+    <section id="page-admin-attendance" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">集会出席</h2>
+      </div>
+      <div class="page-content">
+        <div class="admin-actions-bar">
+          <button class="btn-primary" id="att-add-btn">
+            <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 追加
+          </button>
+        </div>
+        <div id="attendance-list" class="admin-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
   </main>
+</div>
+
+<!-- 出席登録モーダル -->
+<div id="attendance-modal" class="modal hidden">
+  <div class="modal-overlay" id="attendance-overlay"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="attendance-modal-title">集会出席を登録</h2>
+      <button class="icon-btn" id="attendance-modal-close"><span class="material-icons">close</span></button>
+    </div>
+    <form id="attendance-form">
+      <div class="form-group">
+        <label>日付 <span style="color:#d32f2f">*</span></label>
+        <input type="date" id="att-date" required>
+      </div>
+      <div class="form-group">
+        <label>会場 <span style="color:#d32f2f">*</span></label>
+        <select id="att-venue" required>
+          <option value="kingdom_hall">王国会館</option>
+          <option value="zoom">Zoom</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>集会の種類 <span style="color:#d32f2f">*</span></label>
+        <select id="att-type" required>
+          <option value="midweek">週中の集会</option>
+          <option value="weekend">週末の集会</option>
+          <option value="special">特別な集会</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>出席人数 <span style="color:#d32f2f">*</span></label>
+        <input type="number" id="att-count" min="0" required placeholder="例: 85">
+      </div>
+      <div class="form-group">
+        <label>備考</label>
+        <textarea id="att-remarks" rows="2" placeholder="自由記入"></textarea>
+      </div>
+      <div class="form-group">
+        <label>提出者</label>
+        <input type="text" id="att-submitter" readonly style="background:#f5f5f5">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="att-cancel">キャンセル</button>
+        <button type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- メンバー追加・編集モーダル -->
@@ -962,7 +1032,7 @@
   </div>
 </div>
 
-<script src="main.js?v=84"></script>
+<script src="main.js?v=85"></script>
 <script src="assignment.js?v=30"></script>
 </body>
 </html>
