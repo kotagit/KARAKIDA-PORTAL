@@ -19,6 +19,7 @@ let currentPage   = 'home';
 let scheduleType  = 'meeting';
 let editingAnnounceId  = null;
 let editingScheduleId  = null;
+let editingAttendanceId = null;
 let deleteTargetId     = null;
 let deleteTargetType   = null;
 let senkyoCardsBackTarget = 'senkyo-all';
@@ -58,6 +59,7 @@ const PAGE_TITLES = {
   'admin-assignment-history': '割当履歴',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
+  'admin-attendance': '集会出席',
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
@@ -251,6 +253,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment')         initAssignmentPage();
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
+  if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-s13')                loadAdminS13Table();
   if (page === 'admin-reports')            loadAdminReports();
   if (page === 'admin-report-card')        loadAdminReportCard();
@@ -305,6 +308,10 @@ document.getElementById('admin-manage-report-approve')?.addEventListener('click'
 
 document.getElementById('admin-manage-field-service')?.addEventListener('click', () => {
   navigate('admin-field-service');
+});
+
+document.getElementById('admin-manage-attendance')?.addEventListener('click', () => {
+  navigate('admin-attendance');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -3932,4 +3939,160 @@ async function loadUserFieldService() {
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
+}
+
+// ── 集会出席 ────────────────────────────────
+const ATT_VENUE_LABELS = { kingdom_hall: '王国会館', zoom: 'Zoom' };
+const ATT_TYPE_LABELS  = { midweek: '週中', weekend: '週末', special: '特別' };
+
+async function loadAdminAttendance() {
+  const list = document.getElementById('attendance-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('MEETING_ATTENDANCE')
+      .orderBy('date', 'desc').limit(200).get();
+    renderAdminAttendance(snap.docs);
+  } catch (e) {
+    list.innerHTML = '<div class="loading">読み込みエラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAdminAttendance(docs) {
+  const list = document.getElementById('attendance-list');
+  if (docs.length === 0) {
+    list.innerHTML = '<div class="empty-state">出席データがありません</div>';
+    return;
+  }
+  list.innerHTML = '';
+  docs.forEach(docSnap => {
+    const d = docSnap.data();
+    const dateStr = d.date || '';
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    let label = dateStr;
+    if (m) {
+      const dt = new Date(+m[1], +m[2]-1, +m[3]);
+      label = `${+m[1]}/${+m[2]}/${+m[3]}（${WD[dt.getDay()]}）`;
+    }
+    const venue = ATT_VENUE_LABELS[d.venue] || d.venue || '';
+    const type  = ATT_TYPE_LABELS[d.meetingType] || d.meetingType || '';
+    const count = (d.count != null) ? d.count : '-';
+    const submitter = d.submitterName || '';
+
+    const item = document.createElement('div');
+    item.className = 'admin-list-item';
+    item.innerHTML = `
+      <div class="admin-list-info">
+        <div class="admin-list-date">${esc(label)}</div>
+        <div class="admin-list-title">${esc(venue)} / ${esc(type)} ・ <strong>${esc(String(count))}名</strong></div>
+        <div style="font-size:12px;color:var(--text-light,#888);margin-top:2px">提出者: ${esc(submitter)}</div>
+      </div>
+      <div class="admin-list-actions">
+        <button class="btn-edit icon-btn" data-id="${esc(docSnap.id)}" style="color:var(--primary)">
+          <span class="material-icons">edit</span>
+        </button>
+        <button class="btn-delete icon-btn" data-id="${esc(docSnap.id)}" style="color:#d32f2f">
+          <span class="material-icons">delete</span>
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.btn-edit').forEach(btn =>
+    btn.addEventListener('click', () => openAttendanceModal(btn.dataset.id)));
+  list.querySelectorAll('.btn-delete').forEach(btn =>
+    btn.addEventListener('click', () => openAttendanceDeleteModal(btn.dataset.id)));
+}
+
+function openAttendanceModal(id) {
+  editingAttendanceId = id;
+  const modal = document.getElementById('attendance-modal');
+  document.getElementById('attendance-modal-title').textContent = id ? '集会出席を編集' : '集会出席を登録';
+  const form = document.getElementById('attendance-form');
+  form.reset();
+  document.getElementById('att-submitter').value =
+    memberUserName || (currentUser && currentUser.displayName) || (currentUser && currentUser.email) || '';
+
+  if (!id) {
+    document.getElementById('att-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('att-venue').value = 'kingdom_hall';
+    document.getElementById('att-type').value  = 'midweek';
+  } else {
+    db.collection('MEETING_ATTENDANCE').doc(id).get().then(snap => {
+      if (!snap.exists) return;
+      const d = snap.data();
+      document.getElementById('att-date').value = d.date || '';
+      document.getElementById('att-venue').value = d.venue || 'kingdom_hall';
+      document.getElementById('att-type').value  = d.meetingType || 'midweek';
+      document.getElementById('att-count').value = (d.count != null) ? d.count : '';
+      document.getElementById('att-remarks').value = d.remarks || '';
+      if (d.submitterName) {
+        document.getElementById('att-submitter').value = d.submitterName;
+      }
+    });
+  }
+  modal.classList.remove('hidden');
+}
+
+function closeAttendanceModal() {
+  document.getElementById('attendance-modal').classList.add('hidden');
+  editingAttendanceId = null;
+}
+
+document.getElementById('att-add-btn')?.addEventListener('click', () => openAttendanceModal(null));
+document.getElementById('attendance-modal-close')?.addEventListener('click', closeAttendanceModal);
+document.getElementById('attendance-overlay')?.addEventListener('click', closeAttendanceModal);
+document.getElementById('att-cancel')?.addEventListener('click', closeAttendanceModal);
+
+document.getElementById('attendance-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const date  = document.getElementById('att-date').value;
+  const venue = document.getElementById('att-venue').value;
+  const type  = document.getElementById('att-type').value;
+  const countStr = document.getElementById('att-count').value;
+  const remarks  = document.getElementById('att-remarks').value.trim();
+  if (!date || !venue || !type || countStr === '') {
+    alert('必須項目を入力してください');
+    return;
+  }
+  const count = parseInt(countStr, 10);
+  if (isNaN(count) || count < 0) {
+    alert('出席人数は0以上の数値を入力してください');
+    return;
+  }
+  const data = {
+    date,
+    venue,
+    meetingType: type,
+    count,
+    remarks,
+    submitterName:  memberUserName || (currentUser && currentUser.displayName) || '',
+    submitterEmail: (currentUser && currentUser.email) || '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    if (editingAttendanceId) {
+      await db.collection('MEETING_ATTENDANCE').doc(editingAttendanceId).set(data, { merge: true });
+    } else {
+      const docId = `${date}_${venue}_${type}`;
+      const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
+      const existing = await ref.get();
+      if (existing.exists) {
+        if (!confirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？')) return;
+      }
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await ref.set(data, { merge: true });
+    }
+    closeAttendanceModal();
+    loadAdminAttendance();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  }
+});
+
+function openAttendanceDeleteModal(id) {
+  if (!confirm('この出席記録を削除しますか？')) return;
+  db.collection('MEETING_ATTENDANCE').doc(id).delete()
+    .then(() => loadAdminAttendance())
+    .catch(err => alert('削除エラー: ' + err.message));
 }
