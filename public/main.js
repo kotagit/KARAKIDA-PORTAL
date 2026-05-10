@@ -3555,7 +3555,6 @@ async function loadFieldServiceData(weekStart) {
   const snap = await db.collection('FIELD_SERVICE')
     .where('date', '>=', startStr)
     .where('date', '<=', endStr)
-    .orderBy('date')
     .get();
   const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   rows.sort((a, b) => {
