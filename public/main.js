@@ -1153,35 +1153,39 @@ async function loadJouhouCard() {
     };
 
     const year = getServiceYear();
+    const years = [year, year - 1];
 
     const reportSnap = await db.collection('PREACHING_REPORT')
       .where('name', '==', member.name)
       .get();
 
-    const reportMap = {};
-    reportSnap.docs.forEach(doc => {
-      const data = doc.data();
-      const mo = data.month;
-      const yr = data.year || null;
-      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
-      let belongsYear;
-      if (mo >= 9) belongsYear = yr || year;
-      else belongsYear = (yr ? yr - 1 : null) || year;
-      if (belongsYear !== year) return;
-      if (!reportMap[mo] || ts > reportMap[mo]._ts) {
-        reportMap[mo] = {
-          participation: data.participation || '',
-          bibleStudy: data.bibleStudy,
-          hours: data.hours,
-          role: data.role || '',
-          remarks: data.remarks || '',
-          auxiliary: data.auxiliary || '',
-          _ts: ts,
-        };
-      }
+    const reportMaps = years.map(y => {
+      const map = {};
+      reportSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const mo = data.month;
+        const yr = data.year || null;
+        const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+        let belongsYear;
+        if (mo >= 9) belongsYear = yr || y;
+        else belongsYear = (yr ? yr - 1 : null) || y;
+        if (belongsYear !== y) return;
+        if (!map[mo] || ts > map[mo]._ts) {
+          map[mo] = {
+            participation: data.participation || '',
+            bibleStudy: data.bibleStudy,
+            hours: data.hours,
+            role: data.role || '',
+            remarks: data.remarks || '',
+            auxiliary: data.auxiliary || '',
+            _ts: ts,
+          };
+        }
+      });
+      return map;
     });
 
-    renderReportCard(member, reportMap, year, 'jouhou-card-view');
+    renderReportCard(member, reportMaps, years, 'jouhou-card-view');
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
@@ -1728,51 +1732,49 @@ async function loadAdminReportCard() {
   view.innerHTML = '<div class="loading">読み込み中...</div>';
 
   const year = rptSelectedYear || getServiceYear();
+  const years = [year, year - 1];
 
   try {
-    // 奉仕年度（9月〜翌8月）の報告を取得
     const reportSnap = await db.collection('PREACHING_REPORT')
       .where('name', '==', m.name)
       .get();
 
-    // 月ごとに最新の報告のみ保持
-    const reportMap = {};
-    reportSnap.docs.forEach(d => {
-      const data = d.data();
-      const mo = data.month;
-      const yr = data.year || null;
-      const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
-
-      // 奉仕年度フィルタ: 9-12月はyear, 1-8月はyear+1
-      let belongsYear;
-      if (mo >= 9) belongsYear = yr || year;
-      else belongsYear = (yr ? yr - 1 : null) || year;
-
-      if (belongsYear !== year) return;
-
-      if (!reportMap[mo] || ts > reportMap[mo]._ts) {
-        reportMap[mo] = {
-          participation: data.participation || '',
-          bibleStudy: data.bibleStudy,
-          hours: data.hours,
-          role: data.role || '',
-          remarks: data.remarks || '',
-          auxiliary: data.auxiliary || '',
-          _ts: ts,
-        };
-      }
+    const reportMaps = years.map(y => {
+      const map = {};
+      reportSnap.docs.forEach(d => {
+        const data = d.data();
+        const mo = data.month;
+        const yr = data.year || null;
+        const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
+        let belongsYear;
+        if (mo >= 9) belongsYear = yr || y;
+        else belongsYear = (yr ? yr - 1 : null) || y;
+        if (belongsYear !== y) return;
+        if (!map[mo] || ts > map[mo]._ts) {
+          map[mo] = {
+            participation: data.participation || '',
+            bibleStudy: data.bibleStudy,
+            hours: data.hours,
+            role: data.role || '',
+            remarks: data.remarks || '',
+            auxiliary: data.auxiliary || '',
+            _ts: ts,
+          };
+        }
+      });
+      return map;
     });
 
-    renderReportCard(m, reportMap, year);
+    renderReportCard(m, reportMaps, years);
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
 }
 
-function renderReportCard(member, reportMap, year, targetViewId) {
+function renderReportCard(member, reportMaps, years, targetViewId) {
   const view = document.getElementById(targetViewId || 'rpt-card-view');
 
-  // ヘッダー情報
+  // ヘッダー情報（1回だけ）
   let html = '<div class="s21-card">';
   html += '<div class="s21-header">';
   html += '<div class="s21-title">伝道者記録カード（S-21）</div>';
@@ -1784,6 +1786,15 @@ function renderReportCard(member, reportMap, year, targetViewId) {
   html += '<tr><td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td><td class="s21-info-label">希望</td><td class="s21-info-value">' + esc(member.hope || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value" colspan="3">' + esc(member.group || '-') + '</td></tr>';
   html += '</table></div>';
+
+  // 互換: 旧呼び出し（単年）対応
+  if (!Array.isArray(years)) {
+    years = [years];
+    reportMaps = [reportMaps];
+  }
+
+  years.forEach((year, idx) => {
+  const reportMap = reportMaps[idx];
 
   // 年度ラベル
   html += '<div class="s21-year-label">' + (year+1) + '奉仕年度（' + year + '/9〜' + (year+1) + '/8）</div>';
@@ -1849,6 +1860,9 @@ function renderReportCard(member, reportMap, year, targetViewId) {
   html += '</tr>';
 
   html += '</tbody></table></div>';
+
+  }); // years.forEach end
+
   html += '</div>';
 
   view.innerHTML = html;
