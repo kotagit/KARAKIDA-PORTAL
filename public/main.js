@@ -60,6 +60,7 @@ const PAGE_TITLES = {
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
   'admin-attendance': '集会出席',
+  'admin-attendance-monthly': '出席 月集計',
   'admin-s13': '区域割当ての記録',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
@@ -254,6 +255,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment-history') initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-attendance')         loadAdminAttendance();
+  if (page === 'admin-attendance-monthly') initAttendanceMonthly();
   if (page === 'admin-s13')                loadAdminS13Table();
   if (page === 'admin-reports')            loadAdminReports();
   if (page === 'admin-report-card')        loadAdminReportCard();
@@ -312,6 +314,10 @@ document.getElementById('admin-manage-field-service')?.addEventListener('click',
 
 document.getElementById('admin-manage-attendance')?.addEventListener('click', () => {
   navigate('admin-attendance');
+});
+
+document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
+  navigate('admin-attendance-monthly');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -4095,4 +4101,147 @@ function openAttendanceDeleteModal(id) {
   db.collection('MEETING_ATTENDANCE').doc(id).delete()
     .then(() => loadAdminAttendance())
     .catch(err => alert('削除エラー: ' + err.message));
+}
+
+// ── 出席 月集計 ────────────────────────────────
+let atmCurrentMonth = '';
+let atmInitialized = false;
+
+function initAttendanceMonthly() {
+  const select = document.getElementById('atm-month-select');
+  if (!select) return;
+
+  if (!atmInitialized) {
+    const now = new Date();
+    const months = [];
+    for (let i = 0; i < 36; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+      months.push({ ym, label });
+    }
+    select.innerHTML = months.map(m => `<option value="${m.ym}">${m.label}</option>`).join('');
+    atmCurrentMonth = months[0].ym;
+    select.value = atmCurrentMonth;
+
+    select.addEventListener('change', () => {
+      atmCurrentMonth = select.value;
+      loadAttendanceMonthly();
+    });
+    document.getElementById('atm-prev')?.addEventListener('click', () => shiftAtmMonth(-1));
+    document.getElementById('atm-next')?.addEventListener('click', () => shiftAtmMonth(1));
+    atmInitialized = true;
+  }
+  loadAttendanceMonthly();
+}
+
+function shiftAtmMonth(delta) {
+  const m = /^(\d{4})-(\d{2})$/.exec(atmCurrentMonth);
+  if (!m) return;
+  const d = new Date(+m[1], +m[2] - 1 + delta, 1);
+  const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const select = document.getElementById('atm-month-select');
+  if (![...select.options].some(o => o.value === ym)) return;
+  atmCurrentMonth = ym;
+  select.value = ym;
+  loadAttendanceMonthly();
+}
+
+async function loadAttendanceMonthly() {
+  const wrap = document.getElementById('atm-table-wrap');
+  const summary = document.getElementById('atm-summary');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading">読み込み中...</div>';
+  if (summary) summary.innerHTML = '';
+
+  const ym = atmCurrentMonth;
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return;
+  const start = `${ym}-01`;
+  const lastDay = new Date(+m[1], +m[2], 0).getDate();
+  const end = `${ym}-${String(lastDay).padStart(2, '0')}`;
+
+  try {
+    const snap = await db.collection('MEETING_ATTENDANCE')
+      .where('date', '>=', start)
+      .where('date', '<=', end)
+      .get();
+    renderAttendanceMonthly(snap.docs);
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAttendanceMonthly(docs) {
+  const wrap = document.getElementById('atm-table-wrap');
+  const summary = document.getElementById('atm-summary');
+
+  // (date, meetingType) 単位で 王国会館/Zoom を集約
+  const rows = {};
+  docs.forEach(snap => {
+    const d = snap.data();
+    if (!d.date) return;
+    const key = `${d.date}__${d.meetingType || ''}`;
+    if (!rows[key]) {
+      rows[key] = { date: d.date, type: d.meetingType || '', kingdom_hall: null, zoom: null };
+    }
+    if (d.venue === 'kingdom_hall') rows[key].kingdom_hall = d.count;
+    else if (d.venue === 'zoom')    rows[key].zoom = d.count;
+  });
+
+  const list = Object.values(rows).sort((a, b) => a.date.localeCompare(b.date));
+
+  let totalKH = 0, totalZ = 0, meetCount = 0;
+  list.forEach(r => {
+    if (r.kingdom_hall != null) { totalKH += r.kingdom_hall; }
+    if (r.zoom != null)         { totalZ  += r.zoom; }
+    if (r.kingdom_hall != null || r.zoom != null) meetCount++;
+  });
+  const totalAll = totalKH + totalZ;
+  const avg = meetCount > 0 ? Math.round(totalAll / meetCount) : 0;
+
+  if (summary) {
+    summary.innerHTML = list.length === 0 ? '' : `
+      <div class="atm-sum-card"><div class="atm-sum-label">合計</div><div class="atm-sum-value">${totalAll}</div><div class="atm-sum-unit">名</div></div>
+      <div class="atm-sum-card"><div class="atm-sum-label">王国会館</div><div class="atm-sum-value">${totalKH}</div><div class="atm-sum-unit">名</div></div>
+      <div class="atm-sum-card"><div class="atm-sum-label">Zoom</div><div class="atm-sum-value">${totalZ}</div><div class="atm-sum-unit">名</div></div>
+      <div class="atm-sum-card"><div class="atm-sum-label">集会数</div><div class="atm-sum-value">${meetCount}</div><div class="atm-sum-unit">回</div></div>
+      <div class="atm-sum-card"><div class="atm-sum-label">平均</div><div class="atm-sum-value">${avg}</div><div class="atm-sum-unit">名</div></div>
+    `;
+  }
+
+  if (list.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">この月の出席データはありません</div>';
+    return;
+  }
+
+  let html = '<table class="atm-table"><thead><tr>' +
+    '<th>日付</th><th>種類</th><th class="atm-num">王国会館</th><th class="atm-num">Zoom</th><th class="atm-num">合計</th>' +
+    '</tr></thead><tbody>';
+  list.forEach(r => {
+    const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r.date);
+    let dateLabel = r.date;
+    if (md) {
+      const dt = new Date(+md[1], +md[2]-1, +md[3]);
+      dateLabel = `${+md[2]}/${+md[3]}（${WD[dt.getDay()]}）`;
+    }
+    const typeLabel = ATT_TYPE_LABELS[r.type] || r.type || '-';
+    const kh = r.kingdom_hall != null ? r.kingdom_hall : '';
+    const zm = r.zoom != null ? r.zoom : '';
+    const total = (r.kingdom_hall || 0) + (r.zoom || 0);
+    html += `<tr>
+      <td>${esc(dateLabel)}</td>
+      <td><span class="atm-type-badge atm-type-${esc(r.type)}">${esc(typeLabel)}</span></td>
+      <td class="atm-num">${kh}</td>
+      <td class="atm-num">${zm}</td>
+      <td class="atm-num atm-total">${total}</td>
+    </tr>`;
+  });
+  html += `</tbody><tfoot><tr>
+    <td colspan="2"><strong>月合計</strong></td>
+    <td class="atm-num"><strong>${totalKH}</strong></td>
+    <td class="atm-num"><strong>${totalZ}</strong></td>
+    <td class="atm-num atm-total"><strong>${totalAll}</strong></td>
+  </tr></tfoot></table>`;
+  wrap.innerHTML = html;
 }
