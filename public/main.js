@@ -1786,7 +1786,7 @@ function renderReportCard(member, reportMap, year, targetViewId) {
   html += '</table></div>';
 
   // 年度ラベル
-  html += '<div class="s21-year-label">' + year + '年度（' + year + '/9〜' + (year+1) + '/8）</div>';
+  html += '<div class="s21-year-label">' + (year+1) + '奉仕年度（' + year + '/9〜' + (year+1) + '/8）</div>';
 
   // 月別テーブル
   html += '<div class="s21-table-wrap"><table class="s21-table">';
