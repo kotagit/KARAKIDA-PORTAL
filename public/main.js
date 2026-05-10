@@ -1148,6 +1148,7 @@ async function loadJouhouCard() {
       baptismDate: tsToStr(d.bapDate),
       role: String(d.role || d.position || '').trim(),
       pioneer: String(d.pioneer || '').trim(),
+      status1: String(d.status1 || '').trim(),
       hope: String(d.hope || '').trim(),
     };
 
@@ -1601,6 +1602,7 @@ async function loadAdminReports() {
         birthDate: tsToStr(data.birthDay),
         baptismDate: tsToStr(data.bapDate),
         pioneer: String(data.pioneer || '').trim(),
+        status1: String(data.status1 || '').trim(),
         hope: String(data.hope || '').trim(),
       });
     });
@@ -1650,10 +1652,15 @@ function tsToStr(val) {
 }
 
 function displayRole(m) {
+  const parts = [];
+  const s1 = m.status1 || '';
+  if (s1 === 'EL') parts.push('長老');
+  else if (s1 === 'MS') parts.push('援助奉仕者');
   const r = m.pioneer || m.role || '';
-  if (r === 'RP') return '正規開拓者';
-  if (r.includes('開拓')) return r;
-  return '伝道者';
+  if (r === 'RP' || r === '正規開拓者') parts.push('開拓者');
+  else if (r.includes('開拓')) parts.push(r);
+  if (parts.length === 0) parts.push('伝道者');
+  return parts.join(' / ');
 }
 
 function renderAdminReportsIndex() {
