@@ -1404,161 +1404,340 @@ async function awSaveEditorItems() {
 }
 
 // ══════════════════════════════════════════════
-// 集会ページ — 今週の確定済み予定表表示
+// 集会ページ — カレンダー＋予定表表示
 // ══════════════════════════════════════════════
 
+let skCalYear, skCalMonth;
+let skConfirmedWeeks = [];
+let skPublicTalks = [];
+let skSelectedDate = null;
+
 async function loadAssignmentWeekDisplay() {
+  const calEl = document.getElementById('shukai-calendar');
   const container = document.getElementById('assignment-week-display');
-  if (!container) return;
-  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  if (!calEl || !container) return;
+  calEl.innerHTML = '<div class="loading">読み込み中...</div>';
+  container.innerHTML = '';
 
   try {
-    // コード定義を取得
-    const codesSnap = await db.collection('assignmentCodes').get();
-    const codes = {};
-    codesSnap.docs.forEach(d => { codes[d.data().code] = d.data().label; });
-
-    // 直近8週分の mwbWeeks を取得
-    const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(8).get();
+    const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(16).get();
     const weeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    // 今日に最も近い木曜日を含む週を優先して確定済みを探す
-    const today = new Date(); today.setHours(0,0,0,0);
-    weeks.sort((a, b) => {
-      const da = awGetThursdayDate(a), db2 = awGetThursdayDate(b);
-      if (!da) return 1; if (!db2) return -1;
-      return Math.abs(da - today) - Math.abs(db2 - today);
-    });
-
-    // 確定済みの全週を収集
-    const confirmedWeeks = [];
+    skConfirmedWeeks = [];
     for (const week of weeks) {
       const asnap = await db.collection('assignments').doc(week.id).get();
       if (asnap.exists && asnap.data().status === 'confirmed') {
         const raw = asnap.data().slots || {};
         const slots = {};
         Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
-        confirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, thuDate: awGetThursdayDate(week) });
+        skConfirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, meetDate: awGetThursdayDate(week) });
       }
     }
 
-    if (confirmedWeeks.length === 0) {
-      container.innerHTML = '<div class="empty-state" style="padding:16px">確定済みの予定表がありません</div>';
-      return;
-    }
+    // 公開講演データ取得
+    try {
+      const ptSnap = await db.collection('PUBLIC_TALKS').orderBy('date').get();
+      skPublicTalks = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { skPublicTalks = []; }
 
-    confirmedWeeks.sort((a, b) => (a.thuDate || 0) - (b.thuDate || 0));
+    // 今日に最も近い集会日を自動選択
+    const today = new Date(); today.setHours(0,0,0,0);
+    skCalYear = today.getFullYear();
+    skCalMonth = today.getMonth();
 
-    container.innerHTML = '';
-    const PAIR_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
-    const PAIR_PARTNER_SET = new Set(Object.values(PAIR_OF));
-
-    confirmedWeeks.forEach(({ week, slots, topics }) => {
-      const thuLabel = awGetThursdayLabel(week);
-      const items = week.items || [];
-
-      // カードパネル（管理画面と同じ構造）
-      const section = document.createElement('div');
-      section.className = 'aw-inline-section';
-
-      // 青いヘッダー
-      const hdr = document.createElement('div');
-      hdr.className = 'aw-inline-header';
-      const chairName = slots['A'] || '';
-      hdr.innerHTML = `
-        <div>
-          <div class="aw-inline-title">${esc(thuLabel)}</div>
-          <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
-        </div>
-        <div style="text-align:right;color:white;font-size:13px">
-          <div style="font-weight:700">司会者：${esc(chairName)}</div>
-        </div>
-      `;
-      section.appendChild(hdr);
-
-      // コンテンツ部分
-      const tableDiv = document.createElement('div');
-      tableDiv.className = 'aw-week-table';
-
-      let prevSec = '', minutesOffset = 0;
-
-      items.forEach(item => {
-        const sec = item.section;
-        if (sec !== prevSec && sec !== '開会') {
-          if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
-          const secHdr = document.createElement('div');
-          secHdr.className = 'aw-section-header';
-          secHdr.style.background = AW_SECTION_COLORS[sec] || '#333';
-          secHdr.textContent = sec;
-          tableDiv.appendChild(secHdr);
-          prevSec = sec;
-        }
-
-        const h = 19 + Math.floor(minutesOffset / 60);
-        const mi = minutesOffset % 60;
-        const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
-
-        let assigneeText = '';
-        if (item.title === '閉会の言葉') {
-          assigneeText = slots['A'] || '';
-        } else if (item.codes && item.codes.length > 0) {
-          const parts = [];
-          const isSongWithPrayer = item.type === 'song' && item.codes.includes('B');
-          if (isSongWithPrayer) {
-            const prayerName = slots['B'] || '';
-            if (prayerName) parts.push(prayerName);
-          } else {
-            item.codes.forEach(code => {
-              const base = awGetBase(code);
-              if (PAIR_PARTNER_SET.has(base)) return;
-              const partnerBase = PAIR_OF[base];
-              const name = slots[code] || '';
-              const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
-              if (partnerName) parts.push(`${name} / ${partnerName}`);
-              else if (name) parts.push(name);
-            });
-          }
-          assigneeText = parts.join('、');
-        }
-
-        const itemCodes = item.codes || [];
-        let topicText = '';
-        if (itemCodes.includes('T')) topicText = topics['T'] || '';
-        else if (item.title && item.title.includes('会衆で考えたいこと')) {
-          const tCode = itemCodes.find(c => topics[awGetBase(c)]);
-          if (tCode) topicText = topics[awGetBase(tCode)] || '';
-        }
-
-        const row = document.createElement('div');
-        row.className = 'aw-row';
-        row.innerHTML = `
-          <div class="aw-row-time">${timeStr}</div>
-          <div class="aw-row-info">
-            ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
-            <span class="aw-row-title">${esc(item.title)}</span>
-            ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
-          </div>
-          <div class="aw-row-assignees" style="font-size:0.9rem;color:var(--text)">${esc(assigneeText)}</div>
-        `;
-        tableDiv.appendChild(row);
-
-        if (topicText) {
-          const topicRow = document.createElement('div');
-          topicRow.className = 'aw-topic-row-full';
-          topicRow.innerHTML = `<label class="aw-topic-label">主題</label><span style="font-size:13px">${esc(topicText)}</span>`;
-          tableDiv.appendChild(topicRow);
-        }
-
-        minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
-      });
-
-      section.appendChild(tableDiv);
-      container.appendChild(section);
+    let closest = null, closestDiff = Infinity;
+    skConfirmedWeeks.forEach(cw => {
+      if (!cw.meetDate) return;
+      const diff = Math.abs(cw.meetDate - today);
+      if (diff < closestDiff) { closestDiff = diff; closest = cw.meetDate; }
+    });
+    // 公開講演の日も候補
+    skPublicTalks.forEach(pt => {
+      const d = skParsePtDate(pt.date);
+      if (!d) return;
+      const diff = Math.abs(d - today);
+      if (diff < closestDiff) { closestDiff = diff; closest = d; }
     });
 
+    if (closest) {
+      skSelectedDate = closest;
+      skCalYear = closest.getFullYear();
+      skCalMonth = closest.getMonth();
+    }
+
+    skRenderCalendar();
+    skShowSelectedSchedule();
+
   } catch(e) {
-    container.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+    calEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
+}
+
+function skParsePtDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function skRenderCalendar() {
+  const calEl = document.getElementById('shukai-calendar');
+  if (!calEl) return;
+
+  const year = skCalYear, month = skCalMonth;
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = firstDay.getDay(); // 0=日
+  const daysInMonth = lastDay.getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // イベント日をセット
+  const eventDates = new Map(); // dateKey -> 'midweek'|'weekend'
+  skConfirmedWeeks.forEach(cw => {
+    if (!cw.meetDate) return;
+    const k = cw.meetDate.getFullYear() + '-' + cw.meetDate.getMonth() + '-' + cw.meetDate.getDate();
+    eventDates.set(k, 'midweek');
+  });
+  skPublicTalks.forEach(pt => {
+    const d = skParsePtDate(pt.date);
+    if (!d) return;
+    const k = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+    eventDates.set(k, 'weekend');
+  });
+
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  let html = '<div class="sk-cal">';
+  html += '<div class="sk-cal-nav">';
+  html += '<button onclick="skNavMonth(-1)"><span class="material-icons">chevron_left</span></button>';
+  html += `<span class="sk-cal-month">${year}年${monthNames[month]}</span>`;
+  html += '<button onclick="skNavMonth(1)"><span class="material-icons">chevron_right</span></button>';
+  html += '</div>';
+
+  html += '<div class="sk-cal-grid">';
+  const dows = ['日','月','火','水','木','金','土'];
+  dows.forEach(d => { html += `<div class="sk-cal-dow">${d}</div>`; });
+
+  // 空セル
+  for (let i = 0; i < startDow; i++) html += '<div class="sk-cal-cell empty"></div>';
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const dow = d.getDay();
+    const dateKey = year + '-' + month + '-' + day;
+    const hasEvent = eventDates.get(dateKey);
+    const isToday = d.getTime() === today.getTime();
+    const isSelected = skSelectedDate && d.getTime() === skSelectedDate.getTime();
+
+    let cls = 'sk-cal-cell';
+    if (dow === 0) cls += ' sun';
+    if (dow === 6) cls += ' sat';
+    if (hasEvent === 'midweek') cls += ' has-event';
+    else if (hasEvent === 'weekend') cls += ' has-event weekend-event';
+    if (isSelected) cls += ' selected';
+    if (isToday) cls += ' today';
+
+    const onclick = hasEvent ? ` onclick="skSelectDate(${year},${month},${day})"` : '';
+    html += `<div class="${cls}"${onclick}>${day}</div>`;
+  }
+
+  html += '</div>';
+  html += '<div class="sk-cal-legend"><span class="leg-mid">週中集会</span><span class="leg-wknd">週末集会</span></div>';
+  html += '</div>';
+
+  calEl.innerHTML = html;
+}
+
+function skNavMonth(delta) {
+  skCalMonth += delta;
+  if (skCalMonth < 0) { skCalMonth = 11; skCalYear--; }
+  if (skCalMonth > 11) { skCalMonth = 0; skCalYear++; }
+  skRenderCalendar();
+}
+
+function skSelectDate(y, m, d) {
+  skSelectedDate = new Date(y, m, d);
+  skRenderCalendar();
+  skShowSelectedSchedule();
+}
+
+function skShowSelectedSchedule() {
+  const container = document.getElementById('assignment-week-display');
+  if (!container || !skSelectedDate) { if (container) container.innerHTML = ''; return; }
+  container.innerHTML = '';
+
+  const selTime = skSelectedDate.getTime();
+
+  // 週中集会
+  const matched = skConfirmedWeeks.find(cw => cw.meetDate && cw.meetDate.getTime() === selTime);
+  if (matched) {
+    skRenderMidweekCard(matched, container);
+  }
+
+  // 公開講演
+  const ptMatch = skPublicTalks.find(pt => {
+    const d = skParsePtDate(pt.date);
+    return d && d.getTime() === selTime;
+  });
+  if (ptMatch) {
+    skRenderPublicTalkCard(ptMatch, container);
+  }
+
+  if (!matched && !ptMatch) {
+    container.innerHTML = '<div class="empty-state" style="padding:16px">この日の予定表はありません</div>';
+  }
+}
+
+function skRenderMidweekCard({ week, slots, topics }, container) {
+  const thuLabel = awGetThursdayLabel(week);
+  const items = week.items || [];
+
+  const section = document.createElement('div');
+  section.className = 'aw-inline-section';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'aw-inline-header';
+  const chairName = slots['A'] || '';
+  hdr.innerHTML = `
+    <div>
+      <div class="aw-inline-title">${esc(thuLabel)}</div>
+      <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
+    </div>
+    <div style="text-align:right;color:white;font-size:13px">
+      <div style="font-weight:700">司会者：${esc(chairName)}</div>
+    </div>
+  `;
+  section.appendChild(hdr);
+
+  const tableDiv = document.createElement('div');
+  tableDiv.className = 'aw-week-table';
+
+  const PAIR_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
+  const PAIR_PARTNER_SET = new Set(Object.values(PAIR_OF));
+  let prevSec = '', minutesOffset = 0;
+
+  items.forEach(item => {
+    const sec = item.section;
+    if (sec !== prevSec && sec !== '開会') {
+      if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
+      const secHdr = document.createElement('div');
+      secHdr.className = 'aw-section-header';
+      secHdr.style.background = AW_SECTION_COLORS[sec] || '#333';
+      secHdr.textContent = sec;
+      tableDiv.appendChild(secHdr);
+      prevSec = sec;
+    }
+
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const mi = minutesOffset % 60;
+    const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
+
+    let assigneeText = '';
+    if (item.title === '閉会の言葉') {
+      assigneeText = slots['A'] || '';
+    } else if (item.codes && item.codes.length > 0) {
+      const parts = [];
+      const isSongWithPrayer = item.type === 'song' && item.codes.includes('B');
+      if (isSongWithPrayer) {
+        const prayerName = slots['B'] || '';
+        if (prayerName) parts.push(prayerName);
+      } else {
+        item.codes.forEach(code => {
+          const base = awGetBase(code);
+          if (PAIR_PARTNER_SET.has(base)) return;
+          const partnerBase = PAIR_OF[base];
+          const name = slots[code] || '';
+          const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
+          if (partnerName) parts.push(`${name} / ${partnerName}`);
+          else if (name) parts.push(name);
+        });
+      }
+      assigneeText = parts.join('、');
+    }
+
+    const itemCodes = item.codes || [];
+    let topicText = '';
+    if (itemCodes.includes('T')) topicText = topics['T'] || '';
+    else if (item.title && item.title.includes('会衆で考えたいこと')) {
+      const tCode = itemCodes.find(c => topics[awGetBase(c)]);
+      if (tCode) topicText = topics[awGetBase(tCode)] || '';
+    }
+
+    const row = document.createElement('div');
+    row.className = 'aw-row';
+    row.innerHTML = `
+      <div class="aw-row-time">${timeStr}</div>
+      <div class="aw-row-info">
+        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+        <span class="aw-row-title">${esc(item.title)}</span>
+        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
+      </div>
+      <div class="aw-row-assignees" style="font-size:0.9rem;color:var(--text)">${esc(assigneeText)}</div>
+    `;
+    tableDiv.appendChild(row);
+
+    if (topicText) {
+      const topicRow = document.createElement('div');
+      topicRow.className = 'aw-topic-row-full';
+      topicRow.innerHTML = `<label class="aw-topic-label">主題</label><span style="font-size:13px">${esc(topicText)}</span>`;
+      tableDiv.appendChild(topicRow);
+    }
+
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+  });
+
+  section.appendChild(tableDiv);
+  container.appendChild(section);
+}
+
+function skRenderPublicTalkCard(pt, container) {
+  const section = document.createElement('div');
+  section.className = 'aw-inline-section';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'aw-inline-header';
+  hdr.style.background = '#6a1b9a';
+
+  const dateLabel = pt.date || '';
+  const chairman = pt.chairman || '';
+  hdr.innerHTML = `
+    <div>
+      <div class="aw-inline-title">週末集会</div>
+      <div class="aw-inline-sub" style="color:#e1bee7">${esc(dateLabel)}</div>
+    </div>
+    <div style="text-align:right;color:white;font-size:13px">
+      ${chairman ? `<div style="font-weight:700">司会者：${esc(chairman)}</div>` : ''}
+    </div>
+  `;
+  section.appendChild(hdr);
+
+  const tableDiv = document.createElement('div');
+  tableDiv.className = 'aw-week-table';
+  tableDiv.style.padding = '12px 16px';
+
+  const rows = [];
+  if (pt.speaker) rows.push({ label: '講演者', value: pt.speaker });
+  if (pt.congregation) rows.push({ label: '会衆', value: pt.congregation });
+  if (pt.talkNumber) rows.push({ label: '講演番号', value: pt.talkNumber });
+  if (pt.talkTitle) rows.push({ label: '講演主題', value: pt.talkTitle });
+  if (pt.wtStudy) rows.push({ label: 'ものみの塔研究', value: pt.wtStudy });
+  if (pt.wtConductor) rows.push({ label: '司会者', value: pt.wtConductor });
+  if (pt.wtReader) rows.push({ label: '読み手', value: pt.wtReader });
+  if (pt.note) rows.push({ label: '備考', value: pt.note });
+
+  if (rows.length === 0) {
+    tableDiv.innerHTML = '<div style="color:var(--text-light);font-size:14px">詳細情報はまだ登録されていません</div>';
+  } else {
+    rows.forEach(r => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px';
+      row.innerHTML = `<span style="color:var(--text-light);flex-shrink:0">${esc(r.label)}</span><span style="font-weight:500;text-align:right">${esc(r.value)}</span>`;
+      tableDiv.appendChild(row);
+    });
+  }
+
+  section.appendChild(tableDiv);
+  container.appendChild(section);
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────
