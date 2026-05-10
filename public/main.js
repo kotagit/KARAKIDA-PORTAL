@@ -3556,9 +3556,13 @@ async function loadFieldServiceData(weekStart) {
     .where('date', '>=', startStr)
     .where('date', '<=', endStr)
     .orderBy('date')
-    .orderBy('sortOrder')
     .get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return (a.sortOrder || 0) - (b.sortOrder || 0);
+  });
+  return rows;
 }
 
 function renderFsTable(rows, viewId, isAdmin) {
