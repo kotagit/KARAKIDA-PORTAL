@@ -3922,7 +3922,7 @@ async function deleteFsRow(docId) {
 let fsUserWeekStart = null;
 
 async function loadUserFieldService() {
-  if (!fsUserWeekStart) fsUserWeekStart = getFsWeekStart(new Date());
+  fsUserWeekStart = getFsWeekStart(new Date());
   updateFsWeekLabel('fs-user-week-label', fsUserWeekStart);
   const view = document.getElementById('fs-user-view');
   view.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -3933,12 +3933,3 @@ async function loadUserFieldService() {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
 }
-
-document.getElementById('fs-user-prev')?.addEventListener('click', () => {
-  fsUserWeekStart.setDate(fsUserWeekStart.getDate() - 7);
-  loadUserFieldService();
-});
-document.getElementById('fs-user-next')?.addEventListener('click', () => {
-  fsUserWeekStart.setDate(fsUserWeekStart.getDate() + 7);
-  loadUserFieldService();
-});
