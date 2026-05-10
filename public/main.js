@@ -3569,7 +3569,7 @@ function renderFsTable(rows, viewId, isAdmin) {
   }
 
   let html = '<div style="overflow-x:auto"><table class="fs-table"><thead><tr>';
-  html += '<th>日時</th><th>時間</th><th>種別</th><th>司会者</th><th>区域</th><th>使用期間</th>';
+  html += '<th>日時</th><th>時間</th><th>種別</th><th>司会者</th>';
   if (isAdmin) html += '<th></th>';
   html += '</tr></thead><tbody>';
 
@@ -3605,12 +3605,6 @@ function renderFsTable(rows, viewId, isAdmin) {
       let condHtml = esc(r.conductor || '');
       if (r.conductorSub) condHtml += '<br>' + esc(r.conductorSub);
       html += '<td class="fs-conductor-cell">' + condHtml + '</td>';
-
-      let terHtml = esc(r.territory || '');
-      if (r.territorySub) terHtml += '<br>' + esc(r.territorySub);
-      html += '<td class="fs-territory-cell">' + terHtml + '</td>';
-
-      html += '<td class="fs-period-cell">' + esc(r.usagePeriod || '') + '</td>';
 
       if (isAdmin) {
         html += '<td class="fs-actions">';
@@ -3681,9 +3675,6 @@ function showFsForm(data) {
     '<div class="fs-form-field"><label>種別</label><input type="text" id="fs-f-type" value="' + esc(data.type || '') + '" placeholder="翡翠、合同、ビジネス 等"></div>' +
     '<div class="fs-form-field"><label>司会者</label><input type="text" id="fs-f-conductor" value="' + esc(data.conductor || '') + '"></div>' +
     '<div class="fs-form-field"><label>司会者2</label><input type="text" id="fs-f-conductor-sub" value="' + esc(data.conductorSub || '') + '"></div>' +
-    '<div class="fs-form-field"><label>区域</label><input type="text" id="fs-f-territory" value="' + esc(data.territory || '') + '"></div>' +
-    '<div class="fs-form-field"><label>区域2</label><input type="text" id="fs-f-territory-sub" value="' + esc(data.territorySub || '') + '"></div>' +
-    '<div class="fs-form-field"><label>使用期間</label><input type="text" id="fs-f-period" value="' + esc(data.usagePeriod || '') + '" placeholder="2026/04/18 - 2026/05/16"></div>' +
     '<div class="fs-form-field"><label>表示順</label><input type="number" id="fs-f-order" value="' + (data.sortOrder || 0) + '" min="0"></div>' +
     '<div class="fs-form-actions">' +
     '<button class="fs-form-cancel" onclick="closeFsForm()">キャンセル</button>' +
@@ -3707,9 +3698,6 @@ async function saveFsRow() {
     type: document.getElementById('fs-f-type').value.trim(),
     conductor: document.getElementById('fs-f-conductor').value.trim(),
     conductorSub: document.getElementById('fs-f-conductor-sub').value.trim(),
-    territory: document.getElementById('fs-f-territory').value.trim(),
-    territorySub: document.getElementById('fs-f-territory-sub').value.trim(),
-    usagePeriod: document.getElementById('fs-f-period').value.trim(),
     sortOrder: parseInt(document.getElementById('fs-f-order').value) || 0,
     timestamp: firebase.firestore.Timestamp.now(),
   };
