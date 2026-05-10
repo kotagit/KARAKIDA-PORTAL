@@ -51,6 +51,8 @@ const PAGE_TITLES = {
   'admin-report-card': '伝道者記録',
   'admin-report-check': '奉仕報告',
   'admin-report-approve': '報告承認',
+  'admin-field-service': '野外奉仕取決表',
+  'senkyo-field': '野外奉仕取決表',
   'pw-apply': '公共エリア伝道申込み',
   'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -254,6 +256,8 @@ function navigate(page, pushHistory) {
   if (page === 'admin-report-card')        loadAdminReportCard();
   if (page === 'admin-report-check')       loadAdminReportCheck();
   if (page === 'admin-report-approve')     loadAdminReportApprove();
+  if (page === 'admin-field-service')      loadAdminFieldService();
+  if (page === 'senkyo-field')             loadUserFieldService();
   if (page === 'admin-org')                loadOrgEditor();
 
   if (isAdmin) {
@@ -297,6 +301,10 @@ document.getElementById('admin-manage-report-check')?.addEventListener('click', 
 
 document.getElementById('admin-manage-report-approve')?.addEventListener('click', () => {
   navigate('admin-report-approve');
+});
+
+document.getElementById('admin-manage-field-service')?.addEventListener('click', () => {
+  navigate('admin-field-service');
 });
 
 // メニューグリッドのクリック（data-page属性があるもののみ）
@@ -3510,3 +3518,255 @@ async function rejectReport(docId) {
     alert('削除エラー: ' + err.message);
   }
 }
+
+// ── 野外奉仕取決表 ────────────────────────────────
+let fsWeekStart = null;
+let fsEditId = null;
+
+function getFsWeekStart(d) {
+  const dt = new Date(d);
+  const day = dt.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  dt.setDate(dt.getDate() + diff);
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+
+function fmtDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function fmtDateShort(dateStr) {
+  const d = new Date(dateStr);
+  return (d.getMonth()+1) + '/' + d.getDate();
+}
+
+const FS_DOW = ['日','月','火','水','木','金','土'];
+
+function getDow(dateStr) {
+  return FS_DOW[new Date(dateStr).getDay()];
+}
+
+async function loadFieldServiceData(weekStart) {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const startStr = fmtDate(weekStart);
+  const endStr = fmtDate(weekEnd);
+  const snap = await db.collection('FIELD_SERVICE')
+    .where('date', '>=', startStr)
+    .where('date', '<=', endStr)
+    .orderBy('date')
+    .orderBy('sortOrder')
+    .get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+function renderFsTable(rows, viewId, isAdmin) {
+  const view = document.getElementById(viewId);
+  if (!rows.length) {
+    view.innerHTML = '<div class="empty-state">この週の取決めはありません</div>';
+    return;
+  }
+
+  let html = '<div style="overflow-x:auto"><table class="fs-table"><thead><tr>';
+  html += '<th>日時</th><th>時間</th><th>種別</th><th>司会者</th><th>区域</th><th>使用期間</th>';
+  if (isAdmin) html += '<th></th>';
+  html += '</tr></thead><tbody>';
+
+  const grouped = {};
+  rows.forEach(r => {
+    if (!grouped[r.date]) grouped[r.date] = [];
+    grouped[r.date].push(r);
+  });
+
+  let dayIdx = 0;
+  Object.keys(grouped).sort().forEach(date => {
+    const dayRows = grouped[date];
+    const bgClass = dayIdx % 2 === 0 ? 'fs-day-block-even' : 'fs-day-block-odd';
+    const dow = getDow(date);
+    const dateClass = dow === '土' ? 'fs-date-sat' : dow === '日' ? 'fs-date-sun' : '';
+
+    let firstOfDay = true;
+    const dayRowCount = dayRows.length;
+
+    dayRows.forEach(r => {
+      html += '<tr class="' + bgClass + '">';
+
+      if (firstOfDay) {
+        html += '<td class="fs-date-cell ' + dateClass + '" rowspan="' + dayRowCount + '">';
+        html += fmtDateShort(date) + '<br>' + dow;
+        html += '</td>';
+        firstOfDay = false;
+      }
+
+      html += '<td class="fs-time-cell">' + esc(r.time || '') + (r.place ? '<br>' + esc(r.place) : '') + '</td>';
+      html += '<td class="fs-type-cell">' + esc(r.type || '') + '</td>';
+
+      let condHtml = esc(r.conductor || '');
+      if (r.conductorSub) condHtml += '<br>' + esc(r.conductorSub);
+      html += '<td class="fs-conductor-cell">' + condHtml + '</td>';
+
+      let terHtml = esc(r.territory || '');
+      if (r.territorySub) terHtml += '<br>' + esc(r.territorySub);
+      html += '<td class="fs-territory-cell">' + terHtml + '</td>';
+
+      html += '<td class="fs-period-cell">' + esc(r.usagePeriod || '') + '</td>';
+
+      if (isAdmin) {
+        html += '<td class="fs-actions">';
+        html += '<button onclick="editFsRow(\'' + r.id + '\')" title="編集"><span class="material-icons" style="font-size:16px">edit</span></button>';
+        html += '<button onclick="deleteFsRow(\'' + r.id + '\')" title="削除"><span class="material-icons" style="font-size:16px">delete</span></button>';
+        html += '</td>';
+      }
+
+      html += '</tr>';
+    });
+
+    dayIdx++;
+  });
+
+  html += '</tbody></table></div>';
+  view.innerHTML = html;
+}
+
+function updateFsWeekLabel(labelId, weekStart) {
+  const el = document.getElementById(labelId);
+  if (!el) return;
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  el.textContent = fmtDateShort(fmtDate(weekStart)) + '(' + getDow(fmtDate(weekStart)) + ') 〜 ' + fmtDateShort(fmtDate(end)) + '(' + getDow(fmtDate(end)) + ')';
+}
+
+async function loadAdminFieldService() {
+  if (!fsWeekStart) fsWeekStart = getFsWeekStart(new Date());
+  updateFsWeekLabel('fs-week-label', fsWeekStart);
+  const view = document.getElementById('fs-view');
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const rows = await loadFieldServiceData(fsWeekStart);
+    renderFsTable(rows, 'fs-view', true);
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+document.getElementById('fs-prev-week')?.addEventListener('click', () => {
+  fsWeekStart.setDate(fsWeekStart.getDate() - 7);
+  loadAdminFieldService();
+});
+document.getElementById('fs-next-week')?.addEventListener('click', () => {
+  fsWeekStart.setDate(fsWeekStart.getDate() + 7);
+  loadAdminFieldService();
+});
+document.getElementById('fs-add-row')?.addEventListener('click', () => {
+  fsEditId = null;
+  showFsForm({});
+});
+
+function showFsForm(data) {
+  let overlay = document.getElementById('fs-form-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'fs-form-overlay';
+    overlay.className = 'fs-form-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.remove('hidden');
+  const defaultDate = data.date || fmtDate(fsWeekStart || new Date());
+  overlay.innerHTML = '<div class="fs-form-box">' +
+    '<h3>' + (fsEditId ? '取決め編集' : '取決め追加') + '</h3>' +
+    '<div class="fs-form-field"><label>日付</label><input type="date" id="fs-f-date" value="' + esc(defaultDate) + '"></div>' +
+    '<div class="fs-form-field"><label>時間</label><input type="time" id="fs-f-time" value="' + esc(data.time || '') + '"></div>' +
+    '<div class="fs-form-field"><label>集合場所</label><input type="text" id="fs-f-place" value="' + esc(data.place || '') + '" placeholder="王国会館、Z岩下 等"></div>' +
+    '<div class="fs-form-field"><label>種別</label><input type="text" id="fs-f-type" value="' + esc(data.type || '') + '" placeholder="翡翠、合同、ビジネス 等"></div>' +
+    '<div class="fs-form-field"><label>司会者</label><input type="text" id="fs-f-conductor" value="' + esc(data.conductor || '') + '"></div>' +
+    '<div class="fs-form-field"><label>司会者2</label><input type="text" id="fs-f-conductor-sub" value="' + esc(data.conductorSub || '') + '"></div>' +
+    '<div class="fs-form-field"><label>区域</label><input type="text" id="fs-f-territory" value="' + esc(data.territory || '') + '"></div>' +
+    '<div class="fs-form-field"><label>区域2</label><input type="text" id="fs-f-territory-sub" value="' + esc(data.territorySub || '') + '"></div>' +
+    '<div class="fs-form-field"><label>使用期間</label><input type="text" id="fs-f-period" value="' + esc(data.usagePeriod || '') + '" placeholder="2026/04/18 - 2026/05/16"></div>' +
+    '<div class="fs-form-field"><label>表示順</label><input type="number" id="fs-f-order" value="' + (data.sortOrder || 0) + '" min="0"></div>' +
+    '<div class="fs-form-actions">' +
+    '<button class="fs-form-cancel" onclick="closeFsForm()">キャンセル</button>' +
+    '<button class="fs-form-save" onclick="saveFsRow()">保存</button>' +
+    '</div></div>';
+}
+
+function closeFsForm() {
+  const overlay = document.getElementById('fs-form-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+async function saveFsRow() {
+  const dateVal = document.getElementById('fs-f-date').value;
+  if (!dateVal) { alert('日付を入力してください'); return; }
+  const data = {
+    date: dateVal,
+    dayOfWeek: getDow(dateVal),
+    time: document.getElementById('fs-f-time').value || '',
+    place: document.getElementById('fs-f-place').value.trim(),
+    type: document.getElementById('fs-f-type').value.trim(),
+    conductor: document.getElementById('fs-f-conductor').value.trim(),
+    conductorSub: document.getElementById('fs-f-conductor-sub').value.trim(),
+    territory: document.getElementById('fs-f-territory').value.trim(),
+    territorySub: document.getElementById('fs-f-territory-sub').value.trim(),
+    usagePeriod: document.getElementById('fs-f-period').value.trim(),
+    sortOrder: parseInt(document.getElementById('fs-f-order').value) || 0,
+    timestamp: firebase.firestore.Timestamp.now(),
+  };
+  try {
+    if (fsEditId) {
+      await db.collection('FIELD_SERVICE').doc(fsEditId).update(data);
+    } else {
+      await db.collection('FIELD_SERVICE').add(data);
+    }
+    closeFsForm();
+    loadAdminFieldService();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  }
+}
+
+async function editFsRow(docId) {
+  try {
+    const snap = await db.collection('FIELD_SERVICE').doc(docId).get();
+    if (!snap.exists) { alert('データが見つかりません'); return; }
+    fsEditId = docId;
+    showFsForm(snap.data());
+  } catch (err) {
+    alert('読み込みエラー: ' + err.message);
+  }
+}
+
+async function deleteFsRow(docId) {
+  if (!confirm('この取決めを削除しますか？')) return;
+  try {
+    await db.collection('FIELD_SERVICE').doc(docId).delete();
+    loadAdminFieldService();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
+let fsUserWeekStart = null;
+
+async function loadUserFieldService() {
+  if (!fsUserWeekStart) fsUserWeekStart = getFsWeekStart(new Date());
+  updateFsWeekLabel('fs-user-week-label', fsUserWeekStart);
+  const view = document.getElementById('fs-user-view');
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const rows = await loadFieldServiceData(fsUserWeekStart);
+    renderFsTable(rows, 'fs-user-view', false);
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+document.getElementById('fs-user-prev')?.addEventListener('click', () => {
+  fsUserWeekStart.setDate(fsUserWeekStart.getDate() - 7);
+  loadUserFieldService();
+});
+document.getElementById('fs-user-next')?.addEventListener('click', () => {
+  fsUserWeekStart.setDate(fsUserWeekStart.getDate() + 7);
+  loadUserFieldService();
+});

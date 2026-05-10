@@ -1056,6 +1056,52 @@ body {
 .renraku-detail a { color: var(--primary); text-decoration: none; font-weight: 600; }
 
 .sr-input-wrap select { background: white; }
+/* 野外奉仕取決表 */
+.fs-toolbar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: center;
+}
+.fs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fs-table th {
+  background: var(--primary); color: #fff; padding: 6px 8px; text-align: center;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.fs-table td { padding: 6px 8px; border: 1px solid #ddd; vertical-align: middle; }
+.fs-date-cell { font-weight: 700; text-align: center; white-space: nowrap; }
+.fs-date-sat { color: #1565c0; }
+.fs-date-sun { color: #c62828; }
+.fs-time-cell { text-align: center; white-space: nowrap; font-size: 12px; }
+.fs-type-cell { font-weight: 600; text-align: center; }
+.fs-conductor-cell { text-align: center; }
+.fs-territory-cell { text-align: center; font-size: 12px; }
+.fs-period-cell { text-align: center; font-size: 11px; color: #666; }
+.fs-day-block-even { background: #e8f5e9; }
+.fs-day-block-odd { background: #fff3e0; }
+.fs-actions { display: flex; gap: 4px; justify-content: center; }
+.fs-actions button {
+  border: none; background: none; cursor: pointer; padding: 2px; color: #999;
+}
+.fs-actions button:hover { color: var(--primary); }
+/* 追加フォーム */
+.fs-form-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 200;
+  background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center;
+}
+.fs-form-overlay.hidden { display: none; }
+.fs-form-box {
+  background: #fff; border-radius: 12px; padding: 20px; width: 320px; max-height: 90vh;
+  overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.fs-form-box h3 { margin: 0 0 14px; font-size: 16px; color: #333; }
+.fs-form-field { margin-bottom: 10px; }
+.fs-form-field label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 3px; }
+.fs-form-field input, .fs-form-field select {
+  width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;
+}
+.fs-form-actions { display: flex; gap: 8px; margin-top: 14px; }
+.fs-form-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.fs-form-save { background: var(--primary); color: #fff; }
+.fs-form-cancel { background: #eee; color: #333; }
+
 .sr-target-field {
   background: var(--primary); border-radius: 8px; padding: 10px 12px; margin: -4px 0 10px;
 }
