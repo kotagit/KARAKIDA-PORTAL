@@ -883,7 +883,7 @@ function renderMemberInfoForm() {
 
       <div class="form-group">
         <label>バプテスマの日付</label>
-        <input type="date" id="mf-baptism-date" value="${data.baptismDate ? toDateInput(data.baptismDate) : ''}">
+        <input type="date" id="mf-baptism-date" value="${data.baptismDate ? toDateInput(data.bapDate) : ''}">
       </div>
 
       <div class="section-divider"></div>
@@ -1100,7 +1100,7 @@ async function loadJouhouContact() {
       { label: 'グループ', value: d.group },
       { label: '性別', value: displayGender(d.gender) },
       { label: '生年月日', value: tsToStr(d.birthDay) },
-      { label: 'バプテスマ日', value: tsToStr(d.baptismDate) },
+      { label: 'バプテスマ日', value: tsToStr(d.bapDate) },
       { label: '携帯電話', value: d.emergencyCall },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
@@ -1145,7 +1145,7 @@ async function loadJouhouCard() {
       group: String(d.group || '').trim(),
       gender: String(d.gender || '').trim(),
       birthDate: tsToStr(d.birthDay),
-      baptismDate: tsToStr(d.baptismDate),
+      baptismDate: tsToStr(d.bapDate),
       role: String(d.role || d.position || '').trim(),
       pioneer: String(d.pioneer || '').trim(),
     };
@@ -1598,7 +1598,7 @@ async function loadAdminReports() {
         role: String(data.role || data.position || '').trim(),
         gender: String(data.gender || '').trim(),
         birthDate: tsToStr(data.birthDay),
-        baptismDate: tsToStr(data.baptismDate),
+        baptismDate: tsToStr(data.bapDate),
         pioneer: String(data.pioneer || '').trim(),
       });
     });
