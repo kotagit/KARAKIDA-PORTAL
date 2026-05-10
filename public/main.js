@@ -3657,6 +3657,187 @@ document.getElementById('fs-add-row')?.addEventListener('click', () => {
   showFsForm({});
 });
 
+// ── 週を生成 ──
+document.getElementById('fs-generate-week')?.addEventListener('click', async () => {
+  if (!confirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。')) return;
+  try {
+    // ローテ設定を読み込み
+    const rotSnap = await db.collection('FS_ROTATION').get();
+    const rotations = {};
+    rotSnap.docs.forEach(d => {
+      const data = d.data();
+      rotations[data.dayOfWeek + '_' + data.time] = data;
+    });
+
+    // テンプレート読み込み
+    const tplSnap = await db.collection('FS_TEMPLATE').orderBy('sortOrder').get();
+    if (tplSnap.empty) {
+      alert('テンプレートが未設定です。先にローテ設定からテンプレートを登録してください。');
+      return;
+    }
+
+    // 既存データ確認
+    const existing = await loadFieldServiceData(fsWeekStart);
+    const existKeys = new Set(existing.map(r => r.date + '_' + r.time + '_' + r.type));
+
+    // 週番号計算（ローテ用）
+    const refDate = new Date('2026-01-05'); // 基準月曜
+    const weekNum = Math.round((fsWeekStart - refDate) / (7 * 86400000));
+
+    let addedCount = 0;
+    for (const tplDoc of tplSnap.docs) {
+      const tpl = tplDoc.data();
+      // 曜日→日付計算 (0=日,1=月...6=土)
+      const dayOffset = tpl.dayOfWeek === 0 ? 6 : tpl.dayOfWeek - 1;
+      const rowDate = new Date(fsWeekStart);
+      rowDate.setDate(rowDate.getDate() + dayOffset);
+      const dateStr = fmtDate(rowDate);
+
+      const key = dateStr + '_' + tpl.time + '_' + tpl.type;
+      if (existKeys.has(key)) continue;
+
+      // 司会者: ローテがあれば適用
+      let conductor = tpl.conductor || '';
+      let conductorSub = tpl.conductorSub || '';
+      const rotKey = tpl.dayOfWeek + '_' + tpl.time;
+      if (rotations[rotKey] && rotations[rotKey].conductors && rotations[rotKey].conductors.length > 0) {
+        const list = rotations[rotKey].conductors;
+        const idx = ((weekNum % list.length) + list.length) % list.length;
+        conductor = list[idx];
+        if (list.length > 1 && rotations[rotKey].pairMode) {
+          conductorSub = list[(idx + 1) % list.length] || '';
+        }
+      }
+
+      await db.collection('FIELD_SERVICE').add({
+        date: dateStr,
+        dayOfWeek: getDow(dateStr),
+        time: tpl.time || '',
+        place: tpl.place || '',
+        type: tpl.type || '',
+        conductor,
+        conductorSub,
+        sortOrder: tpl.sortOrder || 0,
+        timestamp: firebase.firestore.Timestamp.now(),
+      });
+      addedCount++;
+    }
+
+    alert(addedCount + '件の取決めを生成しました');
+    loadAdminFieldService();
+  } catch (err) {
+    alert('生成エラー: ' + err.message);
+  }
+});
+
+// ── ローテ設定 ──
+document.getElementById('fs-rotation-settings')?.addEventListener('click', () => {
+  showFsRotationSettings();
+});
+
+async function showFsRotationSettings() {
+  let overlay = document.getElementById('fs-form-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'fs-form-overlay';
+    overlay.className = 'fs-form-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.remove('hidden');
+
+  // 既存ローテ読み込み
+  const rotSnap = await db.collection('FS_ROTATION').get();
+  let rotList = rotSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  let html = '<div class="fs-form-box" style="width:340px">';
+  html += '<h3>ローテーション設定</h3>';
+  html += '<p style="font-size:12px;color:#666;margin:0 0 12px">司会者をカンマ区切りで入力。週ごとに順番に割り当てます。</p>';
+
+  if (rotList.length === 0) {
+    // デフォルト設定
+    rotList = [
+      { dayOfWeek: 6, time: '17:00', label: '土曜 17:00', conductors: [], id: null },
+      { dayOfWeek: 0, time: '10:30', label: '日曜 10:30', conductors: [], id: null },
+    ];
+  }
+
+  rotList.forEach((r, i) => {
+    html += '<div class="fs-form-field">';
+    html += '<label>' + esc(r.label || FS_DOW[r.dayOfWeek] + ' ' + r.time) + '</label>';
+    html += '<input type="text" id="fs-rot-' + i + '" value="' + esc((r.conductors || []).join(', ')) + '" placeholder="石橋, 青木, 岩下">';
+    html += '<input type="hidden" id="fs-rot-dow-' + i + '" value="' + r.dayOfWeek + '">';
+    html += '<input type="hidden" id="fs-rot-time-' + i + '" value="' + esc(r.time) + '">';
+    html += '<input type="hidden" id="fs-rot-id-' + i + '" value="' + (r.id || '') + '">';
+    html += '</div>';
+  });
+
+  html += '<div class="fs-form-field" style="margin-top:8px">';
+  html += '<label>新規追加（曜日番号,時間）</label>';
+  html += '<div style="display:flex;gap:6px">';
+  html += '<select id="fs-rot-new-dow" style="flex:1"><option value="">曜日</option>';
+  FS_DOW.forEach((d, i) => { html += '<option value="' + i + '">' + d + '</option>'; });
+  html += '</select>';
+  html += '<input type="time" id="fs-rot-new-time" style="flex:1">';
+  html += '<input type="text" id="fs-rot-new-cond" style="flex:2" placeholder="司会者（カンマ区切り）">';
+  html += '</div></div>';
+
+  html += '<div id="fs-rot-count" style="font-size:12px;color:#666;margin-top:4px">' + rotList.length + '件のローテ設定</div>';
+
+  html += '<div class="fs-form-actions">';
+  html += '<button class="fs-form-cancel" onclick="closeFsForm()">閉じる</button>';
+  html += '<button class="fs-form-save" onclick="saveFsRotation(' + rotList.length + ')">保存</button>';
+  html += '</div></div>';
+
+  overlay.innerHTML = html;
+}
+
+async function saveFsRotation(count) {
+  try {
+    // 既存を更新
+    for (let i = 0; i < count; i++) {
+      const input = document.getElementById('fs-rot-' + i);
+      const dow = parseInt(document.getElementById('fs-rot-dow-' + i).value);
+      const time = document.getElementById('fs-rot-time-' + i).value;
+      const id = document.getElementById('fs-rot-id-' + i).value;
+      const conductors = input.value.split(/[,、]/).map(s => s.trim()).filter(s => s);
+
+      const data = {
+        dayOfWeek: dow,
+        time: time,
+        label: FS_DOW[dow] + ' ' + time,
+        conductors: conductors,
+        timestamp: firebase.firestore.Timestamp.now(),
+      };
+
+      if (id) {
+        await db.collection('FS_ROTATION').doc(id).update(data);
+      } else {
+        await db.collection('FS_ROTATION').add(data);
+      }
+    }
+
+    // 新規追加
+    const newDow = document.getElementById('fs-rot-new-dow').value;
+    const newTime = document.getElementById('fs-rot-new-time').value;
+    const newCond = document.getElementById('fs-rot-new-cond').value;
+    if (newDow !== '' && newTime && newCond) {
+      const dow = parseInt(newDow);
+      await db.collection('FS_ROTATION').add({
+        dayOfWeek: dow,
+        time: newTime,
+        label: FS_DOW[dow] + ' ' + newTime,
+        conductors: newCond.split(/[,、]/).map(s => s.trim()).filter(s => s),
+        timestamp: firebase.firestore.Timestamp.now(),
+      });
+    }
+
+    alert('ローテ設定を保存しました');
+    closeFsForm();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  }
+}
+
 function showFsForm(data) {
   let overlay = document.getElementById('fs-form-overlay');
   if (!overlay) {
