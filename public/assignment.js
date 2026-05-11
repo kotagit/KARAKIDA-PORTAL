@@ -590,6 +590,8 @@ function awBuildWeekSection(week, container) {
   const slots  = Object.assign({}, week.slots  || {});
   const topics = Object.assign({}, week.topics || {});
   const items  = week.items || [];
+  const convention = week.conventionType || '';
+  const isCircuitVisit = !!week.circuitVisit;
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
@@ -601,7 +603,7 @@ function awBuildWeekSection(week, container) {
   const hdr = document.createElement('div');
   hdr.className = 'aw-inline-header';
   hdr.innerHTML = `
-    <div>
+    <div class="aw-header-left">
       <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
@@ -611,11 +613,20 @@ function awBuildWeekSection(week, container) {
   `;
   section.appendChild(hdr);
 
-  // ── 担当者ドロップダウンテーブル（主題表示のみ、編集なし） ──
-  const table = document.createElement('div');
-  table.className = 'aw-week-table';
-  awBuildAssignmentTable(items, slots, topics, table);
-  section.appendChild(table);
+  // ── 大会の場合：グレーアウト＋ラベル、割当テーブルなし ──
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'aw-program-body';
+
+  if (!convention) {
+    const table = document.createElement('div');
+    table.className = 'aw-week-table';
+    awBuildAssignmentTable(items, slots, topics, table);
+    bodyWrap.appendChild(table);
+  }
+  section.appendChild(bodyWrap);
+
+  if (convention) awApplyConventionState(section, convention);
+  if (isCircuitVisit) awApplyCircuitVisit(section, true);
 
   container.appendChild(section);
 }
