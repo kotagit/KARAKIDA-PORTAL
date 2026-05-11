@@ -3956,7 +3956,7 @@ async function loadUserFieldService() {
 
 // ── 集会出席 ────────────────────────────────
 const ATT_VENUE_LABELS = { kingdom_hall: '王国会館', zoom: 'Zoom' };
-const ATT_TYPE_LABELS  = { midweek: '週中', weekend: '週末', special: '特別' };
+const ATT_TYPE_LABELS  = { midweek: '週中', weekend: '週末', memorial: '記念式', special: '特別' };
 
 async function loadAdminAttendance() {
   const list = document.getElementById('attendance-list');
@@ -3988,6 +3988,7 @@ function renderAdminAttendance(docs) {
     }
     const venue = ATT_VENUE_LABELS[d.venue] || d.venue || '';
     const type  = ATT_TYPE_LABELS[d.meetingType] || d.meetingType || '';
+    const detail = d.meetingType === 'special' && d.specialDetail ? `（${d.specialDetail}）` : '';
     const count = (d.count != null) ? d.count : '-';
     const submitter = d.submitterName || '';
 
@@ -3996,7 +3997,7 @@ function renderAdminAttendance(docs) {
     item.innerHTML = `
       <div class="admin-list-info">
         <div class="admin-list-date">${esc(label)}</div>
-        <div class="admin-list-title">${esc(venue)} / ${esc(type)} ・ <strong>${esc(String(count))}名</strong></div>
+        <div class="admin-list-title">${esc(venue)} / ${esc(type)}${esc(detail)} ・ <strong>${esc(String(count))}名</strong></div>
         <div style="font-size:12px;color:var(--text-light,#888);margin-top:2px">提出者: ${esc(submitter)}</div>
       </div>
       <div class="admin-list-actions">
@@ -4026,6 +4027,9 @@ function openAttendanceModal(id) {
   document.getElementById('att-submitter').value =
     memberUserName || (currentUser && currentUser.displayName) || (currentUser && currentUser.email) || '';
 
+  document.getElementById('att-special-detail').value = '';
+  document.getElementById('att-special-group').classList.add('hidden');
+
   if (!id) {
     document.getElementById('att-date').value = new Date().toISOString().split('T')[0];
     document.getElementById('att-venue').value = 'kingdom_hall';
@@ -4039,9 +4043,10 @@ function openAttendanceModal(id) {
       document.getElementById('att-type').value  = d.meetingType || 'midweek';
       document.getElementById('att-count').value = (d.count != null) ? d.count : '';
       document.getElementById('att-remarks').value = d.remarks || '';
-      if (d.submitterName) {
-        document.getElementById('att-submitter').value = d.submitterName;
-      }
+      if (d.specialDetail) document.getElementById('att-special-detail').value = d.specialDetail;
+      if (d.submitterName) document.getElementById('att-submitter').value = d.submitterName;
+      // 特別な集会ならテキスト表示
+      document.getElementById('att-special-group').classList.toggle('hidden', d.meetingType !== 'special');
     });
   }
   modal.classList.remove('hidden');
@@ -4057,11 +4062,17 @@ document.getElementById('attendance-modal-close')?.addEventListener('click', clo
 document.getElementById('attendance-overlay')?.addEventListener('click', closeAttendanceModal);
 document.getElementById('att-cancel')?.addEventListener('click', closeAttendanceModal);
 
+document.getElementById('att-type')?.addEventListener('change', () => {
+  const sg = document.getElementById('att-special-group');
+  if (sg) sg.classList.toggle('hidden', document.getElementById('att-type').value !== 'special');
+});
+
 document.getElementById('attendance-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const date  = document.getElementById('att-date').value;
   const venue = document.getElementById('att-venue').value;
   const type  = document.getElementById('att-type').value;
+  const specialDetail = document.getElementById('att-special-detail').value.trim();
   const countStr = document.getElementById('att-count').value;
   const remarks  = document.getElementById('att-remarks').value.trim();
   if (!date || !venue || !type || countStr === '') {
@@ -4077,6 +4088,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
     date,
     venue,
     meetingType: type,
+    specialDetail: type === 'special' ? specialDetail : '',
     count,
     remarks,
     submitterName:  memberUserName || (currentUser && currentUser.displayName) || '',
@@ -4098,9 +4110,10 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
     }
     closeAttendanceModal();
     // 結果表示
-    const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','special':'特別な集会'}[type] || type;
+    const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
+    const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
     const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
-    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}\n出席人数: ${count}名`);
+    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
     // 出席ページが開いていれば更新
     if (document.getElementById('page-admin-attendance') && !document.getElementById('page-admin-attendance').classList.contains('hidden')) {
       loadAdminAttendance();

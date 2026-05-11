@@ -935,8 +935,13 @@
         <select id="att-type" required>
           <option value="midweek">週中の集会</option>
           <option value="weekend">週末の集会</option>
+          <option value="memorial">記念式</option>
           <option value="special">特別な集会</option>
         </select>
+      </div>
+      <div class="form-group hidden" id="att-special-group">
+        <label>内容</label>
+        <input type="text" id="att-special-detail" placeholder="例: 特別講演会">
       </div>
       <div class="form-group">
         <label>出席人数 <span style="color:#d32f2f">*</span></label>
@@ -1116,7 +1121,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=87"></script>
+<script src="main.js?v=88"></script>
 <script src="assignment.js?v=58"></script>
 </body>
 </html>
