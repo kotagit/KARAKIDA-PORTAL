@@ -1827,6 +1827,9 @@ async function initProgramPage() {
   }
 }
 
+// 各週の主題データを保持（一括確定で使用）
+const awProgramTopics = {};
+
 function awRenderProgramList() {
   const list = document.getElementById('program-list');
   if (!list) return;
@@ -1835,6 +1838,17 @@ function awRenderProgramList() {
     return;
   }
   list.innerHTML = '';
+
+  // 一括確定ボタン
+  const btnArea = document.createElement('div');
+  btnArea.style.cssText = 'padding:8px 0 16px;display:flex;gap:8px;justify-content:flex-end';
+  const confirmAllBtn = document.createElement('button');
+  confirmAllBtn.className = 'btn-primary';
+  confirmAllBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 全週プログラム確定';
+  confirmAllBtn.addEventListener('click', awConfirmAllPrograms);
+  btnArea.appendChild(confirmAllBtn);
+  list.appendChild(btnArea);
+
   awWeeks.forEach(week => awBuildProgramSection(week, list));
 }
 
@@ -1843,6 +1857,7 @@ function awBuildProgramSection(week, container) {
   const labelMap = { draft:'未確定', confirmed:'確定済' };
   const classMap = { draft:'aw-badge-none', confirmed:'aw-badge-confirmed' };
   const topics = Object.assign({}, week.topics || {});
+  awProgramTopics[week.id] = topics;
   const items = week.items || [];
 
   const section = document.createElement('div');
@@ -1924,34 +1939,30 @@ function awBuildProgramSection(week, container) {
   });
 
   section.appendChild(tableDiv);
+  container.appendChild(section);
+}
 
-  // プログラム確定ボタン
-  const btnArea = document.createElement('div');
-  btnArea.style.cssText = 'padding:8px 12px 16px;display:flex;gap:8px;justify-content:flex-end';
-  const confirmBtn = document.createElement('button');
-  confirmBtn.className = ps === 'confirmed' ? 'btn-secondary' : 'btn-primary';
-  confirmBtn.innerHTML = ps === 'confirmed'
-    ? '<span class="material-icons" style="font-size:18px;vertical-align:middle">edit</span> 更新'
-    : '<span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> プログラム確定';
-  confirmBtn.addEventListener('click', async () => {
-    try {
+async function awConfirmAllPrograms() {
+  if (!confirm('表示中の全週のプログラムを確定しますか？')) return;
+  let count = 0;
+  try {
+    for (const week of awWeeks) {
+      const topics = awProgramTopics[week.id] || {};
       await db.collection('mwbWeeks').doc(week.id).set({
         programStatus: 'confirmed',
         topics: topics,
       }, { merge: true });
       week.programStatus = 'confirmed';
       week.topics = Object.assign({}, topics);
-      const badge = section.querySelector('.aw-status-badge');
+      count++;
+    }
+    // バッジ更新
+    document.querySelectorAll('.aw-inline-section').forEach(sec => {
+      const badge = sec.querySelector('.aw-status-badge');
       if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
-      confirmBtn.className = 'btn-secondary';
-      confirmBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">edit</span> 更新';
-      alert('プログラムを確定しました');
-    } catch(e) { alert('エラー: ' + e.message); }
-  });
-  btnArea.appendChild(confirmBtn);
-  section.appendChild(btnArea);
-
-  container.appendChild(section);
+    });
+    alert(`${count}週分のプログラムを確定しました`);
+  } catch(e) { alert('確定エラー: ' + e.message); }
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────
