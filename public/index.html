@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=113">
+  <link rel="stylesheet" href="style.css?v=115">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -1139,8 +1139,7 @@
         <label>種別</label>
         <select id="af-type">
           <option value="general">一般発表</option>
-          <option value="announcement">発表</option>
-          <option value="notice">確認事項</option>
+          <option value="ann-notice">発表と確認事項</option>
           <option value="pioneer">補助開拓奉仕者</option>
           <option value="circuit">巡回監督訪問</option>
           <option value="circuit-assembly">巡回大会</option>
@@ -1170,25 +1169,6 @@
         </div>
       </div>
 
-      <!-- 繰り返し（新規のみ） -->
-      <div id="af-repeat-section">
-        <div class="form-group">
-          <label>繰り返し</label>
-          <select id="af-repeat-type">
-            <option value="none">繰り返しなし</option>
-            <option value="weeks">○週間繰り返す</option>
-            <option value="until">日付まで繰り返す</option>
-          </select>
-        </div>
-        <div id="af-repeat-weeks-row" class="form-group hidden">
-          <label>繰り返し週数</label>
-          <input type="number" id="af-repeat-weeks" min="1" max="12" value="2" placeholder="週数">
-        </div>
-        <div id="af-repeat-until-row" class="form-group hidden">
-          <label>繰り返し終了日</label>
-          <input type="date" id="af-repeat-until">
-        </div>
-      </div>
 
       <!-- ── 一般発表 ── -->
       <div id="af-section-general">
@@ -1309,16 +1289,7 @@
         </button>
       </div>
 
-      <!-- Googleフォーム（全種別共通） -->
-      <div class="form-group">
-        <label>
-          <img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png"
-               style="width:16px;height:16px;vertical-align:middle;margin-right:4px">
-          Google フォーム（任意）
-        </label>
-        <input type="url" id="af-google-form-url" placeholder="https://forms.gle/...">
-        <input type="text" id="af-google-form-title" placeholder="フォームのタイトル（任意）" style="margin-top:6px">
-      </div>
+
 
       <!-- 即時公開 -->
       <label class="af-publish-now-label">
@@ -1409,7 +1380,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=121"></script>
+<script src="main.js?v=125"></script>
 <script src="assignment.js?v=75"></script>
 <script src="pw.js?v=3"></script>
 </body>

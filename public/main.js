@@ -456,13 +456,12 @@ function renderAnnWeekList() {
         </div>
         <div class="ann-item-body">
           <div class="ann-item-title">
-            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'announcement':'発表','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
+            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
             ${esc(item.title || '（タイトルなし）')}
           </div>
           ${preview ? `<div class="ann-item-preview">${esc(preview.length > 60 ? preview.slice(0,60)+'…' : preview)}</div>` : ''}
           <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
             ${links.length > 0 ? `<div class="ann-link-badge"><span class="material-icons">link</span>${links.length}</div>` : ''}
-            ${item.googleFormUrl ? `<div class="ann-link-badge" style="background:#673ab7"><img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;filter:brightness(10)">フォーム</div>` : ''}
             ${item.publishNow ? `<div class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時公開</div>` : ''}
           </div>
         </div>
@@ -555,7 +554,7 @@ async function loadAnnAllList() {
         .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
         .forEach(item => {
           const typeBadge = item.type && item.type !== 'general'
-            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'announcement':'発表','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
+            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
             : '';
           const publishBadge = item.publishNow ? `<span class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時</span>` : '';
           html += `<div class="ann-item-card">
@@ -630,12 +629,24 @@ function renderAnnouncements(docs) {
     groups[dateKey].push({ id: docSnap.id, ...d });
   });
 
+  const TYPE_LABEL_MAP = {
+    'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項',
+    'pioneer':'補助開拓','circuit':'巡回監督訪問',
+    'circuit-assembly':'巡回大会','district-convention':'地区大会'
+  };
+
   Object.keys(groups).forEach(dateKey => {
+    const items = groups[dateKey];
+    // 全アイテムの種別が同一かチェック → カードヘッダー色に使う
+    const firstType = items[0]?.type || 'general';
+    const singleType = items.every(it => (it.type || 'general') === firstType) ? firstType : 'general';
+    const typeLabel = singleType !== 'general' ? (TYPE_LABEL_MAP[singleType] || '') : '';
+
     const groupDiv = document.createElement('div');
-    groupDiv.className = 'announce-group';
-    
+    groupDiv.className = `announce-group atype-${singleType}`;
+
     let itemsHtml = '';
-    groups[dateKey].forEach(item => {
+    items.forEach(item => {
       const links = item.links || [];
       if (item.link1_title && item.link1_url) links.push({ title: item.link1_title, url: item.link1_url });
       if (item.link2_title && item.link2_url) links.push({ title: item.link2_title, url: item.link2_url });
@@ -657,29 +668,37 @@ function renderAnnouncements(docs) {
           </div>`;
         });
         bodyHtml += '</div>';
-        // メモ（bodyに追加メッセージが含まれている場合）
         const note = (item.body || '').replace(item.members.map(m=>m.name).join('、'), '').replace(/^[、\n]+/, '').trim();
         if (note) bodyHtml += `<div class="announce-item-body" style="margin-top:6px">${esc(note).replace(/\n/g,'<br>')}</div>`;
       } else if (item.body) {
         bodyHtml = `<div class="announce-item-body">${item.body.replace(/\n/g, '<br>')}</div>`;
       }
 
+      // 複数種別混在のときだけ各アイテムにバッジ表示
+      const itemType = item.type || 'general';
+      const showBadge = singleType === 'general' && itemType !== 'general';
+      const badgeHtml = showBadge
+        ? `<span class="af-type-badge af-type-${esc(itemType)}" style="margin-bottom:6px;display:inline-block">${esc(TYPE_LABEL_MAP[itemType]||itemType)}</span>`
+        : '';
+
       itemsHtml += `
         <div class="announce-item">
+          ${badgeHtml}
           ${item.title ? `<div class="announce-item-title">${esc(item.title)}</div>` : ''}
           ${bodyHtml}
-          <div class="announce-item-links">
+          ${links.length ? `<div class="announce-item-links">
             ${links.map(l => `<a class="announce-item-link" href="${esc(l.url)}" target="_blank" rel="noopener">
               <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
-            ${item.googleFormUrl ? `<a class="announce-item-link announce-item-link-gform" href="${esc(item.googleFormUrl)}" target="_blank" rel="noopener">
-              <img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png" style="width:14px;height:14px;vertical-align:middle;margin-right:4px">${esc(item.googleFormTitle || 'Googleフォーム')}</a>` : ''}
-          </div>
+          </div>` : ''}
         </div>
       `;
     });
 
     groupDiv.innerHTML = `
-      <div class="announce-group-date">${esc(dateKey)}</div>
+      <div class="announce-group-date">
+        <span class="announce-group-date-label">${esc(dateKey)}</span>
+        ${typeLabel ? `<span class="announce-group-type-badge">${esc(typeLabel)}</span>` : ''}
+      </div>
       <div class="announce-items-container">
         ${itemsHtml}
       </div>
@@ -702,10 +721,6 @@ document.getElementById('af-cancel')?.addEventListener('click', closeAnnounceMod
 
 addLinkBtn.addEventListener('click', () => addLinkInput('', ''));
 
-document.getElementById('af-repeat-type')?.addEventListener('change', function() {
-  document.getElementById('af-repeat-weeks-row').classList.toggle('hidden', this.value !== 'weeks');
-  document.getElementById('af-repeat-until-row').classList.toggle('hidden', this.value !== 'until');
-});
 
 document.getElementById('af-type')?.addEventListener('change', function() {
   _afTypeChanged(this.value);
@@ -720,7 +735,7 @@ document.getElementById('af-pm-venue')?.addEventListener('change', function() {
 });
 
 // ── 種別切替 ────────────────────────────────────
-const GENERAL_TYPES = ['general', 'announcement', 'notice'];
+const GENERAL_TYPES = ['general', 'announcement', 'notice', 'ann-notice'];
 
 function _afTypeChanged(type) {
   const isConvention = type === 'circuit-assembly' || type === 'district-convention';
@@ -730,8 +745,6 @@ function _afTypeChanged(type) {
   document.getElementById('af-section-circuit').classList.toggle('hidden', type !== 'circuit');
   document.getElementById('af-section-convention').classList.toggle('hidden', !isConvention);
   document.getElementById('af-convention-venue-top').classList.toggle('hidden', !isConvention);
-  // 巡回監督・大会は繰り返し不要（一般・発表・確認事項・補助開拓は繰り返し可）
-  document.getElementById('af-repeat-section').classList.toggle('hidden', type === 'circuit' || isConvention);
   // 地区大会のみ日付2・3を表示
   document.getElementById('af-convention-days-row').classList.toggle('hidden', !isDistrict);
   // 巡回大会のみ開拓者集まりセクションを表示
@@ -846,35 +859,56 @@ function addLinkInput(title = '', url = '') {
 
   const row = document.createElement('div');
   row.className = 'link-input-row';
-  row.innerHTML = `
-    <div class="link-input-fields">
-      <div class="link-title-row">
-        <select class="link-title-select">
-          <option value="other"${selectVal === 'other' ? ' selected' : ''}>その他</option>
-          ${LINK_TITLE_PRESETS.map(p =>
-            `<option value="${esc(p)}"${selectVal === p ? ' selected' : ''}>${esc(p)}</option>`
-          ).join('')}
-        </select>
-        <select class="link-title-month" style="display:${showMonth ? '' : 'none'}">
-          ${_buildMonthOptions(monthVal)}
-        </select>
-        <input type="text" class="link-title-custom" placeholder="タイトルを入力"
-          value="${esc(customVal)}"
-          style="display:${showCustom ? '' : 'none'}">
-      </div>
-      <input type="url" class="link-url" placeholder="URL (https://...)" value="${esc(url)}">
-    </div>
-    <button type="button" class="btn-remove-link"><span class="material-icons">delete</span></button>
-  `;
-  row.querySelector('.link-title-select').addEventListener('change', function() {
-    const custom = row.querySelector('.link-title-custom');
-    const month  = row.querySelector('.link-title-month');
-    custom.style.display = this.value === 'other' ? '' : 'none';
-    month.style.display  = LINK_TITLE_MONTH_SET.has(this.value) ? '' : 'none';
-    if (this.value !== 'other') custom.value = '';
-    if (!LINK_TITLE_MONTH_SET.has(this.value)) month.value = '';
+
+  // select要素を先に作成（value比較を安全にするためescを使わない）
+  const titleSelect = document.createElement('select');
+  titleSelect.className = 'link-title-select';
+  titleSelect.innerHTML = `<option value="other">その他</option>` +
+    LINK_TITLE_PRESETS.map(p => `<option value="${p}">${p}</option>`).join('');
+  titleSelect.value = selectVal;
+
+  const monthSelect = document.createElement('select');
+  monthSelect.className = 'link-title-month';
+  monthSelect.innerHTML = _buildMonthOptions(monthVal);
+  monthSelect.style.display = showMonth ? '' : 'none';
+
+  const customInput = document.createElement('input');
+  customInput.type = 'text';
+  customInput.className = 'link-title-custom';
+  customInput.placeholder = 'タイトルを入力';
+  customInput.value = customVal;
+  customInput.style.display = showCustom ? '' : 'none';
+
+  titleSelect.addEventListener('change', function() {
+    const isMonth  = LINK_TITLE_MONTH_SET.has(this.value);
+    const isOther  = this.value === 'other';
+    monthSelect.style.display  = isMonth  ? '' : 'none';
+    customInput.style.display  = isOther  ? '' : 'none';
+    if (!isMonth) monthSelect.value = '';
+    if (!isOther) customInput.value = '';
   });
-  row.querySelector('.btn-remove-link').addEventListener('click', () => row.remove());
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'link-title-row';
+  titleRow.append(titleSelect, monthSelect, customInput);
+
+  const urlInput = document.createElement('input');
+  urlInput.type = 'url';
+  urlInput.className = 'link-url';
+  urlInput.placeholder = 'URL (https://...)';
+  urlInput.value = url;
+
+  const fields = document.createElement('div');
+  fields.className = 'link-input-fields';
+  fields.append(titleRow, urlInput);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn-remove-link';
+  removeBtn.innerHTML = '<span class="material-icons">delete</span>';
+  removeBtn.addEventListener('click', () => row.remove());
+
+  row.append(fields, removeBtn);
   linksContainer.appendChild(row);
 }
 
@@ -887,9 +921,7 @@ function openAnnounceModal(id) {
   const picker = document.getElementById('af-member-picker');
   if (picker) { picker.dataset.loaded = ''; picker.innerHTML = ''; }
 
-  // 種別は常に表示、繰り返しは新規のみ
   document.getElementById('af-type-row').classList.remove('hidden');
-  document.getElementById('af-repeat-section').classList.toggle('hidden', !!id);
 
   if (!id) {
     // ── 新規
@@ -899,9 +931,7 @@ function openAnnounceModal(id) {
       : new Date().toISOString().split('T')[0];
     document.getElementById('af-date').value = defaultDate;
     document.getElementById('af-type').value = 'general';
-    document.getElementById('af-repeat-type').value = 'none';
-    document.getElementById('af-repeat-weeks-row').classList.add('hidden');
-    document.getElementById('af-repeat-until-row').classList.add('hidden');
+
     document.getElementById('af-convention-venue').value = '';
     document.getElementById('af-convention-other-row').classList.add('hidden');
     document.getElementById('af-convention-venue-top').classList.add('hidden');
@@ -1023,10 +1053,6 @@ function openAnnounceModal(id) {
       else addLinkInput('', '');
 
       // Google Form
-      const gfUrl = document.getElementById('af-google-form-url');
-      const gfTitle = document.getElementById('af-google-form-title');
-      if (gfUrl)   gfUrl.value   = d.googleFormUrl   || '';
-      if (gfTitle) gfTitle.value = d.googleFormTitle || '';
     });
   }
   announceModal.classList.remove('hidden');
@@ -1158,13 +1184,9 @@ announceForm.addEventListener('submit', async (e) => {
   });
 
   const publishNow = document.getElementById('af-publish-now')?.checked || false;
-  const googleFormUrl   = document.getElementById('af-google-form-url')?.value.trim()   || '';
-  const googleFormTitle = document.getElementById('af-google-form-title')?.value.trim() || '';
-
   const baseData = {
     title: finalTitle, body: finalBody, links: finalLinks, type,
     publishNow,
-    googleFormUrl, googleFormTitle,
     raw,
     link1_title: '', link1_url: '', link2_title: '', link2_url: '',
     ...baseDataExtra,
@@ -1177,28 +1199,8 @@ announceForm.addEventListener('submit', async (e) => {
         date: firebase.firestore.Timestamp.fromDate(baseDate),
       });
     } else {
-      // 繰り返し（巡回監督以外）
-      const noRepeatTypes = ['circuit', 'circuit-assembly', 'district-convention'];
-      const repeatType = !noRepeatTypes.includes(type) ? (document.getElementById('af-repeat-type')?.value || 'none') : 'none';
-      const thursdays = [baseDate];
-      if (repeatType === 'weeks') {
-        const weeks = parseInt(document.getElementById('af-repeat-weeks').value) || 1;
-        for (let i = 1; i <= weeks; i++) {
-          const d = new Date(baseDate); d.setDate(d.getDate() + 7 * i); thursdays.push(d);
-        }
-      } else if (repeatType === 'until') {
-        const until = new Date(document.getElementById('af-repeat-until').value + 'T12:00:00');
-        let d = new Date(baseDate); d.setDate(d.getDate() + 7);
-        while (d <= until) { thursdays.push(new Date(d)); d.setDate(d.getDate() + 7); }
-      }
-
-      const batch = db.batch();
       const createdAt = firebase.firestore.Timestamp.now();
-      thursdays.forEach(thu => {
-        const ref = db.collection('ANNOUNCEMENT').doc();
-        batch.set(ref, { ...baseData, date: firebase.firestore.Timestamp.fromDate(thu), order: 9999, createdAt });
-      });
-      await batch.commit();
+      await db.collection('ANNOUNCEMENT').add({ ...baseData, date: firebase.firestore.Timestamp.fromDate(baseDate), order: 9999, createdAt });
     }
 
     closeAnnounceModal();
