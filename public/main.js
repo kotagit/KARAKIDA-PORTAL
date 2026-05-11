@@ -16,6 +16,7 @@ var provider = new firebase.auth.GoogleAuthProvider();
 let currentUser   = null;
 let isAdmin       = false;
 let isAnnaigakari = false;
+let isElder       = false;
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
 let editingAnnounceId  = null;
@@ -132,6 +133,7 @@ async function initApp() {
           const statusValues = statusFields.map(f => (userData[f] || '').toString().trim());
           isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
           isAnnaigakari = statusValues.some(v => v === '案内係');
+          isElder = statusValues.some(v => v.toUpperCase() === 'EL');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
@@ -147,6 +149,7 @@ async function initApp() {
       currentUser = null;
       isAdmin = false;
       isAnnaigakari = false;
+      isElder = false;
       app.classList.add('hidden');
       loginScreen.classList.remove('hidden');
     }
@@ -411,6 +414,20 @@ function renderAdminAnnouncements(docs) {
 
 const WD = ['日','月','火','水','木','金','土'];
 
+// 日付から次の集会日（木曜）の20:40を返す
+function getNextMeetingRelease(date) {
+  const d = new Date(date);
+  const dow = d.getDay(); // 0=日 ... 4=木
+  let daysUntilThu = (4 - dow + 7) % 7;
+  if (daysUntilThu === 0) {
+    // 書き込みが木曜日の場合、20:40前なら当日、20:40以降なら翌週木曜
+    const thuCutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 20, 40);
+    if (d >= thuCutoff) daysUntilThu = 7;
+  }
+  const thu = new Date(d.getFullYear(), d.getMonth(), d.getDate() + daysUntilThu, 20, 40);
+  return thu;
+}
+
 function renderAnnouncements(docs) {
   const list = document.getElementById('announce-list');
   if (docs.length === 0) {
@@ -419,9 +436,22 @@ function renderAnnouncements(docs) {
   }
   list.innerHTML = '';
 
+  const now = new Date();
+  // 長老以外は公開日時でフィルタ
+  const visibleDocs = isElder ? docs : docs.filter(docSnap => {
+    const d = docSnap.data();
+    const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+    return now >= getNextMeetingRelease(date);
+  });
+
+  if (visibleDocs.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">article</span>発表はありません</div>';
+    return;
+  }
+
   // 日付でグループ化
   const groups = {};
-  docs.forEach(docSnap => {
+  visibleDocs.forEach(docSnap => {
     const d = docSnap.data();
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
     const dateKey = `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日（${WD[date.getDay()]}）`;
