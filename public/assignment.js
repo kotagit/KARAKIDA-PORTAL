@@ -1494,13 +1494,14 @@ async function loadAssignmentWeekDisplay() {
         .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
         .get();
 
+      if (hSnap.size === 0) continue;
       const slots = {};
       hSnap.docs.forEach(d => {
         const { code, memberName } = d.data();
         if (code && memberName) slots[code] = memberName;
       });
       const topics = week.topics || {};
-      skConfirmedWeeks.push({ week, slots, topics, meetDate, hasSlots: hSnap.size > 0 });
+      skConfirmedWeeks.push({ week, slots, topics, meetDate });
     }
     skConfirmedWeeks.sort((a,b) => a.meetDate - b.meetDate);
 
