@@ -329,8 +329,13 @@ function awRenderCreateList() {
   awWeeks.forEach(week => awBuildWeekSection(week, list));
 }
 
-// 週の集会日の Date を返す（awGetMeetingDayNum() に基づく）
+// 週の集会日の Date を返す（customMeetDate優先、なければ曜日計算）
 function awGetMeetingDate(week) {
+  // カスタム日付が設定されていればそちらを使用
+  if (week.customMeetDate) {
+    const d = new Date(week.customMeetDate + 'T00:00:00');
+    if (!isNaN(d.getTime())) return d;
+  }
   if (!week.dateRange) return null;
   const m = week.dateRange.match(/^(\d+)月(\d+)/);
   if (!m) return null;
@@ -1847,6 +1852,32 @@ function awBuildProgramSection(week, container) {
   `;
   hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
   section.appendChild(hdr);
+
+  // 日付編集行
+  const meetDate = awGetMeetingDate(week);
+  const dateVal = meetDate ? awDateStr(meetDate) : '';
+  const dateRow = document.createElement('div');
+  dateRow.className = 'aw-date-edit-row';
+  dateRow.innerHTML = `
+    <label class="aw-date-label"><span class="material-icons" style="font-size:16px;vertical-align:middle">event</span> 集会日</label>
+    <input type="date" class="aw-date-input" value="${dateVal}">
+  `;
+  dateRow.querySelector('.aw-date-input').addEventListener('change', async (e) => {
+    const newDate = e.target.value;
+    try {
+      if (newDate) {
+        week.customMeetDate = newDate;
+        await db.collection('mwbWeeks').doc(week.id).set({ customMeetDate: newDate }, { merge: true });
+      } else {
+        delete week.customMeetDate;
+        await db.collection('mwbWeeks').doc(week.id).update({ customMeetDate: firebase.firestore.FieldValue.delete() });
+      }
+      // タイトル更新
+      const titleEl = section.querySelector('.aw-inline-title');
+      if (titleEl) titleEl.textContent = awGetThursdayLabel(week);
+    } catch(err) { alert('日付保存エラー: ' + err.message); }
+  });
+  section.appendChild(dateRow);
 
   // プログラム内容（読み取り専用 + 主題入力）
   const tableDiv = document.createElement('div');
