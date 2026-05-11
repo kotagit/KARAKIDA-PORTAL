@@ -2511,10 +2511,19 @@ async function loadAdminS13Table() {
 var orgData = [];
 var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
 
+function switchOrgTab(tab) {
+  document.getElementById('org-tab-chart').classList.toggle('active', tab === 'chart');
+  document.getElementById('org-tab-group').classList.toggle('active', tab === 'group');
+  document.getElementById('org-view-chart').classList.toggle('hidden', tab !== 'chart');
+  document.getElementById('org-view-group').classList.toggle('hidden', tab !== 'group');
+}
+
 async function loadOrgView() {
-  const view = document.getElementById('org-view');
-  if (!view) return;
-  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  const chartView = document.getElementById('org-view-chart');
+  const groupView = document.getElementById('org-view-group');
+  if (!chartView) return;
+  chartView.innerHTML = '<div class="loading">読み込み中...</div>';
+  groupView.innerHTML = '';
   try {
     const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
     const allData = snap.docs.map(doc => doc.data());
@@ -2624,6 +2633,7 @@ async function loadOrgView() {
     }
 
     html += '</tbody></table></div></div>';
+    chartView.innerHTML = html;
 
     // グループ成員表
     const userSnap = await db.collection('USER_LIST').get();
@@ -2656,25 +2666,22 @@ async function loadOrgView() {
       groupMap[u.group].push(u);
     });
 
-    html += '<div class="group-member-section">';
-    html += '<h3 class="org-xl-title">グループ成員表</h3>';
+    let gHtml = '';
     Object.keys(groupMap).sort().forEach(gName => {
       const members = groupMap[gName];
-      html += '<div class="group-member-card">';
-      html += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
-      html += '<div class="group-member-list">';
+      gHtml += '<div class="group-member-card">';
+      gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
+      gHtml += '<div class="group-member-list">';
       members.forEach(m => {
         const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-        html += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
+        gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
       });
-      html += '</div></div>';
+      gHtml += '</div></div>';
     });
-    html += '</div>';
-
-    view.innerHTML = html;
+    groupView.innerHTML = gHtml;
   } catch (e) {
     console.error('loadOrgView error:', e);
-    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    chartView.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
   }
 }
 
