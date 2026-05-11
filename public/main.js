@@ -55,7 +55,8 @@ const PAGE_TITLES = {
   'admin-field-service': '野外奉仕取決表',
   'senkyo-field': '野外奉仕取決表',
   'pw-apply': '公共エリア伝道申込み',
-  'admin-assignment': '割当管理', 'admin-assignment-week': '割当編集',
+  'admin-program': 'プログラム表作成',
+  'admin-assignment': '担当者策定', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
@@ -215,9 +216,12 @@ function navigate(page, pushHistory) {
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply') {
     backBtn._backTarget = 'shinsei';
   } else if (page.startsWith('admin-')) {
-    const subPages = ['admin-assignment-history','admin-schedule-editor','admin-assignment-week'];
-    if (subPages.includes(page)) {
+    const assignSubs = ['admin-assignment-history','admin-assignment-week'];
+    const programSubs = ['admin-schedule-editor'];
+    if (assignSubs.includes(page)) {
       backBtn._backTarget = 'admin-assignment';
+    } else if (programSubs.includes(page)) {
+      backBtn._backTarget = 'admin-program';
     } else if (page === 'admin-report-card') {
       backBtn._backTarget = 'admin-reports';
     } else {
@@ -251,8 +255,9 @@ function navigate(page, pushHistory) {
   if (page === 'area-info')             initAreaInfoForm();
   if (page === 'service-report')        initServiceReportForm();
   if (page === 'pw-apply')              loadPwApply();
-  if (page === 'admin-assignment')         initAssignmentPage();
-  if (page === 'admin-assignment-history') initHistoryPage();
+  if (page === 'admin-program')              initProgramPage();
+  if (page === 'admin-assignment')           initAssignmentPage();
+  if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-attendance-monthly') initAttendanceMonthly();

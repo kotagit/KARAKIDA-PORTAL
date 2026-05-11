@@ -107,6 +107,13 @@ async function initAssignmentPage() {
   try {
     await awLoadAll();
     await awLoadWeeks();
+    // プログラム確定済みの週だけ表示
+    const confirmedPrograms = awWeeks.filter(w => w.programStatus === 'confirmed');
+    if (confirmedPrograms.length === 0) {
+      createList.innerHTML = '<div class="empty-state">プログラム確定済みの週がありません<br><span style="font-size:13px;color:var(--text-light)">先にプログラム表作成で確定してください</span></div>';
+      return;
+    }
+    awWeeks = confirmedPrograms;
     awRenderCreateList();
   } catch(e) {
     if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -142,22 +149,15 @@ async function awConfirmAll() {
   try {
     for (const week of awWeeks) {
       const slots  = awLiveSlots[week.id]  || {};
-      const topics = awLiveTopics[week.id] || {};
       if (Object.keys(slots).length === 0) continue;
-
-      await db.collection('assignments').doc(week.id).set({
-        weekId: week.id, status: 'confirmed',
-        confirmedAt: firebase.firestore.Timestamp.now(),
-        confirmedBy: currentUser?.email || '', slots, topics,
-      }, { merge: true });
 
       const thuDate = awGetThursdayDate(week) || new Date();
       await awReplaceHistory(thuDate, slots);
 
       // バッジ更新
       const badge = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
-      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定'; }
-      week.assignmentStatus = 'confirmed';
+      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
+      week.hasAssignmentHistory = true;
       confirmed++;
     }
     await awLoadHistory();
@@ -282,21 +282,30 @@ async function awLoadWeeks() {
   awWeeks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   awWeeks.sort((a, b) => a.id.localeCompare(b.id));
 
+  // programStatus と topics は mwbWeeks に直接保存されているのでそのまま使用
+  // slots は assignmentHistory から該当日のレコードを取得して構築
   await Promise.all(awWeeks.map(async week => {
-    const asnap = await db.collection('assignments').doc(week.id).get();
-    if (asnap.exists) {
-      week.assignmentStatus = asnap.data().status || 'draft';
-      const raw = asnap.data().slots || {};
-      week.slots = {};
-      Object.entries(raw).forEach(([c, v]) => {
-        week.slots[c] = typeof v === 'object' ? v.name : String(v);
-      });
-      week.topics = asnap.data().topics || {};
-    } else {
-      week.assignmentStatus = 'none';
-      week.slots  = {};
-      week.topics = {};
-    }
+    // programStatus/topics は mwbWeeks 内に保持
+    week.programStatus = week.programStatus || 'draft';
+    week.topics = week.topics || {};
+
+    // assignmentHistory から該当集会日のスロットを読み込む
+    const meetDate = awGetMeetingDate(week);
+    if (!meetDate) { week.slots = {}; week.hasAssignmentHistory = false; return; }
+
+    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
+    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+    const hSnap = await db.collection('assignmentHistory')
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
+      .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
+      .get();
+
+    week.slots = {};
+    hSnap.docs.forEach(d => {
+      const { code, memberName } = d.data();
+      if (code && memberName) week.slots[code] = memberName;
+    });
+    week.hasAssignmentHistory = hSnap.size > 0;
   }));
 }
 
@@ -347,9 +356,9 @@ function awGetMeetingLabel(week) {
 function awGetThursdayLabel(week) { return awGetMeetingLabel(week); }
 
 function awBuildWeekSection(week, container) {
-  const st       = week.assignmentStatus || 'none';
-  const labelMap = { none:'未割当', draft:'下書き', confirmed:'確定' };
-  const classMap = { none:'aw-badge-none', draft:'aw-badge-draft', confirmed:'aw-badge-confirmed' };
+  const hasHistory = week.hasAssignmentHistory;
+  const statusLabel = hasHistory ? '確定済' : '未策定';
+  const statusClass = hasHistory ? 'aw-badge-confirmed' : 'aw-badge-none';
   const slots  = Object.assign({}, week.slots  || {});
   const topics = Object.assign({}, week.topics || {});
   const items  = week.items || [];
@@ -357,7 +366,6 @@ function awBuildWeekSection(week, container) {
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
   section.dataset.weekId = week.id;
-  section.dataset.status = st;
   awLiveSlots[week.id]  = slots;
   awLiveTopics[week.id] = topics;
 
@@ -370,47 +378,18 @@ function awBuildWeekSection(week, container) {
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
-        <span class="material-icons">edit_calendar</span>
-        <span>編集</span>
-      </button>
-      <button class="aw-btn-save aw-header-sq-btn" title="保存">
-        <span class="material-icons">save</span>
-        <span>保存</span>
-      </button>
-      <span class="aw-status-badge ${classMap[st]}">${labelMap[st]}</span>
+      <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
     </div>
   `;
-  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
   section.appendChild(hdr);
 
-  // ── 予定表テーブル ──
+  // ── 担当者ドロップダウンテーブル（主題表示のみ、編集なし） ──
   const table = document.createElement('div');
   table.className = 'aw-week-table';
-  awBuildInlineTable(items, slots, topics, table, week.id);
+  awBuildAssignmentTable(items, slots, topics, table);
   section.appendChild(table);
 
   container.appendChild(section);
-
-  // ── ボタンイベント ──
-  const badge = hdr.querySelector('.aw-status-badge');
-
-  hdr.querySelector('.aw-btn-save').addEventListener('click', async () => {
-    try {
-      await db.collection('assignments').doc(week.id).set({
-        weekId: week.id, status: 'draft',
-        updatedAt: firebase.firestore.Timestamp.now(),
-        updatedBy: currentUser?.email || '', slots, topics,
-      }, { merge: true });
-      week.assignmentStatus = 'draft';
-      week.slots  = Object.assign({}, slots);
-      week.topics = Object.assign({}, topics);
-      badge.className = `aw-status-badge ${classMap.draft}`;
-      badge.textContent = labelMap.draft;
-      alert('保存しました');
-    } catch(e) { alert('保存エラー: ' + e.message); }
-  });
-
 }
 
 function awBuildInlineTable(items, slots, topics, container, weekId) {
@@ -505,7 +484,7 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
   container.querySelectorAll('.aw-topic-save-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       try {
-        await db.collection('assignments').doc(weekId).set(
+        await db.collection('mwbWeeks').doc(weekId).set(
           { topics }, { merge: true }
         );
         btn.querySelector('.material-icons').textContent = 'check';
@@ -518,6 +497,88 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
 function awUpdateClosingNoteIn(container, slots) {
   const note = container.querySelector('.aw-closing-note');
   if (note) note.textContent = `司会者と同じ（${slots['A'] || '（未割当）'}）`;
+}
+
+// 担当者策定用テーブル（ドロップダウンのみ、主題は読み取り表示）
+function awBuildAssignmentTable(items, slots, topics, container) {
+  container.innerHTML = '';
+  let prevSection = '';
+  let minutesOffset = 0;
+
+  items.forEach(item => {
+    const section = item.section;
+    if (section !== prevSection && section !== '開会') {
+      if (section === 'クリスチャンとして生活する') minutesOffset = 47;
+      const hdr = document.createElement('div');
+      hdr.className = 'aw-section-header';
+      hdr.style.background = AW_SECTION_COLORS[section] || '#333';
+      hdr.textContent = section;
+      container.appendChild(hdr);
+      prevSection = section;
+    }
+
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const m = minutesOffset % 60;
+    const timeStr = `${h}:${m.toString().padStart(2,'0')}`;
+
+    let assigneeCells = '';
+    if (item.title === '閉会の言葉') {
+      assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
+    } else if (item.codes && item.codes.length > 0) {
+      assigneeCells = item.codes.map(code => {
+        const base = awGetBase(code);
+        const eligible = awMembers.filter(mb => (mb.eligibleCodes || []).includes(base));
+        const cur = slots[code] || '';
+        const opts = eligible.map(mb =>
+          `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
+        ).join('');
+        const shortLabels = {A:'司会者',B:'祈り',W:'祈り',E:'朗読者',H:'担当',J:'担当',L:'担当',N:'担当',I:'相手',K:'相手',M:'相手',O:'相手',V:'朗読者'};
+        const shortLabel = shortLabels[base] || '';
+        return `<div class="aw-slot">
+          ${shortLabel ? `<label class="aw-slot-label">${esc(shortLabel)}</label>` : ''}
+          <select class="aw-slot-select" data-code="${esc(code)}">
+            <option value="">—</option>${opts}
+          </select></div>`;
+      }).join('');
+    }
+
+    const row = document.createElement('div');
+    row.className = 'aw-row';
+    row.innerHTML = `
+      <div class="aw-row-time">${timeStr}</div>
+      <div class="aw-row-info">
+        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+        <span class="aw-row-title">${esc(item.title)}</span>
+        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
+      </div>
+      <div class="aw-row-assignees">${assigneeCells}</div>
+    `;
+    container.appendChild(row);
+
+    // 主題は読み取り表示のみ
+    const itemCodes = item.codes || [];
+    const isTopicItem = itemCodes.some(c => awGetBase(c) === 'T') || (item.title && item.title.includes('会衆で考えたいこと'));
+    if (isTopicItem) {
+      const tc = itemCodes.find(c => awGetBase(c) === 'T');
+      const topicKey = tc ? 'T' : awGetBase(itemCodes[0] || 'T');
+      const topicVal = topics[topicKey] || '';
+      if (topicVal) {
+        const topicRow = document.createElement('div');
+        topicRow.className = 'aw-topic-row-full';
+        topicRow.innerHTML = `<label class="aw-topic-label">主題</label><span style="font-size:13px">${esc(topicVal)}</span>`;
+        container.appendChild(topicRow);
+      }
+    }
+
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
+  });
+
+  container.querySelectorAll('.aw-slot-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      slots[sel.dataset.code] = sel.value;
+      if (sel.dataset.code === 'A') awUpdateClosingNoteIn(container, slots);
+    });
+  });
 }
 
 function awRenderHistoryList() {
@@ -842,12 +903,19 @@ async function awOpenWeekDetail(weekId) {
 
   document.getElementById('aw-week-title').textContent = weekData.dateRange || weekId;
 
-  // 既存の割当を読み込む
-  const asnap = await db.collection('assignments').doc(weekId).get();
-  if (asnap.exists) {
-    const slots = asnap.data().slots || {};
-    Object.entries(slots).forEach(([code, val]) => {
-      awCurrentSlots[code] = typeof val === 'object' ? val.name : String(val);
+  // assignmentHistoryから該当日のスロットを読み込む
+  const week = awWeeks.find(w => w.id === weekId) || weekData;
+  const meetDate = awGetMeetingDate(week);
+  if (meetDate) {
+    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
+    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+    const hSnap = await db.collection('assignmentHistory')
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
+      .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
+      .get();
+    hSnap.docs.forEach(d => {
+      const { code, memberName } = d.data();
+      if (code && memberName) awCurrentSlots[code] = memberName;
     });
   }
 
@@ -1044,29 +1112,6 @@ function awRunGeneration(allCodes, members, history) {
   return result;
 }
 
-// ── 保存 ──────────────────────────────────────
-
-async function awSaveAssignment() {
-  if (!awCurrentWeekId) return;
-  const slots = {};
-  Object.entries(awCurrentSlots).forEach(([code, name]) => { if (name) slots[code] = name; });
-  try {
-    await db.collection('assignments').doc(awCurrentWeekId).set({
-      weekId:    awCurrentWeekId,
-      status:    'draft',
-      updatedAt: firebase.firestore.Timestamp.now(),
-      updatedBy: currentUser?.email || '',
-      slots,
-    }, { merge: true });
-    // 週一覧のステータスを更新
-    const wk = awWeeks.find(w => w.id === awCurrentWeekId);
-    if (wk) wk.assignmentStatus = 'draft';
-    alert('保存しました');
-  } catch(e) {
-    alert('保存エラー: ' + e.message);
-  }
-}
-
 // ── 確定 ──────────────────────────────────────
 
 // 日付からローカル日付文字列を取得
@@ -1113,28 +1158,16 @@ async function awConfirmAssignment() {
   if (!awCurrentWeekId) return;
   if (!confirm('割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
 
-  const slots = {};
-  Object.entries(awCurrentSlots).forEach(([code, name]) => { if (name) slots[code] = name; });
-
   try {
-    await db.collection('assignments').doc(awCurrentWeekId).set({
-      weekId:      awCurrentWeekId,
-      status:      'confirmed',
-      confirmedAt: firebase.firestore.Timestamp.now(),
-      confirmedBy: currentUser?.email || '',
-      slots,
-    }, { merge: true });
-
     const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
     const thuDate = (currentWeekObj && awGetThursdayDate(currentWeekObj)) || new Date();
 
-    // 既存履歴を削除してから新データを書き込み（重複防止）
+    // assignmentHistoryに直接書き込み（重複防止で既存削除→新規書き込み）
     await awReplaceHistory(thuDate, awCurrentSlots);
 
     await awLoadHistory();
 
-    const wk = awWeeks.find(w => w.id === awCurrentWeekId);
-    if (wk) wk.assignmentStatus = 'confirmed';
+    if (currentWeekObj) currentWeekObj.hasAssignmentHistory = true;
     alert('確定しました');
   } catch(e) {
     alert('確定エラー: ' + e.message);
@@ -1424,7 +1457,7 @@ async function awSaveEditorItems() {
     const week = awWeeks.find(w => w.id === awEditorWeekId);
     if (week) week.items = JSON.parse(JSON.stringify(awEditorItems));
     alert('保存しました');
-    navigate('admin-assignment');
+    navigate('admin-program');
   } catch(e) { alert('保存エラー: ' + e.message); }
 }
 
@@ -1450,12 +1483,25 @@ async function loadAssignmentWeekDisplay() {
 
     skConfirmedWeeks = [];
     for (const week of weeks) {
-      const asnap = await db.collection('assignments').doc(week.id).get();
-      if (asnap.exists && asnap.data().status === 'confirmed') {
-        const raw = asnap.data().slots || {};
+      const meetDate = awGetThursdayDate(week);
+      if (!meetDate) continue;
+
+      // assignmentHistoryから該当日のレコードを取得
+      const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
+      const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+      const hSnap = await db.collection('assignmentHistory')
+        .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
+        .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
+        .get();
+
+      if (hSnap.size > 0) {
         const slots = {};
-        Object.entries(raw).forEach(([c,v]) => { slots[c] = typeof v==='object' ? v.name : String(v); });
-        skConfirmedWeeks.push({ week, slots, topics: asnap.data().topics || {}, meetDate: awGetThursdayDate(week) });
+        hSnap.docs.forEach(d => {
+          const { code, memberName } = d.data();
+          if (code && memberName) slots[code] = memberName;
+        });
+        const topics = week.topics || {};
+        skConfirmedWeeks.push({ week, slots, topics, meetDate });
       }
     }
 
@@ -1765,10 +1811,154 @@ function skRenderPublicTalkCard(pt, container) {
   container.appendChild(section);
 }
 
+// ══════════════════════════════════════════════
+// プログラム表作成ページ
+// ══════════════════════════════════════════════
+
+async function initProgramPage() {
+  const list = document.getElementById('program-list');
+  if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    await Promise.all([awLoadCodes(), awLoadWeeks()]);
+    awRenderProgramList();
+  } catch(e) {
+    if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function awRenderProgramList() {
+  const list = document.getElementById('program-list');
+  if (!list) return;
+  if (awWeeks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
+    return;
+  }
+  list.innerHTML = '';
+  awWeeks.forEach(week => awBuildProgramSection(week, list));
+}
+
+function awBuildProgramSection(week, container) {
+  const ps = week.programStatus || 'draft';
+  const labelMap = { draft:'未確定', confirmed:'確定済' };
+  const classMap = { draft:'aw-badge-none', confirmed:'aw-badge-confirmed' };
+  const topics = Object.assign({}, week.topics || {});
+  const items = week.items || [];
+
+  const section = document.createElement('div');
+  section.className = 'aw-inline-section';
+  section.dataset.weekId = week.id;
+
+  // ヘッダー
+  const hdr = document.createElement('div');
+  hdr.className = 'aw-inline-header';
+  hdr.innerHTML = `
+    <div>
+      <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
+      <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
+        <span class="material-icons">edit_calendar</span>
+        <span>編集</span>
+      </button>
+      <span class="aw-status-badge ${classMap[ps]}">${labelMap[ps]}</span>
+    </div>
+  `;
+  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
+  section.appendChild(hdr);
+
+  // プログラム内容（読み取り専用 + 主題入力）
+  const tableDiv = document.createElement('div');
+  tableDiv.className = 'aw-week-table';
+  let prevSec = '', minutesOffset = 0;
+
+  items.forEach(item => {
+    const sec = item.section;
+    if (sec !== prevSec && sec !== '開会') {
+      if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
+      const secHdr = document.createElement('div');
+      secHdr.className = 'aw-section-header';
+      secHdr.style.background = AW_SECTION_COLORS[sec] || '#333';
+      secHdr.textContent = sec;
+      tableDiv.appendChild(secHdr);
+      prevSec = sec;
+    }
+
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const mi = minutesOffset % 60;
+    const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
+
+    const row = document.createElement('div');
+    row.className = 'aw-row';
+    row.innerHTML = `
+      <div class="aw-row-time">${timeStr}</div>
+      <div class="aw-row-info">
+        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+        <span class="aw-row-title">${esc(item.title)}</span>
+        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
+      </div>
+    `;
+    tableDiv.appendChild(row);
+
+    // 主題入力行
+    const itemCodes = item.codes || [];
+    const isTopicItem = itemCodes.some(c => awGetBase(c) === 'T') || (item.title && item.title.includes('会衆で考えたいこと'));
+    if (isTopicItem) {
+      const tc = itemCodes.find(c => awGetBase(c) === 'T');
+      const topicKey = tc ? 'T' : awGetBase(itemCodes[0] || 'T');
+      const topicRow = document.createElement('div');
+      topicRow.className = 'aw-topic-row-full';
+      topicRow.innerHTML = `
+        <label class="aw-topic-label">主題</label>
+        <input class="aw-topic-input" data-code="${esc(topicKey)}" type="text"
+          placeholder="主題を入力" value="${esc(topics[topicKey] || '')}">
+      `;
+      topicRow.querySelector('.aw-topic-input').addEventListener('input', (e) => {
+        topics[topicKey] = e.target.value;
+      });
+      tableDiv.appendChild(topicRow);
+    }
+
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+  });
+
+  section.appendChild(tableDiv);
+
+  // プログラム確定ボタン
+  const btnArea = document.createElement('div');
+  btnArea.style.cssText = 'padding:8px 12px 16px;display:flex;gap:8px;justify-content:flex-end';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = ps === 'confirmed' ? 'btn-secondary' : 'btn-primary';
+  confirmBtn.innerHTML = ps === 'confirmed'
+    ? '<span class="material-icons" style="font-size:18px;vertical-align:middle">edit</span> 更新'
+    : '<span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> プログラム確定';
+  confirmBtn.addEventListener('click', async () => {
+    try {
+      await db.collection('mwbWeeks').doc(week.id).set({
+        programStatus: 'confirmed',
+        topics: topics,
+      }, { merge: true });
+      week.programStatus = 'confirmed';
+      week.topics = Object.assign({}, topics);
+      const badge = section.querySelector('.aw-status-badge');
+      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
+      confirmBtn.className = 'btn-secondary';
+      confirmBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">edit</span> 更新';
+      alert('プログラムを確定しました');
+    } catch(e) { alert('エラー: ' + e.message); }
+  });
+  btnArea.appendChild(confirmBtn);
+  section.appendChild(btnArea);
+
+  container.appendChild(section);
+}
+
 // ── イベント登録（DOMContentLoaded） ──────────
 
 document.addEventListener('DOMContentLoaded', () => {
   // 管理画面カード
+  document.getElementById('admin-manage-program')
+    ?.addEventListener('click', () => navigate('admin-program'));
   document.getElementById('admin-manage-assignment')
     ?.addEventListener('click', () => navigate('admin-assignment'));
   document.getElementById('admin-manage-members')
@@ -1776,7 +1966,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
-  document.getElementById('aw-save-btn')    ?.addEventListener('click', awSaveAssignment);
   document.getElementById('aw-confirm-btn') ?.addEventListener('click', awConfirmAssignment);
 
   // メンバーモーダル
@@ -1788,7 +1977,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 集会曜日プルダウン変更時に再描画
   document.getElementById('aw-meeting-day')?.addEventListener('change', () => {
-    if (awWeeks.length > 0) awRenderCreateList();
+    if (awWeeks.length > 0) awRenderProgramList();
   });
 
   // ZIPインポート

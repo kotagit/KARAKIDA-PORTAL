@@ -133,9 +133,13 @@
             <span class="menu-icon material-icons">article</span>
             <span class="menu-label">発表</span>
           </div>
+          <div class="menu-item admin-tile" id="admin-manage-program">
+            <span class="menu-icon material-icons">list_alt</span>
+            <span class="menu-label">プログラム</span>
+          </div>
           <div class="menu-item admin-tile" id="admin-manage-assignment">
-            <span class="menu-icon material-icons">event_seat</span>
-            <span class="menu-label">割当</span>
+            <span class="menu-icon material-icons">person_search</span>
+            <span class="menu-label">担当策定</span>
           </div>
           <div class="menu-item admin-tile" id="admin-manage-members">
             <span class="menu-icon material-icons">people</span>
@@ -585,12 +589,11 @@
       </div>
     </section>
 
-    <!-- 割当管理（週一覧） -->
-    <!-- 割当管理（作成） -->
-    <section id="page-admin-assignment" class="page">
+    <!-- プログラム表作成 -->
+    <section id="page-admin-program" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
         <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
-        <h2 style="margin:0">割当管理</h2>
+        <h2 style="margin:0">プログラム表作成</h2>
       </div>
       <div class="page-content">
         <div class="aw-toolbar">
@@ -610,6 +613,21 @@
               <span>インポート</span>
             </button>
             <input type="file" id="aw-zip-input" accept=".zip" style="display:none">
+          </div>
+        </div>
+        <div id="program-list"></div>
+      </div>
+    </section>
+
+    <!-- 担当者策定 -->
+    <section id="page-admin-assignment" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">担当者策定</h2>
+      </div>
+      <div class="page-content">
+        <div class="aw-toolbar">
+          <div class="aw-toolbar-row">
             <button class="aw-toolbar-btn" id="aw-generate-all-btn">
               <span class="material-icons">auto_fix_high</span>
               <span>自動生成</span>
@@ -657,7 +675,7 @@
     <!-- スケジュール編集 -->
     <section id="page-admin-schedule-editor" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin-assignment')" class="aw-back-btn" title="作成に戻る">
+        <button onclick="navigate('admin-program')" class="aw-back-btn" title="プログラムに戻る">
           <span class="material-icons">arrow_back</span>
         </button>
         <h2 id="aw-editor-title" style="margin:0">スケジュール編集</h2>
@@ -1058,6 +1076,6 @@
 </div>
 
 <script src="main.js?v=86"></script>
-<script src="assignment.js?v=33"></script>
+<script src="assignment.js?v=34"></script>
 </body>
 </html>
