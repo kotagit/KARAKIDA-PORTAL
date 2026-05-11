@@ -126,7 +126,7 @@ async function initAssignmentPage() {
 
 function awGenerateAll() {
   if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
-  awWeeks.forEach(week => {
+  awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth).forEach(week => {
     const slots = awLiveSlots[week.id];
     if (!slots) return;
     const items = week.items || [];
@@ -147,8 +147,9 @@ function awGenerateAll() {
 async function awConfirmAll() {
   if (!confirm('表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
   let confirmed = 0;
+  const targetWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   try {
-    for (const week of awWeeks) {
+    for (const week of targetWeeks) {
       const slots  = awLiveSlots[week.id]  || {};
       if (Object.keys(slots).length === 0) continue;
 
@@ -323,10 +324,24 @@ function awRenderCreateList() {
   if (!list) return;
   if (awWeeks.length === 0) {
     list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
+    document.getElementById('assign-month-selector').innerHTML = '';
     return;
   }
+
+  const months = awExtractMonths(awWeeks);
+  if (!awAssignSelectedMonth) awAssignSelectedMonth = awAutoSelectMonth(months);
+  awRenderMonthTiles('assign-month-selector', months, awAssignSelectedMonth, (y, m) => {
+    awAssignSelectedMonth = { year: y, month: m };
+    awRenderCreateList();
+  });
+
+  const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   list.innerHTML = '';
-  awWeeks.forEach(week => awBuildWeekSection(week, list));
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">この月の確定済みプログラムはありません</div>';
+    return;
+  }
+  filtered.forEach(week => awBuildWeekSection(week, list));
 }
 
 // 週の集会日の Date を返す（customMeetDate優先、なければ曜日計算）
@@ -1373,8 +1388,6 @@ async function awSaveMember(e) {
     if (awEditingMemberId) {
       await db.collection('mwbMembers').doc(awEditingMemberId).update(data);
     } else {
-      const maxId = awMembers.reduce((max, mb) => Math.max(max, mb.memberId || 0), 0);
-      data.memberId = maxId + 1;
       await db.collection('mwbMembers').add(data);
     }
     awCloseMemberModal();
@@ -1818,13 +1831,69 @@ async function initProgramPage() {
 // 各週の主題データを保持（一括確定で使用）
 const awProgramTopics = {};
 
+let awProgramSelectedMonth = null;
+let awAssignSelectedMonth = null;
+
+function awExtractMonths(weeks) {
+  const monthSet = new Set();
+  weeks.forEach(w => {
+    const d = awGetMeetingDate(w);
+    if (d) monthSet.add(d.getFullYear() + '-' + d.getMonth());
+  });
+  return [...monthSet].sort().map(k => {
+    const [y, m] = k.split('-');
+    return { year: parseInt(y), month: parseInt(m) };
+  });
+}
+
+function awRenderMonthTiles(selectorId, months, selected, onSelect) {
+  const el = document.getElementById(selectorId);
+  if (!el) return;
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  let html = '<div class="sk-month-tiles">';
+  months.forEach(({ year, month }) => {
+    const isSel = selected && selected.year === year && selected.month === month;
+    html += `<button class="sk-month-tile${isSel ? ' selected' : ''}" data-y="${year}" data-m="${month}">${year}年${monthNames[month]}</button>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('.sk-month-tile').forEach(btn => {
+    btn.addEventListener('click', () => onSelect(parseInt(btn.dataset.y), parseInt(btn.dataset.m)));
+  });
+}
+
+function awFilterWeeksByMonth(weeks, selected) {
+  if (!selected) return weeks;
+  return weeks.filter(w => {
+    const d = awGetMeetingDate(w);
+    return d && d.getFullYear() === selected.year && d.getMonth() === selected.month;
+  });
+}
+
+function awAutoSelectMonth(months) {
+  const today = new Date();
+  const curKey = today.getFullYear() + '-' + today.getMonth();
+  const match = months.find(m => m.year + '-' + m.month === curKey);
+  return match || (months.length > 0 ? months[months.length - 1] : null);
+}
+
 function awRenderProgramList() {
   const list = document.getElementById('program-list');
   if (!list) return;
   if (awWeeks.length === 0) {
     list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
+    document.getElementById('program-month-selector').innerHTML = '';
     return;
   }
+
+  const months = awExtractMonths(awWeeks);
+  if (!awProgramSelectedMonth) awProgramSelectedMonth = awAutoSelectMonth(months);
+  awRenderMonthTiles('program-month-selector', months, awProgramSelectedMonth, (y, m) => {
+    awProgramSelectedMonth = { year: y, month: m };
+    awRenderProgramList();
+  });
+
+  const filtered = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
   list.innerHTML = '';
 
   // 一括確定ボタン
@@ -1837,7 +1906,11 @@ function awRenderProgramList() {
   btnArea.appendChild(confirmAllBtn);
   list.appendChild(btnArea);
 
-  awWeeks.forEach(week => awBuildProgramSection(week, list));
+  if (filtered.length === 0) {
+    list.innerHTML += '<div class="empty-state">この月のプログラムはありません</div>';
+    return;
+  }
+  filtered.forEach(week => awBuildProgramSection(week, list));
 }
 
 function awBuildProgramSection(week, container) {
@@ -1959,8 +2032,9 @@ function awBuildProgramSection(week, container) {
 async function awConfirmAllPrograms() {
   if (!confirm('表示中の全週のプログラムを確定しますか？')) return;
   let count = 0;
+  const targetWeeks = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
   try {
-    for (const week of awWeeks) {
+    for (const week of targetWeeks) {
       const topics = awProgramTopics[week.id] || {};
       await db.collection('mwbWeeks').doc(week.id).set({
         programStatus: 'confirmed',
