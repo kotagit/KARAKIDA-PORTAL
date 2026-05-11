@@ -231,8 +231,8 @@ function s89DownloadPdf(slips, selectedMonth) {
   }
 
   let pages = '';
-  for (let i = 0; i < slips.length; i += 8) {
-    const batch = slips.slice(i, i + 8);
+  for (let i = 0; i < slips.length; i += 12) {
+    const batch = slips.slice(i, i + 12);
     pages += `<div class="page">${batch.map(s => cardHtml(s)).join('')}</div>`;
   }
 
@@ -242,7 +242,7 @@ function s89DownloadPdf(slips, selectedMonth) {
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif; }
   @page { size: A4 portrait; margin: 5mm; }
-  .page { width:100%; height:100vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(4,1fr); gap:3mm; page-break-after:always; }
+  .page { width:100%; height:100vh; display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:repeat(4,1fr); gap:3mm; page-break-after:always; }
   .page:last-child { page-break-after:auto; }
   .card { border:1px solid #aaa; border-radius:2px; padding:8px 10px; display:flex; flex-direction:column; overflow:hidden; }
   .title { text-align:center; font-size:8px; font-weight:bold; line-height:1.6; margin-bottom:6px; }
