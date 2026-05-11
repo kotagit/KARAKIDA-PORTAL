@@ -89,6 +89,7 @@ const PAGE_TITLES = {
   'admin-s89': 'S-89 生成',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
+  'attendance-form': '出席人数登録',
   'admin-attendance': '集会出席',
   'admin-attendance-monthly': '出席 月集計',
   'admin-s13': '区域割当ての記録',
@@ -320,6 +321,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
   if (page === 'admin-members')            initMembersPage();
+  if (page === 'attendance-form')           initAttendanceForm();
   if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-attendance-monthly') initAttendanceMonthly();
   if (page === 'admin-s13')                loadAdminS13Table();
@@ -668,7 +670,7 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', action: () => openAttendanceModal(null) });
+        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
       }
       formItems.forEach(fi => {
         const el = document.createElement('div');
@@ -705,7 +707,7 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', action: () => openAttendanceModal(null) });
+        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
       }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
@@ -4111,6 +4113,87 @@ function renderAdminAttendance(docs) {
   list.querySelectorAll('.btn-delete').forEach(btn =>
     btn.addEventListener('click', () => openAttendanceDeleteModal(btn.dataset.id)));
 }
+
+// ── 出席人数登録ページ ──
+function initAttendanceForm() {
+  document.getElementById('attf-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('attf-venue').value = 'kingdom_hall';
+  document.getElementById('attf-type').value = 'midweek';
+  document.getElementById('attf-count').value = '';
+  document.getElementById('attf-remarks').value = '';
+  document.getElementById('attf-special-detail').value = '';
+  document.getElementById('attf-special-group').classList.add('hidden');
+  document.getElementById('attf-submitter').value =
+    memberUserName || (currentUser && currentUser.displayName) || (currentUser && currentUser.email) || '';
+}
+
+document.getElementById('attf-type')?.addEventListener('change', () => {
+  const sg = document.getElementById('attf-special-group');
+  if (sg) sg.classList.toggle('hidden', document.getElementById('attf-type').value !== 'special');
+});
+
+document.getElementById('attf-submit')?.addEventListener('click', async () => {
+  const date  = document.getElementById('attf-date').value;
+  const venue = document.getElementById('attf-venue').value;
+  const type  = document.getElementById('attf-type').value;
+  const specialDetail = document.getElementById('attf-special-detail').value.trim();
+  const countStr = document.getElementById('attf-count').value;
+  const remarks  = document.getElementById('attf-remarks').value.trim();
+  if (!date || !venue || !type || countStr === '') {
+    alert('必須項目を入力してください');
+    return;
+  }
+  const count = parseInt(countStr, 10);
+  if (isNaN(count) || count < 0) {
+    alert('出席人数は0以上の数値を入力してください');
+    return;
+  }
+  const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
+  const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
+  const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
+  let confirmMsg = '【送信内容の確認】\n';
+  confirmMsg += '日付: ' + date + '\n';
+  confirmMsg += '会場: ' + venueLabel + '\n';
+  confirmMsg += '集会: ' + typeLabel + detailStr + '\n';
+  confirmMsg += '出席人数: ' + count + '名\n';
+  if (remarks) confirmMsg += '備考: ' + remarks + '\n';
+  confirmMsg += '\n送信しますか？';
+  if (!(await customConfirm(confirmMsg))) return;
+
+  const btn = document.getElementById('attf-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
+
+  const data = {
+    date, venue, meetingType: type,
+    specialDetail: type === 'special' ? specialDetail : '',
+    count, remarks,
+    submitterName:  memberUserName || (currentUser && currentUser.displayName) || '',
+    submitterEmail: (currentUser && currentUser.email) || '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    const docId = `${date}_${venue}_${type}`;
+    const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
+    const existing = await ref.get();
+    if (existing.exists) {
+      if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+        return;
+      }
+    }
+    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    await ref.set(data, { merge: true });
+    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
+    navigate('shinsei');
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+  }
+});
 
 function openAttendanceModal(id) {
   editingAttendanceId = id;

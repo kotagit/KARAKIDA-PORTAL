@@ -575,6 +575,60 @@
       </div>
     </section>
 
+    <!-- 出席人数登録（ページ版） -->
+    <section id="page-attendance-form" class="page">
+      <div class="page-banner banner-shinsei"><h2>出席人数登録</h2></div>
+      <div class="page-content">
+        <div class="form-container">
+          <div class="sr-field">
+            <label class="sr-label">日付 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap"><input type="date" id="attf-date"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">会場 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="attf-venue">
+                <option value="kingdom_hall">王国会館</option>
+                <option value="zoom">Zoom</option>
+              </select>
+            </div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">集会の種類 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="attf-type">
+                <option value="midweek">週中の集会</option>
+                <option value="weekend">週末の集会</option>
+                <option value="memorial">記念式</option>
+                <option value="special">特別な集会</option>
+              </select>
+            </div>
+          </div>
+          <div class="sr-field hidden" id="attf-special-group">
+            <label class="sr-label">内容</label>
+            <div class="sr-input-wrap"><input type="text" id="attf-special-detail" placeholder="例: 特別講演会"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">出席人数 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap"><input type="number" id="attf-count" min="0" placeholder="例: 85"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">備考</label>
+            <div class="sr-input-wrap"><textarea id="attf-remarks" rows="2" placeholder="自由記入"></textarea></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">提出者</label>
+            <div class="sr-input-wrap"><input type="text" id="attf-submitter" readonly style="background:#f5f5f5"></div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="button" id="attf-submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span class="material-icons" style="font-size:18px">send</span> 送信する
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 区域情報登録 -->
     <section id="page-area-info" class="page">
       <div class="page-banner banner-shinsei">
@@ -1196,7 +1250,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=100"></script>
+<script src="main.js?v=101"></script>
 <script src="assignment.js?v=76"></script>
 </body>
 </html>
