@@ -277,6 +277,10 @@ body {
 }
 .am-filter-chip:hover { border-color: var(--primary); color: var(--primary); }
 .am-filter-chip.active { background: var(--primary); color: var(--white); border-color: var(--primary); }
+.am-kana-tag {
+  padding: 6px 16px; font-size: 13px; font-weight: 700; color: var(--primary);
+  background: var(--primary-light); border-bottom: 1px solid var(--border);
+}
 .admin-list { background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
 .admin-list-item {
   display: flex; align-items: center; padding: 16px;

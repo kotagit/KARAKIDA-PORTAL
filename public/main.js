@@ -320,7 +320,7 @@ document.getElementById('admin-manage-field-service')?.addEventListener('click',
 });
 
 document.getElementById('admin-manage-attendance')?.addEventListener('click', () => {
-  navigate('admin-attendance');
+  openAttendanceModal(null);
 });
 
 document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
@@ -4097,7 +4097,14 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
       await ref.set(data, { merge: true });
     }
     closeAttendanceModal();
-    loadAdminAttendance();
+    // 結果表示
+    const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','special':'特別な集会'}[type] || type;
+    const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
+    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}\n出席人数: ${count}名`);
+    // 出席ページが開いていれば更新
+    if (document.getElementById('page-admin-attendance') && !document.getElementById('page-admin-attendance').classList.contains('hidden')) {
+      loadAdminAttendance();
+    }
   } catch (err) {
     alert('保存エラー: ' + err.message);
   }

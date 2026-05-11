@@ -1443,15 +1443,43 @@ function awRenderMemberList() {
     list.innerHTML = '<div class="empty-state">該当するメンバーがいません</div>';
     return;
   }
-  filtered.forEach((member, idx) => {
+  // フリガナの先頭文字 → 行タグ
+  const KANA_ROWS = [
+    { tag: 'あ', chars: 'アァイィウゥエェオォ' },
+    { tag: 'か', chars: 'カガキギクグケゲコゴ' },
+    { tag: 'さ', chars: 'サザシジスズセゼソゾ' },
+    { tag: 'た', chars: 'タダチヂツヅテデトド' },
+    { tag: 'な', chars: 'ナニヌネノ' },
+    { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポ' },
+    { tag: 'ま', chars: 'マミムメモ' },
+    { tag: 'や', chars: 'ヤャユュヨョ' },
+    { tag: 'ら', chars: 'ラリルレロ' },
+    { tag: 'わ', chars: 'ワヰヱヲン' },
+  ];
+  function getKanaRow(furigana) {
+    if (!furigana) return '';
+    const ch = furigana.charAt(0);
+    for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
+    return '';
+  }
+  let prevRow = null;
+  let num = 0;
+  filtered.forEach(member => {
+    const row = getKanaRow(member.furigana || '');
+    if (row && row !== prevRow) {
+      const tag = document.createElement('div');
+      tag.className = 'am-kana-tag';
+      tag.textContent = row;
+      list.appendChild(tag);
+      prevRow = row;
+    }
+    num++;
     const item = document.createElement('div');
     item.className = 'admin-list-item';
-    const posLabel = member.position === '長老' ? '長老' : member.position === '援助奉仕者' ? '援助' : '';
     item.innerHTML = `
-      <div class="am-num">${idx + 1}</div>
+      <div class="am-num">${num}</div>
       <div class="admin-list-info">
         <div class="admin-list-title">${esc(member.name)}</div>
-        ${posLabel ? `<div class="admin-list-sub" style="font-size:12px;color:#888">${esc(posLabel)}</div>` : ''}
       </div>
       <div class="admin-list-actions">
         <button class="icon-btn am-edit" data-id="${esc(member.docId)}" style="color:var(--primary)" title="編集">
