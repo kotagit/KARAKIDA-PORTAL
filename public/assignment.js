@@ -209,14 +209,12 @@ function s89CollectSlips(weeks, selectedMonth) {
 }
 
 async function s89DownloadPdf(slips, selectedMonth) {
-  const area = document.getElementById('s89-render-area');
-  // 画面上に一時表示してhtml2canvasでキャプチャ
-  area.style.cssText = 'position:fixed;left:0;top:0;z-index:9999;background:#fff;overflow:hidden;opacity:0;pointer-events:none;';
+  if (typeof html2canvas === 'undefined') throw new Error('html2canvas が読み込まれていません');
   if (!window.jspdf) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
-      s.onload = resolve; s.onerror = reject;
+      s.onload = resolve; s.onerror = () => reject(new Error('jsPDF読み込み失敗'));
       document.head.appendChild(s);
     });
   }
@@ -227,69 +225,38 @@ async function s89DownloadPdf(slips, selectedMonth) {
   const margin = 8;
   const slipW = (pageW - margin * 3) / 2;
   const slipH = (pageH - margin * 3) / 2;
-  const pxW = Math.round(slipW * 3.78);
-  const pxH = Math.round(slipH * 3.78);
 
-  try {
-    for (let i = 0; i < slips.length; i += 4) {
-      if (i > 0) pdf.addPage();
-      const batch = slips.slice(i, i + 4);
-      area.innerHTML = '';
-      area.style.width = (pxW * 2 + 40) + 'px';
+  // 画面上のプレビューカードがあればそれを使う、なければ一時生成
+  let cardArray = [...document.querySelectorAll('#s89-preview-list .s89-card')];
+  const area = document.getElementById('s89-render-area');
+  let usedArea = false;
 
-      const cards = batch.map(slip => {
-        const card = document.createElement('div');
-        card.style.cssText = `width:${pxW}px;height:${pxH}px;padding:20px 24px;box-sizing:border-box;font-family:'Hiragino Kaku Gothic ProN','Meiryo','Yu Gothic',sans-serif;display:inline-block;vertical-align:top;border:1px solid #ccc;background:#fff;position:relative;overflow:hidden;`;
-        card.innerHTML = `
-          <div style="text-align:center;margin-bottom:14px">
-            <div style="font-size:14px;font-weight:bold;line-height:1.5">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
-          </div>
-          <div style="margin-bottom:10px">
-            <span style="font-weight:bold;font-size:12px">氏名：</span>
-            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.name)}</span>
-          </div>
-          <div style="margin-bottom:10px">
-            <span style="font-weight:bold;font-size:12px">相手：</span>
-            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.partner)}</span>
-          </div>
-          <div style="margin-bottom:10px">
-            <span style="font-weight:bold;font-size:12px">日付：</span>
-            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.date)}</span>
-          </div>
-          <div style="margin-bottom:14px">
-            <span style="font-weight:bold;font-size:12px">担当部分：</span>
-            <span style="font-size:12px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.part)}</span>
-          </div>
-          <div style="margin-bottom:6px"><span style="font-weight:bold;font-size:12px">会場：</span></div>
-          <div style="padding-left:16px;font-size:12px;line-height:1.9">
-            <div>☑ 本会場</div>
-            <div>☐ 第2会場</div>
-            <div>☐ 第3会場</div>
-          </div>
-          <div style="position:absolute;bottom:14px;left:20px;right:20px">
-            <div style="font-size:9px;color:#555;line-height:1.5"><b>注記：</b>資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
-            <div style="font-size:9px;color:#888;margin-top:4px">S-89-J　11/23</div>
-          </div>
-        `;
-        return card;
-      });
-      cards.forEach(c => area.appendChild(c));
-
-      // DOMレンダリング待ち
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-      for (let j = 0; j < cards.length; j++) {
-        const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const col = j % 2, row = Math.floor(j / 2);
-        pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
-      }
-    }
-    pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
-  } finally {
+  if (cardArray.length === 0) {
+    // 担当者策定ページから呼ばれた場合: 一時的にカードを生成
+    area.style.cssText = 'position:fixed;left:0;top:0;z-index:9999;background:#fff;opacity:0;pointer-events:none;';
     area.innerHTML = '';
-    area.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+    const grid = document.createElement('div');
+    grid.className = 's89-card-grid';
+    slips.forEach(slip => grid.appendChild(s89BuildVisualCard(slip)));
+    area.appendChild(grid);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    cardArray = [...area.querySelectorAll('.s89-card')];
+    usedArea = true;
   }
+
+  for (let i = 0; i < cardArray.length; i += 4) {
+    if (i > 0) pdf.addPage();
+    const batch = cardArray.slice(i, i + 4);
+    for (let j = 0; j < batch.length; j++) {
+      const canvas = await html2canvas(batch[j], { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const col = j % 2, row = Math.floor(j / 2);
+      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
+    }
+  }
+
+  if (usedArea) { area.innerHTML = ''; area.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;'; }
+  pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
 }
 
 // 担当者策定ページからの呼び出し
@@ -300,7 +267,7 @@ async function awGenerateS89() {
     const slips = s89CollectSlips(awWeeks, awAssignSelectedMonth);
     if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
     await s89DownloadPdf(slips, awAssignSelectedMonth);
-  } catch(e) { alert('S-89生成に失敗しました: ' + e.message); }
+  } catch(e) { console.error(e); alert('S-89生成に失敗しました: ' + (e.message || e)); }
   finally { if (btn) { btn.disabled = false; btn.querySelector('span:last-child').textContent = 'S-89'; } }
 }
 
@@ -390,7 +357,7 @@ async function s89DownloadFromPage() {
     const slips = s89CollectSlips(s89Weeks, s89SelectedMonth);
     if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
     await s89DownloadPdf(slips, s89SelectedMonth);
-  } catch(e) { alert('S-89生成に失敗しました: ' + e.message); }
+  } catch(e) { console.error(e); alert('S-89生成に失敗しました: ' + (e.message || e)); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">picture_as_pdf</span> PDFダウンロード'; } }
 }
 
