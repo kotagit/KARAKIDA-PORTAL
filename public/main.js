@@ -627,9 +627,9 @@ async function loadLinks(section) {
       }
       formItems.forEach(fi => {
         const el = document.createElement('div');
-        el.className = 'link-item';
+        el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
-        el.innerHTML = `<div class="link-item-icon"><span class="material-icons">${fi.icon}</span></div><span class="link-item-label">${fi.label}</span>`;
+        el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
         el.addEventListener('click', () => navigate(fi.page));
         listEl.appendChild(el);
       });
@@ -639,14 +639,11 @@ async function loadLinks(section) {
       snap.docs.forEach(docSnap => {
         const d = docSnap.data();
         const a = document.createElement('a');
-        a.className = 'link-item';
+        a.className = 'admin-list-row';
         a.href = d.url || '#';
         a.target = '_blank';
         a.rel = 'noopener';
-        a.innerHTML = `
-          <div class="link-item-icon"><span class="material-icons">${esc(d.icon || 'insert_drive_file')}</span></div>
-          <span class="link-item-label">${esc(d.title)}</span>
-        `;
+        a.innerHTML = `<span class="material-icons admin-row-icon">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title)}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
         listEl.appendChild(a);
       });
     } else if (section !== 'shinsei') {
@@ -667,9 +664,9 @@ async function loadLinks(section) {
       }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
-        el.className = 'link-item';
+        el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
-        el.innerHTML = `<div class="link-item-icon"><span class="material-icons">${fi.icon}</span></div><span class="link-item-label">${fi.label}</span>`;
+        el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
         el.addEventListener('click', () => navigate(fi.page));
         listEl.appendChild(el);
       });
