@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=85">
+  <link rel="stylesheet" href="style.css?v=86">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -128,64 +128,77 @@
       </div>
       <div class="page-content">
         <div class="admin-section-tag">集会</div>
-        <div class="menu-grid admin-tile-grid">
-          <div class="menu-item admin-tile" id="admin-manage-announcements">
-            <span class="menu-icon material-icons">article</span>
-            <span class="menu-label">発表</span>
+        <div class="admin-list-menu">
+          <div class="admin-list-row" id="admin-manage-announcements">
+            <span class="material-icons admin-row-icon">article</span>
+            <span class="admin-row-label">発表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-program">
-            <span class="menu-icon material-icons">list_alt</span>
-            <span class="menu-label">プログラム</span>
+          <div class="admin-list-row" id="admin-manage-program">
+            <span class="material-icons admin-row-icon">list_alt</span>
+            <span class="admin-row-label">プログラム表作成</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-assignment">
-            <span class="menu-icon material-icons">person_search</span>
-            <span class="menu-label">担当策定</span>
+          <div class="admin-list-row" id="admin-manage-assignment">
+            <span class="material-icons admin-row-icon">person_search</span>
+            <span class="admin-row-label">担当者策定</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-members">
-            <span class="menu-icon material-icons">people</span>
-            <span class="menu-label">生徒</span>
+          <div class="admin-list-row" id="admin-manage-members">
+            <span class="material-icons admin-row-icon">people</span>
+            <span class="admin-row-label">生徒管理</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-s89">
-            <span class="menu-icon material-icons">description</span>
-            <span class="menu-label">S-89</span>
+          <div class="admin-list-row" id="admin-manage-s89">
+            <span class="material-icons admin-row-icon">description</span>
+            <span class="admin-row-label">S-89 生成</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-attendance">
-            <span class="menu-icon material-icons">how_to_reg</span>
-            <span class="menu-label">出席</span>
+          <div class="admin-list-row" id="admin-manage-attendance">
+            <span class="material-icons admin-row-icon">how_to_reg</span>
+            <span class="admin-row-label">出席登録</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-attendance-monthly">
-            <span class="menu-icon material-icons">calendar_view_month</span>
-            <span class="menu-label">月集計</span>
+          <div class="admin-list-row" id="admin-manage-attendance-monthly">
+            <span class="material-icons admin-row-icon">calendar_view_month</span>
+            <span class="admin-row-label">出席月集計</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
         </div>
         <div class="admin-section-tag">宣教</div>
-        <div class="menu-grid admin-tile-grid">
-          <div class="menu-item admin-tile" id="admin-manage-s13">
-            <span class="menu-icon material-icons">table_rows</span>
-            <span class="menu-label">S-13</span>
+        <div class="admin-list-menu">
+          <div class="admin-list-row" id="admin-manage-s13">
+            <span class="material-icons admin-row-icon">table_rows</span>
+            <span class="admin-row-label">S-13</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-field-service">
-            <span class="menu-icon material-icons">directions_walk</span>
-            <span class="menu-label">野外奉仕</span>
+          <div class="admin-list-row" id="admin-manage-field-service">
+            <span class="material-icons admin-row-icon">directions_walk</span>
+            <span class="admin-row-label">野外奉仕</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
         </div>
         <div class="admin-section-tag">会衆</div>
-        <div class="menu-grid admin-tile-grid">
-          <div class="menu-item admin-tile" id="admin-manage-org">
-            <span class="menu-icon material-icons">account_tree</span>
-            <span class="menu-label">組織表</span>
+        <div class="admin-list-menu">
+          <div class="admin-list-row" id="admin-manage-org">
+            <span class="material-icons admin-row-icon">account_tree</span>
+            <span class="admin-row-label">組織表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-reports">
-            <span class="menu-icon material-icons">summarize</span>
-            <span class="menu-label">S-21</span>
+          <div class="admin-list-row" id="admin-manage-reports">
+            <span class="material-icons admin-row-icon">summarize</span>
+            <span class="admin-row-label">S-21</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-report-check">
-            <span class="menu-icon material-icons">fact_check</span>
-            <span class="menu-label">奉仕報告</span>
+          <div class="admin-list-row" id="admin-manage-report-check">
+            <span class="material-icons admin-row-icon">fact_check</span>
+            <span class="admin-row-label">奉仕報告</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="menu-item admin-tile" id="admin-manage-report-approve">
-            <span class="menu-icon material-icons">approval</span>
-            <span class="menu-label">報告承認</span>
+          <div class="admin-list-row" id="admin-manage-report-approve">
+            <span class="material-icons admin-row-icon">approval</span>
+            <span class="admin-row-label">報告承認</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
         </div>
       </div>
