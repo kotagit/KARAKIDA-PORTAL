@@ -293,8 +293,8 @@ async function awLoadWeeks() {
     const meetDate = awGetMeetingDate(week);
     if (!meetDate) { week.slots = {}; week.hasAssignmentHistory = false; return; }
 
-    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
-    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
+    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
     const hSnap = await db.collection('assignmentHistory')
       .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
       .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
@@ -908,8 +908,8 @@ async function awOpenWeekDetail(weekId) {
   const week = awWeeks.find(w => w.id === weekId) || weekData;
   const meetDate = awGetMeetingDate(week);
   if (meetDate) {
-    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
-    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+    const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
+    const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
     const hSnap = await db.collection('assignmentHistory')
       .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
       .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
@@ -1129,8 +1129,8 @@ function awNoonUtcTimestamp(d) {
 // 指定日付の既存assignmentHistoryを削除してから新データを書き込む
 async function awReplaceHistory(thuDate, slotsObj) {
   // 同日の既存履歴を検索・削除（前日18:00 UTC 〜 翌日18:00 UTC で広めに検索）
-  const searchStart = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() - 1, 18, 0, 0));
-  const searchEnd   = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate(), 18, 0, 0));
+  const searchStart = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() - 1, 0, 0, 0));
+  const searchEnd   = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() + 1, 0, 0, 0));
   const existing = await db.collection('assignmentHistory')
     .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
     .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
@@ -1488,8 +1488,8 @@ async function loadAssignmentWeekDisplay() {
       if (!meetDate) continue;
 
       // assignmentHistoryから該当日のレコードを取得
-      const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 18, 0, 0));
-      const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate(), 18, 0, 0));
+      const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
+      const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
       const hSnap = await db.collection('assignmentHistory')
         .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
         .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
