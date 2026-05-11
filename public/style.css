@@ -256,8 +256,7 @@ body {
 @media (max-width: 640px) { .s89-card-grid { grid-template-columns: 1fr; } }
 .s89-card {
   background: #fff; border: 1px solid #ccc; border-radius: 4px;
-  padding: 20px 22px;
-  font-family: 'Hiragino Kaku Gothic ProN','Meiryo','Yu Gothic',sans-serif;
+  padding: 20px 22px; font-family: inherit;
 }
 .s89-card-title { text-align: center; font-size: 14px; font-weight: bold; line-height: 1.6; margin-bottom: 16px; }
 .s89-field { margin-bottom: 10px; }
