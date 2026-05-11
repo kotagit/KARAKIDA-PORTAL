@@ -15,6 +15,7 @@ var provider = new firebase.auth.GoogleAuthProvider();
 // ── 状態 ──────────────────────────────────────
 let currentUser   = null;
 let isAdmin       = false;
+let isAnnaigakari = false;
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
 let editingAnnounceId  = null;
@@ -128,7 +129,9 @@ async function initApp() {
           memberUserGroup = userData.group || '';
 
           const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-          isAdmin = statusFields.some(f => (userData[f] || '').toString().toUpperCase().trim() === 'WEB');
+          const statusValues = statusFields.map(f => (userData[f] || '').toString().trim());
+          isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
+          isAnnaigakari = statusValues.some(v => v === '案内係');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
@@ -143,6 +146,7 @@ async function initApp() {
     } else {
       currentUser = null;
       isAdmin = false;
+      isAnnaigakari = false;
       app.classList.add('hidden');
       loginScreen.classList.remove('hidden');
     }
@@ -576,6 +580,9 @@ async function loadLinks(section) {
         { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
+      if (isAnnaigakari || isAdmin) {
+        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+      }
       formItems.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'link-item';
@@ -613,6 +620,9 @@ async function loadLinks(section) {
         { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
+      if (isAnnaigakari || isAdmin) {
+        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+      }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'link-item';
