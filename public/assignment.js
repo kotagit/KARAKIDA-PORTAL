@@ -210,6 +210,8 @@ function s89CollectSlips(weeks, selectedMonth) {
 
 async function s89DownloadPdf(slips, selectedMonth) {
   const area = document.getElementById('s89-render-area');
+  // 画面上に一時表示してhtml2canvasでキャプチャ
+  area.style.cssText = 'position:fixed;left:0;top:0;z-index:9999;background:#fff;overflow:hidden;opacity:0;pointer-events:none;';
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = pdf.internal.pageSize.getWidth();
@@ -220,22 +222,66 @@ async function s89DownloadPdf(slips, selectedMonth) {
   const pxW = Math.round(slipW * 3.78);
   const pxH = Math.round(slipH * 3.78);
 
-  for (let i = 0; i < slips.length; i += 4) {
-    if (i > 0) pdf.addPage();
-    const batch = slips.slice(i, i + 4);
-    area.innerHTML = '';
-    area.style.width = (pxW * 2 + 20) + 'px';
-    const cards = batch.map(slip => awBuildS89Card(slip, pxW, pxH));
-    cards.forEach(c => area.appendChild(c));
-    for (let j = 0; j < cards.length; j++) {
-      const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff', width: pxW, height: pxH });
-      const imgData = canvas.toDataURL('image/png');
-      const col = j % 2, row = Math.floor(j / 2);
-      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
+  try {
+    for (let i = 0; i < slips.length; i += 4) {
+      if (i > 0) pdf.addPage();
+      const batch = slips.slice(i, i + 4);
+      area.innerHTML = '';
+      area.style.width = (pxW * 2 + 40) + 'px';
+
+      const cards = batch.map(slip => {
+        const card = document.createElement('div');
+        card.style.cssText = `width:${pxW}px;height:${pxH}px;padding:20px 24px;box-sizing:border-box;font-family:'Hiragino Kaku Gothic ProN','Meiryo','Yu Gothic',sans-serif;display:inline-block;vertical-align:top;border:1px solid #ccc;background:#fff;position:relative;overflow:hidden;`;
+        card.innerHTML = `
+          <div style="text-align:center;margin-bottom:14px">
+            <div style="font-size:14px;font-weight:bold;line-height:1.5">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
+          </div>
+          <div style="margin-bottom:10px">
+            <span style="font-weight:bold;font-size:12px">氏名：</span>
+            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.name)}</span>
+          </div>
+          <div style="margin-bottom:10px">
+            <span style="font-weight:bold;font-size:12px">相手：</span>
+            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.partner)}</span>
+          </div>
+          <div style="margin-bottom:10px">
+            <span style="font-weight:bold;font-size:12px">日付：</span>
+            <span style="font-size:13px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.date)}</span>
+          </div>
+          <div style="margin-bottom:14px">
+            <span style="font-weight:bold;font-size:12px">担当部分：</span>
+            <span style="font-size:12px;border-bottom:1.5px dotted #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.part)}</span>
+          </div>
+          <div style="margin-bottom:6px"><span style="font-weight:bold;font-size:12px">会場：</span></div>
+          <div style="padding-left:16px;font-size:12px;line-height:1.9">
+            <div>☑ 本会場</div>
+            <div>☐ 第2会場</div>
+            <div>☐ 第3会場</div>
+          </div>
+          <div style="position:absolute;bottom:14px;left:20px;right:20px">
+            <div style="font-size:9px;color:#555;line-height:1.5"><b>注記：</b>資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
+            <div style="font-size:9px;color:#888;margin-top:4px">S-89-J　11/23</div>
+          </div>
+        `;
+        return card;
+      });
+      cards.forEach(c => area.appendChild(c));
+
+      // DOMレンダリング待ち
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      for (let j = 0; j < cards.length; j++) {
+        const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const col = j % 2, row = Math.floor(j / 2);
+        pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
+      }
     }
+    pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
+  } finally {
+    area.innerHTML = '';
+    area.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
   }
-  area.innerHTML = '';
-  pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
 }
 
 // 担当者策定ページからの呼び出し
@@ -296,18 +342,37 @@ function s89RenderPreview() {
     return;
   }
   preview.innerHTML = '';
-  slips.forEach((slip, i) => {
-    const card = document.createElement('div');
-    card.className = 's89-preview-card';
-    card.innerHTML = `
-      <div class="s89-pv-num">${i + 1}</div>
-      <div class="s89-pv-body">
-        <div class="s89-pv-name">${esc(slip.name)}${slip.partner ? ` <span style="color:#888;font-weight:normal">/ ${esc(slip.partner)}</span>` : ''}</div>
-        <div class="s89-pv-detail">${esc(slip.date)}　${esc(slip.part)}</div>
-      </div>
-    `;
-    preview.appendChild(card);
+  const grid = document.createElement('div');
+  grid.className = 's89-card-grid';
+  slips.forEach(slip => {
+    grid.appendChild(s89BuildVisualCard(slip));
   });
+  preview.appendChild(grid);
+}
+
+function s89BuildVisualCard(slip) {
+  const card = document.createElement('div');
+  card.className = 's89-card';
+  card.innerHTML = `
+    <div class="s89-card-title">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
+    <div class="s89-field"><span class="s89-label">氏名：</span><span class="s89-value">${esc(slip.name)}</span></div>
+    <div class="s89-field"><span class="s89-label">相手：</span><span class="s89-value">${esc(slip.partner)}</span></div>
+    <div class="s89-field"><span class="s89-label">日付：</span><span class="s89-value">${esc(slip.date)}</span></div>
+    <div class="s89-field"><span class="s89-label">担当部分：</span><span class="s89-value">${esc(slip.part)}</span></div>
+    <div class="s89-venue-section">
+      <div class="s89-label">会場：</div>
+      <div class="s89-venue-list">
+        <div>☑ 本会場</div>
+        <div>☐ 第2会場</div>
+        <div>☐ 第3会場</div>
+      </div>
+    </div>
+    <div class="s89-footer">
+      <div class="s89-note"><b>注記：</b>資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
+      <div class="s89-form-id">S-89-J　11/23</div>
+    </div>
+  `;
+  return card;
 }
 
 async function s89DownloadFromPage() {
@@ -319,45 +384,6 @@ async function s89DownloadFromPage() {
     await s89DownloadPdf(slips, s89SelectedMonth);
   } catch(e) { alert('S-89生成に失敗しました: ' + e.message); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">picture_as_pdf</span> PDFダウンロード'; } }
-}
-
-function awBuildS89Card(slip, w, h) {
-  const card = document.createElement('div');
-  card.style.cssText = `width:${w}px;height:${h}px;padding:20px 24px;box-sizing:border-box;font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;display:inline-block;vertical-align:top;border:1px solid #ccc;background:#fff;position:relative;`;
-  card.innerHTML = `
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:bold;line-height:1.5">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
-    </div>
-    <div style="margin-bottom:12px">
-      <span style="font-weight:bold;font-size:13px">氏名：</span>
-      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.name)}</span>
-    </div>
-    <div style="margin-bottom:12px">
-      <span style="font-weight:bold;font-size:13px">相手：</span>
-      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.partner)}</span>
-    </div>
-    <div style="margin-bottom:12px">
-      <span style="font-weight:bold;font-size:13px">日付：</span>
-      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.date)}</span>
-    </div>
-    <div style="margin-bottom:18px">
-      <span style="font-weight:bold;font-size:13px">担当部分：</span>
-      <span style="font-size:13px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.part)}</span>
-    </div>
-    <div style="margin-bottom:8px">
-      <span style="font-weight:bold;font-size:13px">会場：</span>
-    </div>
-    <div style="padding-left:16px;font-size:13px;line-height:2">
-      <div>☑ 本会場</div>
-      <div>☐ 第2会場</div>
-      <div>☐ 第3会場</div>
-    </div>
-    <div style="position:absolute;bottom:16px;left:24px;right:24px">
-      <div style="font-size:10px;color:#555;line-height:1.5"><b>注記：</b>資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
-      <div style="font-size:10px;color:#888;margin-top:6px">S-89-J　11/23</div>
-    </div>
-  `;
-  return card;
 }
 
 // 長老・援助奉仕者が担当するコード（生徒プレゼン H-O,P を除く）
