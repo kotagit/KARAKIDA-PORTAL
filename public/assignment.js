@@ -149,14 +149,7 @@ async function awConfirmAll() {
       }, { merge: true });
 
       const thuDate = awGetThursdayDate(week) || new Date();
-      const batch = db.batch();
-      Object.entries(slots).forEach(([code, name]) => {
-        if (!name || name === '（該当者なし）') return;
-        batch.set(db.collection('assignmentHistory').doc(), {
-          memberName: name, code: awGetBase(code), date: firebase.firestore.Timestamp.fromDate(thuDate),
-        });
-      });
-      await batch.commit();
+      await awReplaceHistory(thuDate, slots);
 
       // バッジ更新
       const badge = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
@@ -1073,9 +1066,39 @@ async function awSaveAssignment() {
 
 // ── 確定 ──────────────────────────────────────
 
+// 指定日付の既存assignmentHistoryを削除してから新データを書き込む
+async function awReplaceHistory(thuDate, slotsObj) {
+  // 同日の既存履歴を検索・削除
+  const ts = firebase.firestore.Timestamp.fromDate(thuDate);
+  // 日付の範囲（当日0:00〜翌日0:00）で検索
+  const dayStart = new Date(thuDate); dayStart.setHours(0,0,0,0);
+  const dayEnd = new Date(thuDate); dayEnd.setDate(dayEnd.getDate() + 1); dayEnd.setHours(0,0,0,0);
+  const existing = await db.collection('assignmentHistory')
+    .where('date', '>=', firebase.firestore.Timestamp.fromDate(dayStart))
+    .where('date', '<', firebase.firestore.Timestamp.fromDate(dayEnd))
+    .get();
+
+  // 既存を削除
+  if (!existing.empty) {
+    const delBatch = db.batch();
+    existing.docs.forEach(d => delBatch.delete(d.ref));
+    await delBatch.commit();
+  }
+
+  // 新データを書き込み
+  const batch = db.batch();
+  Object.entries(slotsObj).forEach(([code, name]) => {
+    if (!name || name === '（該当者なし）') return;
+    batch.set(db.collection('assignmentHistory').doc(), {
+      memberName: name, code: awGetBase(code), date: ts,
+    });
+  });
+  await batch.commit();
+}
+
 async function awConfirmAssignment() {
   if (!awCurrentWeekId) return;
-  if (!confirm('割当を確定しますか？\n確定するとassignmentHistoryに記録されます。')) return;
+  if (!confirm('割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
 
   const slots = {};
   Object.entries(awCurrentSlots).forEach(([code, name]) => { if (name) slots[code] = name; });
@@ -1089,23 +1112,12 @@ async function awConfirmAssignment() {
       slots,
     }, { merge: true });
 
-    // 実際の木曜日の日付を取得
     const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
     const thuDate = (currentWeekObj && awGetThursdayDate(currentWeekObj)) || new Date();
 
-    // assignmentHistoryにバッチ書き込み
-    const batch = db.batch();
-    Object.entries(awCurrentSlots).forEach(([code, name]) => {
-      if (!name || name === '（該当者なし）') return;
-      const baseCode = awGetBase(code);
-      const ref    = db.collection('assignmentHistory').doc();
-      batch.set(ref, {
-        memberName: name, code: baseCode, date: firebase.firestore.Timestamp.fromDate(thuDate),
-      });
-    });
-    await batch.commit();
+    // 既存履歴を削除してから新データを書き込み（重複防止）
+    await awReplaceHistory(thuDate, awCurrentSlots);
 
-    // 履歴を再読み込み（次回の自動生成スコアに反映）
     await awLoadHistory();
 
     const wk = awWeeks.find(w => w.id === awCurrentWeekId);
