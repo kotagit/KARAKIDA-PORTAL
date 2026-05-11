@@ -17,6 +17,7 @@ let currentUser   = null;
 let isAdmin       = false;
 let isAnnaigakari = false;
 let isElder       = false;
+let serverTimeOffset = 0; // サーバー時刻との差分(ms)
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
 let editingAnnounceId  = null;
@@ -142,6 +143,17 @@ async function initApp() {
           memberUserName = user.displayName || '';
           memberUserGroup = '';
         }
+        // サーバー時刻オフセットを取得（セッションに1回）
+        try {
+          const uid = user.uid;
+          const ref = db.collection('_serverTime').doc(uid);
+          await ref.set({ t: firebase.firestore.FieldValue.serverTimestamp() });
+          const tDoc = await ref.get();
+          const serverNow = tDoc.data().t.toDate();
+          serverTimeOffset = serverNow.getTime() - Date.now();
+          ref.delete();
+        } catch (e2) { console.warn('Server time sync failed:', e2); }
+
       } catch (e) {
         console.error('Auth Check Error:', e);
       }
@@ -436,8 +448,8 @@ function renderAnnouncements(docs) {
   }
   list.innerHTML = '';
 
-  const now = new Date();
-  // 長老以外は公開日時でフィルタ
+  const now = new Date(Date.now() + serverTimeOffset);
+  // 長老以外は公開日時でフィルタ（サーバー時刻基準）
   const visibleDocs = isElder ? docs : docs.filter(docSnap => {
     const d = docSnap.data();
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
