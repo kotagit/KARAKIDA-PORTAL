@@ -1837,19 +1837,24 @@ async function loadAssignmentWeekDisplay() {
     const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(26).get();
     const weeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    skConfirmedWeeks = [];
-    for (const week of weeks) {
+    // 全週の履歴クエリを並列実行（直列だと26回×往復で遅い）
+    const weekQueries = weeks.map(week => {
       const meetDate = awGetThursdayDate(week);
-      if (!meetDate) continue;
-
+      if (!meetDate) return null;
       const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
       const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
-      const hSnap = await db.collection('assignmentHistory')
+      return db.collection('assignmentHistory')
         .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
         .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
-        .get();
+        .get()
+        .then(hSnap => ({ week, meetDate, hSnap }));
+    }).filter(Boolean);
 
-      if (hSnap.size === 0) continue;
+    const results = await Promise.all(weekQueries);
+
+    skConfirmedWeeks = [];
+    results.forEach(({ week, meetDate, hSnap }) => {
+      if (hSnap.size === 0) return;
       const slots = {};
       hSnap.docs.forEach(d => {
         const { code, memberName } = d.data();
@@ -1857,7 +1862,7 @@ async function loadAssignmentWeekDisplay() {
       });
       const topics = week.topics || {};
       skConfirmedWeeks.push({ week, slots, topics, meetDate });
-    }
+    });
     skConfirmedWeeks.sort((a,b) => a.meetDate - b.meetDate);
 
     // 公開講演データ取得
