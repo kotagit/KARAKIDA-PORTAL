@@ -428,7 +428,8 @@ function awBuildInlineTable(items, slots, topics, container, weekId) {
         const base     = awGetBase(code);
         const label    = awCodes[base] || base;
         const eligible = awMembers.filter(mb => (mb.eligibleCodes || []).includes(base));
-        const cur      = slots[code] || '';
+        const cur      = slots[code] || slots[base] || '';
+        if (!slots[code] && slots[base]) slots[code] = slots[base];
         const opts     = eligible.map(mb =>
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
@@ -528,7 +529,8 @@ function awBuildAssignmentTable(items, slots, topics, container) {
       assigneeCells = item.codes.map(code => {
         const base = awGetBase(code);
         const eligible = awMembers.filter(mb => (mb.eligibleCodes || []).includes(base));
-        const cur = slots[code] || '';
+        const cur = slots[code] || slots[base] || '';
+        if (!slots[code] && slots[base]) slots[code] = slots[base];
         const opts = eligible.map(mb =>
           `<option value="${esc(mb.name)}" ${mb.name === cur ? 'selected' : ''}>${esc(mb.name)}</option>`
         ).join('');
@@ -576,7 +578,7 @@ function awBuildAssignmentTable(items, slots, topics, container) {
   container.querySelectorAll('.aw-slot-select').forEach(sel => {
     sel.addEventListener('change', () => {
       slots[sel.dataset.code] = sel.value;
-      if (sel.dataset.code === 'A') awUpdateClosingNoteIn(container, slots);
+      if (sel.dataset.code === 'A' || awGetBase(sel.dataset.code) === 'A') awUpdateClosingNoteIn(container, slots);
     });
   });
 }
@@ -1662,8 +1664,8 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
           const base = awGetBase(code);
           if (PAIR_PARTNER_SET.has(base)) return;
           const partnerBase = PAIR_OF[base];
-          const name = slots[code] || '';
-          const partnerName = partnerBase ? (slots[partnerBase] || slots[code.replace(base,partnerBase)] || '') : '';
+          const name = slots[base] || '';
+          const partnerName = partnerBase ? (slots[partnerBase] || '') : '';
           if (partnerName) parts.push(`${name} / ${partnerName}`);
           else if (name) parts.push(name);
         });
