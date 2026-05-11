@@ -650,18 +650,18 @@ function awBuildWeekSection(week, container) {
   section.appendChild(hdr);
 
   // ── 大会の場合：グレーアウト＋ラベル、割当テーブルなし ──
-  const bodyWrap = document.createElement('div');
-  bodyWrap.className = 'aw-program-body';
-
-  if (!convention) {
+  if (convention) {
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'aw-program-body';
+    bodyWrap.style.minHeight = '120px';
+    section.appendChild(bodyWrap);
+    awApplyConventionState(section, convention);
+  } else {
     const table = document.createElement('div');
     table.className = 'aw-week-table';
     awBuildAssignmentTable(items, slots, topics, table);
-    bodyWrap.appendChild(table);
+    section.appendChild(table);
   }
-  section.appendChild(bodyWrap);
-
-  if (convention) awApplyConventionState(section, convention);
   if (isCircuitVisit) awApplyCircuitVisit(section, true);
 
   container.appendChild(section);
