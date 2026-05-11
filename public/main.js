@@ -456,7 +456,7 @@ function renderAnnWeekList() {
         </div>
         <div class="ann-item-body">
           <div class="ann-item-title">
-            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
+            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'announcement':'発表','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
             ${esc(item.title || '（タイトルなし）')}
           </div>
           ${preview ? `<div class="ann-item-preview">${esc(preview.length > 60 ? preview.slice(0,60)+'…' : preview)}</div>` : ''}
@@ -555,7 +555,7 @@ async function loadAnnAllList() {
         .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
         .forEach(item => {
           const typeBadge = item.type && item.type !== 'general'
-            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
+            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'announcement':'発表','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
             : '';
           const publishBadge = item.publishNow ? `<span class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時</span>` : '';
           html += `<div class="ann-item-card">
@@ -720,15 +720,17 @@ document.getElementById('af-pm-venue')?.addEventListener('change', function() {
 });
 
 // ── 種別切替 ────────────────────────────────────
+const GENERAL_TYPES = ['general', 'announcement', 'notice'];
+
 function _afTypeChanged(type) {
   const isConvention = type === 'circuit-assembly' || type === 'district-convention';
   const isDistrict   = type === 'district-convention';
-  document.getElementById('af-section-general').classList.toggle('hidden', type !== 'general');
+  document.getElementById('af-section-general').classList.toggle('hidden', !GENERAL_TYPES.includes(type));
   document.getElementById('af-section-member-pick').classList.toggle('hidden', type !== 'pioneer');
   document.getElementById('af-section-circuit').classList.toggle('hidden', type !== 'circuit');
   document.getElementById('af-section-convention').classList.toggle('hidden', !isConvention);
   document.getElementById('af-convention-venue-top').classList.toggle('hidden', !isConvention);
-  // 巡回監督・大会は繰り返し不要
+  // 巡回監督・大会は繰り返し不要（一般・発表・確認事項・補助開拓は繰り返し可）
   document.getElementById('af-repeat-section').classList.toggle('hidden', type === 'circuit' || isConvention);
   // 地区大会のみ日付2・3を表示
   document.getElementById('af-convention-days-row').classList.toggle('hidden', !isDistrict);
@@ -813,16 +815,65 @@ async function _renderMemberPicker() {
   }
 }
 
+const LINK_TITLE_PRESETS   = ['会計報告', '寄付受領書', 'お知らせ', '発表と確認事項'];
+const LINK_TITLE_MONTH_SET = new Set(['発表と確認事項']);
+
+function _buildMonthOptions(selected = '') {
+  const now = new Date();
+  let html = '<option value="">月を選択</option>';
+  for (let i = 0; i < 13; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+    html += `<option value="${label}"${selected === label ? ' selected' : ''}>${label}</option>`;
+  }
+  return html;
+}
+
 function addLinkInput(title = '', url = '') {
+  // タイトルが「発表 2026年5月」のような形式か判定
+  const monthMatch = title.match(/^(発表と確認事項)\s+(.+)$/);
+  let selectVal, customVal, monthVal;
+  if (monthMatch) {
+    selectVal = monthMatch[1]; monthVal = monthMatch[2]; customVal = '';
+  } else {
+    selectVal = LINK_TITLE_PRESETS.includes(title) ? title : 'other';
+    monthVal  = '';
+    customVal = selectVal === 'other' ? title : '';
+  }
+
+  const showMonth  = LINK_TITLE_MONTH_SET.has(selectVal);
+  const showCustom = selectVal === 'other';
+
   const row = document.createElement('div');
   row.className = 'link-input-row';
   row.innerHTML = `
     <div class="link-input-fields">
-      <input type="text" class="link-title" placeholder="リンクのタイトル" value="${esc(title)}">
+      <div class="link-title-row">
+        <select class="link-title-select">
+          <option value="other"${selectVal === 'other' ? ' selected' : ''}>その他</option>
+          ${LINK_TITLE_PRESETS.map(p =>
+            `<option value="${esc(p)}"${selectVal === p ? ' selected' : ''}>${esc(p)}</option>`
+          ).join('')}
+        </select>
+        <select class="link-title-month" style="display:${showMonth ? '' : 'none'}">
+          ${_buildMonthOptions(monthVal)}
+        </select>
+        <input type="text" class="link-title-custom" placeholder="タイトルを入力"
+          value="${esc(customVal)}"
+          style="display:${showCustom ? '' : 'none'}">
+      </div>
       <input type="url" class="link-url" placeholder="URL (https://...)" value="${esc(url)}">
     </div>
     <button type="button" class="btn-remove-link"><span class="material-icons">delete</span></button>
   `;
+  row.querySelector('.link-title-select').addEventListener('change', function() {
+    const custom = row.querySelector('.link-title-custom');
+    const month  = row.querySelector('.link-title-month');
+    custom.style.display = this.value === 'other' ? '' : 'none';
+    month.style.display  = LINK_TITLE_MONTH_SET.has(this.value) ? '' : 'none';
+    if (this.value !== 'other') custom.value = '';
+    if (!LINK_TITLE_MONTH_SET.has(this.value)) month.value = '';
+  });
   row.querySelector('.btn-remove-link').addEventListener('click', () => row.remove());
   linksContainer.appendChild(row);
 }
@@ -868,7 +919,15 @@ function openAnnounceModal(id) {
     db.collection('ANNOUNCEMENT').doc(id).get().then(async snap => {
       const d = snap.data();
       const r = d.raw || {};
-      const type = r.type || d.type || 'general';
+      // rawがない旧データはタイトルから種別を逆引き
+      const titleTypeMap = {
+        '巡回監督訪問': 'circuit',
+        '補助開拓奉仕者': 'pioneer',
+        '巡回大会': 'circuit-assembly',
+        '地区大会': 'district-convention',
+      };
+      let type = r.type || d.type || 'general';
+      if (type === 'general' && titleTypeMap[d.title]) type = titleTypeMap[d.title];
       const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
 
       // 種別セット＆フォーム切替
@@ -882,7 +941,7 @@ function openAnnounceModal(id) {
       if (pnEl) pnEl.checked = !!d.publishNow;
 
       // 種別ごと
-      if (type === 'general') {
+      if (GENERAL_TYPES.includes(type)) {
         document.getElementById('af-title').value = r.title ?? d.title ?? '';
         document.getElementById('af-body').value  = r.body  ?? d.body  ?? '';
 
@@ -897,10 +956,20 @@ function openAnnounceModal(id) {
       } else if (type === 'circuit') {
         const sel = document.getElementById('af-circuit-name-select');
         if (sel) {
-          sel.value = r.overseerSelect || '井出佳範 兄弟';
+          // rawがない旧データはbody1行目から推定
+          const bodyLines = (d.body || '').split('\n');
+          const firstLine = bodyLines[0] || '';
+          const overseerSelect = r.overseerSelect ||
+            (firstLine === '代理巡回監督' ? '代理巡回監督' :
+             firstLine === '井出佳範 兄弟' ? '井出佳範 兄弟' :
+             firstLine ? '代理巡回監督' : '井出佳範 兄弟');
+          sel.value = overseerSelect;
           onCircuitNameSelectChange(sel.value);
           if (sel.value === '代理巡回監督') {
-            document.getElementById('af-circuit-name-custom').value = r.overseerCustom || '';
+            // rawあり→raw値、rawなし→bodyのうち代理以外の行
+            const customName = r.overseerCustom ||
+              (firstLine === '代理巡回監督' ? (bodyLines[1] && !/月.*日/.test(bodyLines[1]) ? bodyLines[1] : '') : firstLine);
+            document.getElementById('af-circuit-name-custom').value = customName;
           }
         }
         document.getElementById('af-circuit-start').value = r.circuitStart || '';
@@ -985,8 +1054,8 @@ announceForm.addEventListener('submit', async (e) => {
   const baseDataExtra = {}; // 種別ごとの追加フィールド
   const raw = { type }; // 編集時の復元用生データ
 
-  if (type === 'general') {
-    // 一般発表
+  if (GENERAL_TYPES.includes(type)) {
+    // 一般発表 / 発表 / 確認事項
     finalTitle = document.getElementById('af-title').value.trim();
     if (!finalTitle) {
       document.getElementById('af-title').focus();
@@ -994,11 +1063,6 @@ announceForm.addEventListener('submit', async (e) => {
       return;
     }
     finalBody  = document.getElementById('af-body').value.trim();
-    linksContainer.querySelectorAll('.link-input-row').forEach(row => {
-      const t = row.querySelector('.link-title').value.trim();
-      const u = row.querySelector('.link-url').value.trim();
-      if (t && u) finalLinks.push({ title: t, url: u });
-    });
     raw.title = finalTitle; raw.body = finalBody;
 
   } else if (type === 'pioneer') {
@@ -1076,6 +1140,22 @@ announceForm.addEventListener('submit', async (e) => {
     if (address) finalBody += '\n' + address;
     if (note) finalBody += '\n' + note;
   }
+
+  // リンク収集（全種別共通）
+  linksContainer.querySelectorAll('.link-input-row').forEach(row => {
+    const sel = row.querySelector('.link-title-select');
+    let t;
+    if (sel?.value === 'other') {
+      t = row.querySelector('.link-title-custom')?.value.trim();
+    } else if (LINK_TITLE_MONTH_SET.has(sel?.value)) {
+      const month = row.querySelector('.link-title-month')?.value;
+      t = month ? `${sel.value} ${month}` : sel.value;
+    } else {
+      t = sel?.value;
+    }
+    const u = row.querySelector('.link-url').value.trim();
+    if (t && u) finalLinks.push({ title: t, url: u });
+  });
 
   const publishNow = document.getElementById('af-publish-now')?.checked || false;
   const googleFormUrl   = document.getElementById('af-google-form-url')?.value.trim()   || '';

@@ -386,6 +386,7 @@ body {
   background: #f5f5f5; padding: 12px; border-radius: 8px;
 }
 .link-input-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.link-title-row { display: flex; flex-direction: column; gap: 6px; }
 .btn-remove-link {
   background: none; border: none; color: #d32f2f; cursor: pointer; padding: 4px;
 }
@@ -1646,6 +1647,8 @@ body {
   padding-left: 14px; margin-bottom: 8px;
 }
 
+.af-type-announcement       { background: #e8eaf6; color: #283593; }
+.af-type-notice             { background: #fff8e1; color: #f57f17; }
 .af-type-pioneer            { background: #e3f2fd; color: #1565c0; }
 .af-type-circuit            { background: #fff3e0; color: #e65100; }
 .af-type-circuit-assembly   { background: #e8f5e9; color: #2e7d32; }
