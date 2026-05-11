@@ -1390,6 +1390,11 @@ body {
 .atm-sum-value { font-size: 22px; font-weight: 700; color: var(--primary); line-height: 1.1; }
 .atm-sum-unit  { font-size: 11px; color: var(--text-light); }
 
+.atm-section-label {
+  font-size: 14px; font-weight: 700; color: var(--primary);
+  padding: 14px 12px 6px; margin-top: 8px;
+}
+.atm-section-label:first-child { margin-top: 0; }
 .atm-table-wrap {
   background: white;
   border-radius: 12px;
