@@ -103,6 +103,11 @@ const awLiveSlots  = {};
 const awLiveTopics = {};
 
 async function initAssignmentPage() {
+  // イベントリスナーを先に登録（returnで飛ばされないように）
+  document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
+  document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
+  document.getElementById('aw-s89-btn')?.addEventListener('click', awGenerateS89);
+
   const createList = document.getElementById('assignment-create-list');
   if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
@@ -119,20 +124,20 @@ async function initAssignmentPage() {
   } catch(e) {
     if (createList) createList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
-
-  document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
-  document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
-  document.getElementById('aw-s89-btn')?.addEventListener('click', awGenerateS89);
 }
 
 function awGenerateAll() {
   if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
-  awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth).forEach(week => {
+  const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
+  if (filtered.length === 0) { alert('表示中の月に週がありません'); return; }
+  let generated = 0;
+  filtered.forEach(week => {
     if (week.conventionType) return;
     const slots = awLiveSlots[week.id];
     if (!slots) return;
     const items = week.items || [];
     const allCodes = [...new Set(items.flatMap(i => i.codes || []))];
+    if (allCodes.length === 0) return;
     const result = awRunGeneration(allCodes, awMembers, awHistory);
     Object.entries(result).forEach(([code, name]) => {
       if (name && name !== '（該当者なし）') slots[code] = name;
@@ -143,7 +148,9 @@ function awGenerateAll() {
       sel.value = slots[sel.dataset.code] || '';
     });
     awUpdateClosingNoteIn(section.querySelector('.aw-week-table'), slots);
+    generated++;
   });
+  if (generated === 0) alert('自動生成対象の週がありません（大会週は除外されます）');
 }
 
 async function awConfirmAll() {
