@@ -1148,11 +1148,12 @@ async function awReplaceHistory(thuDate, slotsObj) {
 
   // 新データを書き込み（UTC正午で統一、サフィックス付きコードを保持）
   const ts = awNoonUtcTimestamp(thuDate);
+  const now = firebase.firestore.Timestamp.now();
   const batch = db.batch();
   Object.entries(slotsObj).forEach(([code, name]) => {
     if (!name || name === '（該当者なし）') return;
     batch.set(db.collection('assignmentHistory').doc(), {
-      memberName: name, code: code, date: ts,
+      memberName: name, code: code, date: ts, confirmedAt: now,
     });
   });
   await batch.commit();
