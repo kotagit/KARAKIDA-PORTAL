@@ -12,11 +12,36 @@ var auth     = firebase.auth();
 var db       = firebase.firestore();
 var provider = new firebase.auth.GoogleAuthProvider();
 
+// ── カスタム確認ダイアログ（confirm()の代替） ──
+function customConfirm(msg) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('custom-confirm-modal');
+    document.getElementById('custom-confirm-msg').textContent = msg;
+    modal.classList.remove('hidden');
+    const ok = document.getElementById('custom-confirm-ok');
+    const cancel = document.getElementById('custom-confirm-cancel');
+    const overlay = document.getElementById('custom-confirm-overlay');
+    function cleanup(result) {
+      modal.classList.add('hidden');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+  });
+}
+
 // ── 状態 ──────────────────────────────────────
 let currentUser   = null;
 let isAdmin       = false;
 let isAnnaigakari = false;
 let isElder       = false;
+let isPortalAdmin = false;
 let serverTimeOffset = 0; // サーバー時刻との差分(ms)
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
@@ -66,6 +91,8 @@ const PAGE_TITLES = {
   'admin-members': 'メンバー管理',
   'admin-attendance': '集会出席',
   'admin-attendance-monthly': '出席 月集計',
+  'admin-access-log': 'アクセスログ',
+  'attendance-form': '出席人数登録',
   'admin-s13': '区域割当ての記録',
   'admin-group-members': 'グループ成員表',
   'admin-org': '組織表管理',
@@ -136,9 +163,12 @@ async function initApp() {
           isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
           isAnnaigakari = statusValues.some(v => v === '案内係');
           isElder = statusValues.some(v => v.toUpperCase() === 'EL');
+          isPortalAdmin = statusValues.some(v => v.toUpperCase() === 'ADMIN');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+          const portalAdminSection = document.getElementById('admin-portal-section');
+          if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
         } else {
           console.warn('User not found in USER_LIST');
           memberUserName = user.displayName || '';
@@ -163,6 +193,7 @@ async function initApp() {
       isAdmin = false;
       isAnnaigakari = false;
       isElder = false;
+      isPortalAdmin = false;
       app.classList.add('hidden');
       loginScreen.classList.remove('hidden');
     }
@@ -291,6 +322,8 @@ function navigate(page, pushHistory) {
   if (page === 'admin-field-service')      loadAdminFieldService();
   if (page === 'senkyo-field')             loadUserFieldService();
   if (page === 'admin-org')                loadOrgEditor();
+  if (page === 'admin-access-log')         loadAccessLog();
+  if (page === 'attendance-form')          initAttendanceForm();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -350,6 +383,10 @@ document.getElementById('admin-manage-attendance')?.addEventListener('click', ()
 
 document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
   navigate('admin-attendance-monthly');
+});
+
+document.getElementById('admin-manage-access-log')?.addEventListener('click', () => {
+  navigate('admin-access-log');
 });
 
 // メニューのクリック（data-page属性があるもののみ）
@@ -1238,7 +1275,7 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
       }
       formItems.forEach(fi => {
         const el = document.createElement('div');
@@ -1275,7 +1312,7 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
       }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
@@ -1682,7 +1719,7 @@ function initAreaInfoForm() {
       (reject ? `\n拒否理由: ${reject}` : '') +
       (memo ? `\nメモ: ${memo}` : '') +
       `\n\n送信しますか？`;
-    if (!confirm(msg)) return;
+    if (!(await customConfirm(msg))) return;
 
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
@@ -2002,7 +2039,7 @@ async function initServiceReportForm() {
     msg += '聖書研究: ' + (bible || '0') + '\n';
     if (remarks) msg += '備考: ' + remarks + '\n';
     msg += '\n送信しますか？';
-    if (!confirm(msg)) return;
+    if (!(await customConfirm(msg))) return;
 
     btn.disabled = true;
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
@@ -2225,7 +2262,7 @@ async function pwApplySubmit(items) {
     msg += item.place.replace(/駅/g, '') + ' / ' + pwApplySelected[key] + '\n\n';
   });
   msg += '送信しますか？';
-  if (!confirm(msg)) return;
+  if (!(await customConfirm(msg))) return;
 
   const btn = document.getElementById('pwa-submit-btn');
   btn.disabled = true;
@@ -2983,7 +3020,7 @@ async function s13RenderAssignPanel() {
         return;
       }
       const svName = s13SupervisorMap[groupName] || groupName;
-      if (!confirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
+      if (!(await customConfirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`))) return;
 
       try {
         await db.collection('GROUP_ASS_NO').add({
@@ -3099,9 +3136,11 @@ var orgData = [];
 var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
 
 async function loadOrgView() {
-  const view = document.getElementById('org-view');
-  if (!view) return;
-  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  const chartView = document.getElementById('org-view-chart') || document.getElementById('org-view');
+  const groupView = document.getElementById('org-view-group');
+  if (!chartView) return;
+  chartView.innerHTML = '<div class="loading">読み込み中...</div>';
+  if (groupView) groupView.innerHTML = '';
   try {
     const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
     const allData = snap.docs.map(doc => doc.data());
@@ -3211,10 +3250,46 @@ async function loadOrgView() {
     }
 
     html += '</tbody></table></div></div>';
-    view.innerHTML = html;
+    chartView.innerHTML = html;
+
+    // グループ成員表
+    if (groupView) {
+      const userSnap = await db.collection('USER_LIST').get();
+      const users = [];
+      userSnap.docs.forEach(d => {
+        const data = d.data();
+        const name = String(data.name || '').trim();
+        if (!name) return;
+        const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+        const statuses = statusFields.map(f => String(data[f] || '').trim());
+        let roleLabel = '伝道者';
+        if (statuses.some(v => v === 'EL')) roleLabel = '長老';
+        else if (statuses.some(v => v === 'MS')) roleLabel = '援助奉仕者';
+        const pioneer = String(data.pioneer || '').trim();
+        if (pioneer === 'RP' || pioneer === '正規開拓者') roleLabel += ' / 開拓者';
+        else if (pioneer.includes('開拓')) roleLabel += ' / ' + pioneer;
+        users.push({ name, group: String(data.group || '').trim(), gender: String(data.gender || '').trim(), roleLabel });
+      });
+      users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
+      const groupMap = {};
+      users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
+      let gHtml = '';
+      Object.keys(groupMap).sort().forEach(gName => {
+        const members = groupMap[gName];
+        gHtml += '<div class="group-member-card">';
+        gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
+        gHtml += '<div class="group-member-list">';
+        members.forEach(m => {
+          const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
+          gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
+        });
+        gHtml += '</div></div>';
+      });
+      groupView.innerHTML = gHtml;
+    }
   } catch (e) {
     console.error('loadOrgView error:', e);
-    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    chartView.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
   }
 }
 
@@ -3337,7 +3412,7 @@ async function orgSaveRow(id) {
 }
 
 async function orgDeleteRow(id) {
-  if (!confirm('この行を削除しますか？')) return;
+  if (!(await customConfirm('この行を削除しますか？'))) return;
   try {
     await db.collection('ORG_CHART').doc(id).delete();
     orgData = orgData.filter(d => d.id !== id);
@@ -4182,7 +4257,7 @@ async function loadAdminReportApprove() {
 }
 
 async function approveReport(docId) {
-  if (!confirm('この報告を承認してPREACHING_REPORTに反映しますか？')) return;
+  if (!(await customConfirm('この報告を承認してPREACHING_REPORTに反映しますか？'))) return;
   try {
     const docRef = db.collection('PREACHING_REPORT_DRAFTS').doc(docId);
     const snap = await docRef.get();
@@ -4206,7 +4281,7 @@ async function approveReport(docId) {
 }
 
 async function rejectReport(docId) {
-  if (!confirm('この報告を却下して削除しますか？')) return;
+  if (!(await customConfirm('この報告を却下して削除しますか？'))) return;
   try {
     await db.collection('PREACHING_REPORT_DRAFTS').doc(docId).delete();
     const card = document.getElementById('approve-' + docId);
@@ -4365,7 +4440,7 @@ document.getElementById('fs-add-row')?.addEventListener('click', () => {
 
 // ── 週を生成 ──
 document.getElementById('fs-generate-week')?.addEventListener('click', async () => {
-  if (!confirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。')) return;
+  if (!(await customConfirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。'))) return;
   try {
     // ローテ設定を読み込み
     const rotSnap = await db.collection('FS_ROTATION').get();
@@ -4613,7 +4688,7 @@ async function editFsRow(docId) {
 }
 
 async function deleteFsRow(docId) {
-  if (!confirm('この取決めを削除しますか？')) return;
+  if (!(await customConfirm('この取決めを削除しますか？'))) return;
   try {
     await db.collection('FIELD_SERVICE').doc(docId).delete();
     loadAdminFieldService();
@@ -4779,7 +4854,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   confirmMsg += '出席人数: ' + count + '名\n';
   if (remarks) confirmMsg += '備考: ' + remarks + '\n';
   confirmMsg += '\n送信しますか？';
-  if (!confirm(confirmMsg)) return;
+  if (!(await customConfirm(confirmMsg))) return;
 
   const data = {
     date,
@@ -4800,7 +4875,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
       const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
       const existing = await ref.get();
       if (existing.exists) {
-        if (!confirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？')) return;
+        if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) return;
       }
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await ref.set(data, { merge: true });
@@ -4816,8 +4891,8 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   }
 });
 
-function openAttendanceDeleteModal(id) {
-  if (!confirm('この出席記録を削除しますか？')) return;
+async function openAttendanceDeleteModal(id) {
+  if (!(await customConfirm('この出席記録を削除しますか？'))) return;
   db.collection('MEETING_ATTENDANCE').doc(id).delete()
     .then(() => loadAdminAttendance())
     .catch(err => alert('削除エラー: ' + err.message));
@@ -5043,5 +5118,161 @@ async function loadGroupMembers() {
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
+  }
+}
+
+// ── 出席人数登録ページ ──
+function initAttendanceForm() {
+  document.getElementById('attf-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('attf-venue').value = 'kingdom_hall';
+  document.getElementById('attf-type').value = 'midweek';
+  document.getElementById('attf-count').value = '';
+  document.getElementById('attf-remarks').value = '';
+  document.getElementById('attf-special-detail').value = '';
+  document.getElementById('attf-special-group').classList.add('hidden');
+  document.getElementById('attf-submitter').value =
+    memberUserName || (currentUser && currentUser.displayName) || (currentUser && currentUser.email) || '';
+}
+
+document.getElementById('attf-type')?.addEventListener('change', () => {
+  const sg = document.getElementById('attf-special-group');
+  if (sg) sg.classList.toggle('hidden', document.getElementById('attf-type').value !== 'special');
+});
+
+document.getElementById('attf-submit')?.addEventListener('click', async () => {
+  const date  = document.getElementById('attf-date').value;
+  const venue = document.getElementById('attf-venue').value;
+  const type  = document.getElementById('attf-type').value;
+  const specialDetail = document.getElementById('attf-special-detail').value.trim();
+  const countStr = document.getElementById('attf-count').value;
+  const remarks  = document.getElementById('attf-remarks').value.trim();
+  if (!date || !venue || !type || countStr === '') {
+    alert('必須項目を入力してください');
+    return;
+  }
+  const count = parseInt(countStr, 10);
+  if (isNaN(count) || count < 0) {
+    alert('出席人数は0以上の数値を入力してください');
+    return;
+  }
+  const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
+  const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
+  const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
+  let confirmMsg = '【送信内容の確認】\n';
+  confirmMsg += '日付: ' + date + '\n';
+  confirmMsg += '会場: ' + venueLabel + '\n';
+  confirmMsg += '集会: ' + typeLabel + detailStr + '\n';
+  confirmMsg += '出席人数: ' + count + '名\n';
+  if (remarks) confirmMsg += '備考: ' + remarks + '\n';
+  confirmMsg += '\n送信しますか？';
+  if (!(await customConfirm(confirmMsg))) return;
+
+  const btn = document.getElementById('attf-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
+
+  const data = {
+    date, venue, meetingType: type,
+    specialDetail: type === 'special' ? specialDetail : '',
+    count, remarks,
+    submitterName:  memberUserName || (currentUser && currentUser.displayName) || '',
+    submitterEmail: (currentUser && currentUser.email) || '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    const docId = `${date}_${venue}_${type}`;
+    const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
+    const existing = await ref.get();
+    if (existing.exists) {
+      if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+        return;
+      }
+    }
+    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    await ref.set(data, { merge: true });
+    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
+    navigate('shinsei');
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
+  }
+});
+
+// ── 組織ページタブ切替 ──
+function switchOrgTab(tab) {
+  document.getElementById('org-tab-chart').classList.toggle('active', tab === 'chart');
+  document.getElementById('org-tab-group').classList.toggle('active', tab === 'group');
+  document.getElementById('org-view-chart').classList.toggle('hidden', tab !== 'chart');
+  document.getElementById('org-view-group').classList.toggle('hidden', tab !== 'group');
+}
+
+// ── アクセスログ ──
+function alFormatDt(dt) {
+  return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+function alDevice(ua) {
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/Android/.test(ua)) return 'Android';
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/Mac/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua)) return 'Windows';
+  return 'その他';
+}
+
+async function loadAccessLog() {
+  const view = document.getElementById('access-log-view');
+  if (!view) return;
+  view.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  try {
+    const snap = await db.collection('LOGIN_LOG')
+      .orderBy('loginAt', 'desc')
+      .limit(500)
+      .get();
+    if (snap.empty) {
+      view.innerHTML = '<div class="empty-state">ログがありません</div>';
+      return;
+    }
+    const userMap = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      const key = d.email || d.name || 'unknown';
+      if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
+      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
+      userMap[key].logs.push({ dt, ua: d.userAgent || '' });
+    });
+    const users = Object.values(userMap).sort((a, b) => {
+      const ta = a.logs[0]?.dt?.getTime() || 0;
+      const tb = b.logs[0]?.dt?.getTime() || 0;
+      return tb - ta;
+    });
+
+    let html = '<div class="access-log-list">';
+    users.forEach((u, idx) => {
+      const latest = u.logs[0];
+      const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
+      const device = alDevice(latest.ua);
+      html += `<div class="access-log-card" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
+      html += `<div class="access-log-main">`;
+      html += `<span class="material-icons access-log-icon">person</span>`;
+      html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
+      html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
+      html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
+      html += `</div>`;
+      html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
+      u.logs.forEach(log => {
+        const dtStr = log.dt ? alFormatDt(log.dt) : '';
+        const dev = alDevice(log.ua);
+        html += `<div class="al-detail-row"><span class="al-detail-time">${esc(dtStr)}</span><span class="al-detail-device">${esc(dev)}</span></div>`;
+      });
+      html += `</div></div>`;
+    });
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
 }

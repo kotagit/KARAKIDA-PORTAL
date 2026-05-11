@@ -1173,10 +1173,14 @@ body {
 .sr-label {
   min-width: 90px; font-size: 13px; font-weight: 700; color: #555; flex-shrink: 0;
 }
-.sr-input-wrap { flex: 1; }
+.sr-field { overflow: hidden; }
+.sr-input-wrap { flex: 1; min-width: 0; overflow: hidden; }
 .sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
-  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid var(--border);
   border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
+}
+.sr-input-wrap input[type="date"] {
+  -webkit-appearance: none; appearance: none;
 }
 /* ── 連絡先情報 ── */
 .renraku-group { margin-bottom: 20px; }
@@ -1785,3 +1789,73 @@ body {
 }
 .pw-assign-select:focus { outline: none; border-color: var(--primary); }
 .pw-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ── 組織タブ ── */
+.org-tab-bar {
+  display: flex; gap: 0; margin-bottom: 16px;
+  background: #e8eaf0; border-radius: 10px; padding: 3px; overflow: hidden;
+}
+.org-tab {
+  flex: 1; padding: 10px 0; border: none; background: transparent;
+  font-size: 14px; font-weight: 700; color: #888; cursor: pointer;
+  border-radius: 8px; transition: all 0.2s;
+}
+.org-tab.active {
+  background: white; color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* ── グループ成員表 ── */
+.group-member-card {
+  background: white; border-radius: 12px; box-shadow: var(--shadow);
+  margin-bottom: 16px; overflow: hidden;
+}
+.group-member-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; font-size: 15px; font-weight: 700; color: white;
+  background: var(--primary);
+}
+.group-member-count {
+  font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.25);
+  padding: 2px 10px; border-radius: 10px;
+}
+.group-member-list { padding: 0; }
+.group-member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
+}
+.group-member-row:last-child { border-bottom: none; }
+.group-member-icon { font-size: 22px; color: #bbb; flex-shrink: 0; }
+.group-member-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.group-member-role { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+
+/* ── アクセスログ ── */
+.access-log-list { display: flex; flex-direction: column; gap: 0; }
+.access-log-card {
+  background: white; padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0; cursor: pointer;
+}
+.access-log-main {
+  display: flex; align-items: center; gap: 12px;
+}
+.access-log-icon { font-size: 28px; color: #bbb; flex-shrink: 0; }
+.access-log-info { flex: 1; min-width: 0; }
+.access-log-name {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.access-log-email {
+  font-size: 12px; color: var(--text-light); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.access-log-meta { text-align: right; flex-shrink: 0; }
+.access-log-time { font-size: 14px; font-weight: 600; color: var(--text); }
+.access-log-device { font-size: 11px; color: #999; margin-top: 2px; }
+.al-detail {
+  margin-top: 8px; padding: 8px 0 0; border-top: 1px solid #f0f0f0;
+}
+.al-detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0 5px 40px; font-size: 13px; color: #666;
+}
+.al-detail-time { font-weight: 500; }
+.al-detail-device { font-size: 11px; color: #999; }

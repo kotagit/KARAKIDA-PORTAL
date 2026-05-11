@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=115">
+  <link rel="stylesheet" href="style.css?v=116">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -105,7 +105,7 @@
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" data-page="saigai">
-            <span class="material-icons admin-row-icon">crisis_alert</span>
+            <span class="material-icons admin-row-icon">bolt</span>
             <span class="admin-row-label">災害対応</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
@@ -237,6 +237,32 @@
           </div>
         </div>
 
+        <!-- ── 唐木田PORTAL（ADMINのみ） ── -->
+        <div id="admin-portal-section" class="hidden">
+          <div class="admin-section-tag">唐木田PORTAL</div>
+          <div class="admin-list-menu">
+            <div class="admin-role-header">
+              <span class="material-icons admin-role-icon">admin_panel_settings</span>
+              <span class="admin-role-name">ADMIN</span>
+            </div>
+            <div class="admin-list-row" id="admin-manage-access-log">
+              <span class="admin-row-label">アクセスログ</span>
+              <span class="material-icons admin-row-chevron">chevron_right</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- アクセスログ -->
+    <section id="page-admin-access-log" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">アクセスログ</h2>
+      </div>
+      <div class="page-content">
+        <div id="access-log-view"></div>
       </div>
     </section>
 
@@ -618,6 +644,60 @@
       </div>
     </section>
 
+    <!-- 出席人数登録（ページ版） -->
+    <section id="page-attendance-form" class="page">
+      <div class="page-banner banner-shinsei"><h2>出席人数登録</h2></div>
+      <div class="page-content">
+        <div class="form-container">
+          <div class="sr-field">
+            <label class="sr-label">日付 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap"><input type="date" id="attf-date"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">会場 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="attf-venue">
+                <option value="kingdom_hall">王国会館</option>
+                <option value="zoom">Zoom</option>
+              </select>
+            </div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">集会の種類 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap">
+              <select id="attf-type">
+                <option value="midweek">週中の集会</option>
+                <option value="weekend">週末の集会</option>
+                <option value="memorial">記念式</option>
+                <option value="special">特別な集会</option>
+              </select>
+            </div>
+          </div>
+          <div class="sr-field hidden" id="attf-special-group">
+            <label class="sr-label">内容</label>
+            <div class="sr-input-wrap"><input type="text" id="attf-special-detail" placeholder="例: 特別講演会"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">出席人数 <span style="color:#d32f2f">*</span></label>
+            <div class="sr-input-wrap"><input type="number" id="attf-count" min="0" placeholder="例: 85"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">備考</label>
+            <div class="sr-input-wrap"><textarea id="attf-remarks" rows="2" placeholder="自由記入"></textarea></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">提出者</label>
+            <div class="sr-input-wrap"><input type="text" id="attf-submitter" readonly style="background:#f5f5f5"></div>
+          </div>
+          <div style="margin-top:20px">
+            <button type="button" id="attf-submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span class="material-icons" style="font-size:18px">send</span> 送信する
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 区域情報登録 -->
     <section id="page-area-info" class="page">
       <div class="page-banner banner-shinsei">
@@ -671,7 +751,12 @@
         <h2>組織</h2>
       </div>
       <div class="page-content" style="max-width:1100px">
-        <div id="org-view"></div>
+        <div class="org-tab-bar">
+          <button class="org-tab active" id="org-tab-group" onclick="switchOrgTab('group')">グループ成員表</button>
+          <button class="org-tab" id="org-tab-chart" onclick="switchOrgTab('chart')">組織表</button>
+        </div>
+        <div id="org-view-chart" class="hidden"></div>
+        <div id="org-view-group"></div>
       </div>
     </section>
 
@@ -1351,6 +1436,18 @@
   </div>
 </div>
 
+<!-- カスタム確認モーダル -->
+<div id="custom-confirm-modal" class="modal hidden">
+  <div class="modal-overlay" id="custom-confirm-overlay"></div>
+  <div class="modal-card modal-small" style="max-width:400px;text-align:left">
+    <p id="custom-confirm-msg" style="white-space:pre-wrap;font-size:14px;line-height:1.6;margin-bottom:20px"></p>
+    <div class="form-actions" style="justify-content:flex-end">
+      <button class="btn-secondary" id="custom-confirm-cancel">キャンセル</button>
+      <button class="btn-primary" id="custom-confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- 削除確認モーダル -->
 <div id="delete-modal" class="modal hidden">
   <div class="modal-overlay" id="delete-overlay"></div>
@@ -1380,8 +1477,8 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=126"></script>
-<script src="assignment.js?v=75"></script>
+<script src="main.js?v=127"></script>
+<script src="assignment.js?v=76"></script>
 <script src="pw.js?v=3"></script>
 </body>
 </html>
