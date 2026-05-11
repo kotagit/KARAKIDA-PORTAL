@@ -51,7 +51,7 @@ async function awLoadCodes() {
 async function awLoadMembers() {
   const snap = await db.collection('mwbMembers').where('active','==',true).get();
   awMembers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-  awMembers.sort((a,b) => (a.memberId||0) - (b.memberId||0));
+  awMembers.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ja'));
 }
 
 async function awLoadHistory() {
