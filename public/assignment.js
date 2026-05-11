@@ -130,6 +130,19 @@ function awGenerateAll() {
   if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
   const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   if (filtered.length === 0) { alert('表示中の月に週がありません'); return; }
+
+  // 履歴のコピーを作成（週ごとに仮の履歴を積み上げる）
+  const tempHistory = JSON.parse(JSON.stringify(awHistory, (k, v) =>
+    v instanceof Date ? v.toISOString() : v
+  ));
+  // Date文字列を復元
+  for (const name of Object.keys(tempHistory)) {
+    for (const code of Object.keys(tempHistory[name])) {
+      const h = tempHistory[name][code];
+      if (h.lastDate) h.lastDate = new Date(h.lastDate);
+    }
+  }
+
   let generated = 0;
   filtered.forEach(week => {
     if (week.conventionType) return;
@@ -138,10 +151,22 @@ function awGenerateAll() {
     const items = week.items || [];
     const allCodes = [...new Set(items.flatMap(i => i.codes || []))];
     if (allCodes.length === 0) return;
-    const result = awRunGeneration(allCodes, awMembers, awHistory);
+
+    const meetDate = awGetMeetingDate(week) || new Date();
+    const result = awRunGeneration(allCodes, awMembers, tempHistory);
+
+    // 生成結果を仮履歴に反映（次週で同じ人が選ばれにくくする）
     Object.entries(result).forEach(([code, name]) => {
-      if (name && name !== '（該当者なし）') slots[code] = name;
+      if (name && name !== '（該当者なし）') {
+        slots[code] = name;
+        const base = awGetBase(code);
+        if (!tempHistory[name]) tempHistory[name] = {};
+        if (!tempHistory[name][base]) tempHistory[name][base] = { lastDate: null, count: 0 };
+        tempHistory[name][base].lastDate = meetDate;
+        tempHistory[name][base].count++;
+      }
     });
+
     const section = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"]`);
     if (!section) return;
     section.querySelectorAll('.aw-slot-select').forEach(sel => {
