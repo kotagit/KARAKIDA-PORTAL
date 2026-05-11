@@ -620,6 +620,7 @@ function awInitImport() {
       const count = await awHandleZipImport(file);
       alert(`${count}週分をインポートしました`);
       await awLoadWeeks();
+      awRenderProgramList();
     } catch(err) {
       alert('インポートエラー: ' + err.message);
     } finally {
