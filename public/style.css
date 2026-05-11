@@ -258,6 +258,16 @@ body {
 .admin-row-chevron {
   font-size: 20px; color: #bbb; flex-shrink: 0;
 }
+.admin-role-header {
+  display: flex; align-items: center; padding: 10px 18px;
+  background: #f0f4f8; border-bottom: 1px solid var(--border);
+}
+.admin-role-icon {
+  font-size: 18px; color: #888; margin-right: 8px;
+}
+.admin-role-name {
+  font-size: 12px; font-weight: 700; color: #777; letter-spacing: 0.5px;
+}
 
 /* ── 管理用リスト ── */
 .admin-actions-bar { margin-bottom: 20px; display: flex; justify-content: flex-end; }
