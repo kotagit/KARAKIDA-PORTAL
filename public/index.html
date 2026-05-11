@@ -288,23 +288,21 @@
     <!-- 情報メニュー -->
     <section id="page-jouhou" class="page">
       <div class="page-content">
-        <div class="senkyo-menu">
-          <div class="senkyo-menu-list">
-            <button class="senkyo-menu-btn" onclick="navigate('jouhou-contact')">
-              <span class="material-icons">contacts</span>
-              <span>会衆登録情報</span>
-              <span class="material-icons senkyo-chevron">chevron_right</span>
-            </button>
-            <button class="senkyo-menu-btn" onclick="navigate('jouhou-renraku')">
-              <span class="material-icons">phone_in_talk</span>
-              <span>連絡先情報</span>
-              <span class="material-icons senkyo-chevron">chevron_right</span>
-            </button>
-            <button class="senkyo-menu-btn" onclick="navigate('jouhou-card')">
-              <span class="material-icons">badge</span>
-              <span>伝道者カード</span>
-              <span class="material-icons senkyo-chevron">chevron_right</span>
-            </button>
+        <div class="admin-list-menu home-list-menu">
+          <div class="admin-list-row" data-page="jouhou-contact">
+            <span class="material-icons admin-row-icon">contacts</span>
+            <span class="admin-row-label">会衆登録情報</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+          <div class="admin-list-row" data-page="jouhou-renraku">
+            <span class="material-icons admin-row-icon">phone_in_talk</span>
+            <span class="admin-row-label">連絡先情報</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+          <div class="admin-list-row" data-page="jouhou-card">
+            <span class="material-icons admin-row-icon">badge</span>
+            <span class="admin-row-label">伝道者カード</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
         </div>
       </div>
