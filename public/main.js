@@ -557,7 +557,7 @@ async function loadAnnAllList() {
             ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
             : '';
           const publishBadge = item.publishNow ? `<span class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時</span>` : '';
-          html += `<div class="ann-item-card">
+          html += `<div class="ann-item-card" data-id="${esc(item.id)}">
             <div class="ann-item-body">
               <div class="ann-item-title">${typeBadge}${esc(item.title||'（タイトルなし）')}</div>
               ${(item.body||'').trim() ? `<div class="ann-item-preview">${esc((item.body||'').trim().length>60?(item.body||'').trim().slice(0,60)+'…':(item.body||'').trim())}</div>` : ''}
@@ -1480,15 +1480,30 @@ document.getElementById('delete-overlay')?.addEventListener('click', closeDelete
 document.getElementById('delete-confirm')?.addEventListener('click', async () => {
   if (!deleteTargetId) return;
   const col = deleteTargetType === 'announce' ? 'ANNOUNCEMENT' : 'SCHEDULE';
+  const deletedId = deleteTargetId;
   try {
-    await db.collection(col).doc(deleteTargetId).delete();
+    await db.collection(col).doc(deletedId).delete();
     closeDeleteModal();
     if (deleteTargetType === 'announce') {
       if (currentPage === 'admin-announcements') {
-        if (annViewMode === 'all') loadAnnAllList();
-        else loadAdminAnnouncements();
-      } else loadAnnouncements();
-    } else loadSchedule();
+        if (annViewMode === 'all') {
+          // 全表示：該当カードをDOMから即削除（再取得なし）
+          const card = document.querySelector(`.ann-item-card[data-id="${deletedId}"]`);
+          if (card) {
+            const group = card.closest('.ann-all-date-group');
+            card.remove();
+            // グループ内のカードがなくなったら日付グループごと削除
+            if (group && group.querySelectorAll('.ann-item-card').length === 0) group.remove();
+          }
+        } else {
+          loadAdminAnnouncements();
+        }
+      } else {
+        loadAnnouncements();
+      }
+    } else {
+      loadSchedule();
+    }
   } catch (err) {
     alert('削除エラー: ' + err.message);
   }
