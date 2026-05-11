@@ -778,6 +778,7 @@ function awMapItemsToCodes(week) {
         if      (title.includes('信じていること'))                      { lead='N'; partner='O'; }
         else if (title.includes('再訪問') || title.includes('再び'))    { lead='J'; partner='K'; }
         else if (title.includes('聖書研究') && !title.includes('会衆')) { lead='L'; partner='M'; }
+        else if (title.includes('教えて育てる'))                        { lead='L'; partner='M'; }
         else                                                            { lead='H'; partner='I'; }
         codeOcc[lead] = (codeOcc[lead] || 0) + 1;
         const occ = codeOcc[lead];
