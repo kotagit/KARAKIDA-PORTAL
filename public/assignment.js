@@ -1069,16 +1069,25 @@ async function awSaveAssignment() {
 
 // ── 確定 ──────────────────────────────────────
 
+// 日付からローカル日付文字列を取得
+function awDateStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// 日付からUTC正午のTimestampを作成（タイムゾーンずれ防止）
+function awNoonUtcTimestamp(d) {
+  const noon = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0));
+  return firebase.firestore.Timestamp.fromDate(noon);
+}
+
 // 指定日付の既存assignmentHistoryを削除してから新データを書き込む
 async function awReplaceHistory(thuDate, slotsObj) {
-  // 同日の既存履歴を検索・削除
-  const ts = firebase.firestore.Timestamp.fromDate(thuDate);
-  // 日付の範囲（当日0:00〜翌日0:00）で検索
-  const dayStart = new Date(thuDate); dayStart.setHours(0,0,0,0);
-  const dayEnd = new Date(thuDate); dayEnd.setDate(dayEnd.getDate() + 1); dayEnd.setHours(0,0,0,0);
+  // 同日の既存履歴を検索・削除（前日18:00 UTC 〜 翌日18:00 UTC で広めに検索）
+  const searchStart = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() - 1, 18, 0, 0));
+  const searchEnd   = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate(), 18, 0, 0));
   const existing = await db.collection('assignmentHistory')
-    .where('date', '>=', firebase.firestore.Timestamp.fromDate(dayStart))
-    .where('date', '<', firebase.firestore.Timestamp.fromDate(dayEnd))
+    .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
+    .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
     .get();
 
   // 既存を削除
@@ -1088,7 +1097,8 @@ async function awReplaceHistory(thuDate, slotsObj) {
     await delBatch.commit();
   }
 
-  // 新データを書き込み
+  // 新データを書き込み（UTC正午で統一）
+  const ts = awNoonUtcTimestamp(thuDate);
   const batch = db.batch();
   Object.entries(slotsObj).forEach(([code, name]) => {
     if (!name || name === '（該当者なし）') return;
