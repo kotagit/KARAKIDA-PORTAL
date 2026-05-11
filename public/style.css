@@ -123,10 +123,13 @@ body {
   margin: 0 auto;
 }
 
-/* ── ホームヒーロー ── */
+/* ── ホームヒーロー（スマホのみ表示） ── */
 .home-hero {
   width: 100%;
   display: block;
+}
+@media (min-width: 700px) {
+  .home-hero { display: none; }
 }
 
 /* ── 奉仕報告バナー ── */
