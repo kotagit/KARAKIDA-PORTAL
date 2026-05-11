@@ -41,6 +41,7 @@ let currentUser   = null;
 let isAdmin       = false;
 let isAnnaigakari = false;
 let isElder       = false;
+let isPortalAdmin = false;
 let serverTimeOffset = 0; // サーバー時刻との差分(ms)
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
@@ -159,9 +160,12 @@ async function initApp() {
           isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
           isAnnaigakari = statusValues.some(v => v === '案内係');
           isElder = statusValues.some(v => v.toUpperCase() === 'EL');
+          isPortalAdmin = statusValues.some(v => v.toUpperCase() === 'ADMIN');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+          const portalAdminSection = document.getElementById('admin-portal-section');
+          if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
         } else {
           console.warn('User not found in USER_LIST');
           memberUserName = user.displayName || '';
@@ -197,6 +201,7 @@ async function initApp() {
       isAdmin = false;
       isAnnaigakari = false;
       isElder = false;
+      isPortalAdmin = false;
       app.classList.add('hidden');
       loginScreen.classList.remove('hidden');
     }
@@ -325,6 +330,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-field-service')      loadAdminFieldService();
   if (page === 'senkyo-field')             loadUserFieldService();
   if (page === 'admin-org')                loadOrgEditor();
+  if (page === 'admin-access-log')         loadAccessLog();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -379,6 +385,10 @@ document.getElementById('admin-manage-attendance')?.addEventListener('click', ()
 
 document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
   navigate('admin-attendance-monthly');
+});
+
+document.getElementById('admin-manage-access-log')?.addEventListener('click', () => {
+  navigate('admin-access-log');
 });
 
 // メニューのクリック（data-page属性があるもののみ）
@@ -4384,4 +4394,33 @@ function renderAttendanceMonthly(docs) {
     html += buildTable(others, calcStats(others), 'その他（記念式・特別な集会）');
   }
   wrap.innerHTML = html;
+}
+
+// ── アクセスログ ────────────────────────────────
+async function loadAccessLog() {
+  const view = document.getElementById('access-log-view');
+  if (!view) return;
+  view.innerHTML = '<div class="empty-state">読み込み中...</div>';
+  try {
+    const snap = await db.collection('LOGIN_LOG')
+      .orderBy('loginAt', 'desc')
+      .limit(200)
+      .get();
+    if (snap.empty) {
+      view.innerHTML = '<div class="empty-state">ログがありません</div>';
+      return;
+    }
+    let html = '<table class="report-table"><thead><tr><th>日時</th><th>名前</th><th>Email</th><th>UA</th></tr></thead><tbody>';
+    snap.forEach(doc => {
+      const d = doc.data();
+      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
+      const dateStr = dt ? `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
+      const ua = (d.userAgent || '').length > 60 ? d.userAgent.substring(0, 60) + '…' : (d.userAgent || '');
+      html += `<tr><td style="white-space:nowrap">${esc(dateStr)}</td><td>${esc(d.name || '')}</td><td style="font-size:12px">${esc(d.email || '')}</td><td style="font-size:11px;color:#888">${esc(ua)}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
 }

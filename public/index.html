@@ -229,6 +229,32 @@
           </div>
         </div>
 
+        <!-- ── 唐木田PORTAL（ADMINのみ） ── -->
+        <div id="admin-portal-section" class="hidden">
+          <div class="admin-section-tag">唐木田PORTAL</div>
+          <div class="admin-list-menu">
+            <div class="admin-role-header">
+              <span class="material-icons admin-role-icon">admin_panel_settings</span>
+              <span class="admin-role-name">ADMIN</span>
+            </div>
+            <div class="admin-list-row" id="admin-manage-access-log">
+              <span class="admin-row-label">アクセスログ</span>
+              <span class="material-icons admin-row-chevron">chevron_right</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- アクセスログ -->
+    <section id="page-admin-access-log" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">アクセスログ</h2>
+      </div>
+      <div class="page-content">
+        <div id="access-log-view"></div>
       </div>
     </section>
 
@@ -1170,7 +1196,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=99"></script>
+<script src="main.js?v=100"></script>
 <script src="assignment.js?v=76"></script>
 </body>
 </html>
