@@ -154,6 +154,17 @@ async function initApp() {
           ref.delete();
         } catch (e2) { console.warn('Server time sync failed:', e2); }
 
+        // ログイン履歴を記録
+        try {
+          await db.collection('LOGIN_LOG').add({
+            email: user.email || '',
+            name: memberUserName || user.displayName || '',
+            uid: user.uid,
+            loginAt: firebase.firestore.FieldValue.serverTimestamp(),
+            userAgent: navigator.userAgent || ''
+          });
+        } catch (e3) { console.warn('Login log failed:', e3); }
+
       } catch (e) {
         console.error('Auth Check Error:', e);
       }
@@ -623,14 +634,14 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', action: () => openAttendanceModal(null) });
       }
       formItems.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
         el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
-        el.addEventListener('click', () => navigate(fi.page));
+        el.addEventListener('click', () => fi.action ? fi.action() : navigate(fi.page));
         listEl.appendChild(el);
       });
     }
@@ -660,14 +671,14 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
+        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', action: () => openAttendanceModal(null) });
       }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
         el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
-        el.addEventListener('click', () => navigate(fi.page));
+        el.addEventListener('click', () => fi.action ? fi.action() : navigate(fi.page));
         listEl.appendChild(el);
       });
     } else {
