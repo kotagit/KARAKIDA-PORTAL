@@ -83,7 +83,10 @@ async function awLoadHistoryWeeks() {
     const { memberName, code } = data;
     let date = data.date;
     if (!date || !memberName || !code) return;
-    if (date && date.toDate) date = date.toDate().toISOString().substring(0,10);
+    if (date && date.toDate) {
+      const dt = date.toDate();
+      date = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+    }
     if (!byDate[date]) byDate[date] = [];
     byDate[date].push({ memberName, code });
   });
