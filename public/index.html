@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=89">
+  <link rel="stylesheet" href="style.css?v=90">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -62,58 +62,46 @@
         <span class="material-icons" style="font-size:18px">chevron_right</span>
       </div>
       <div class="home-hero"></div>
-      <div class="page-content">
-        <div class="admin-list-menu">
-          <div class="admin-list-row" data-page="hatsuhy">
-            <span class="material-icons admin-row-icon">article</span>
-            <span class="admin-row-label">発表</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="senkyo">
-            <span class="material-icons admin-row-icon">groups</span>
-            <span class="admin-row-label">宣教</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="shukai">
-            <span class="material-icons admin-row-icon">event_seat</span>
-            <span class="admin-row-label">集会</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="shinsei">
-            <span class="material-icons admin-row-icon">description</span>
-            <span class="admin-row-label">フォーム</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="soshiki">
-            <span class="material-icons admin-row-icon">account_tree</span>
-            <span class="admin-row-label">組織</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="gyoji">
-            <span class="material-icons admin-row-icon">wine_bar</span>
-            <span class="admin-row-label">イベント</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="jouhou">
-            <span class="material-icons admin-row-icon">info</span>
-            <span class="admin-row-label">情報</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="keikaku">
-            <span class="material-icons admin-row-icon">calendar_month</span>
-            <span class="admin-row-label">計画</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" data-page="saigai">
-            <span class="material-icons admin-row-icon">crisis_alert</span>
-            <span class="admin-row-label">災害対応</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row hidden" id="menu-admin" data-page="admin">
-            <span class="material-icons admin-row-icon">admin_panel_settings</span>
-            <span class="admin-row-label">管理画面</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
+      <div class="menu-grid">
+        <div class="menu-item" data-page="hatsuhy">
+          <span class="menu-icon material-icons">article</span>
+          <span class="menu-label">発表</span>
+        </div>
+        <div class="menu-item" data-page="senkyo">
+          <span class="menu-icon material-icons">groups</span>
+          <span class="menu-label">宣教</span>
+        </div>
+        <div class="menu-item" data-page="shukai">
+          <span class="menu-icon material-icons">event_seat</span>
+          <span class="menu-label">集会</span>
+        </div>
+        <div class="menu-item" data-page="shinsei">
+          <span class="menu-icon material-icons">description</span>
+          <span class="menu-label">フォーム</span>
+        </div>
+        <div class="menu-item" data-page="soshiki">
+          <span class="menu-icon material-icons">account_tree</span>
+          <span class="menu-label">組織</span>
+        </div>
+        <div class="menu-item" data-page="gyoji">
+          <span class="menu-icon material-icons">wine_bar</span>
+          <span class="menu-label">イベント</span>
+        </div>
+        <div class="menu-item" data-page="jouhou">
+          <span class="menu-icon material-icons">info</span>
+          <span class="menu-label">情報</span>
+        </div>
+        <div class="menu-item" data-page="keikaku">
+          <span class="menu-icon material-icons">calendar_month</span>
+          <span class="menu-label">計画</span>
+        </div>
+        <div class="menu-item" data-page="saigai">
+          <span class="menu-icon material-icons">crisis_alert</span>
+          <span class="menu-label">災害対応</span>
+        </div>
+        <div class="menu-item hidden" id="menu-admin" data-page="admin">
+          <span class="menu-icon material-icons">admin_panel_settings</span>
+          <span class="menu-label">管理画面</span>
         </div>
       </div>
     </section>
@@ -1162,7 +1150,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=91"></script>
+<script src="main.js?v=92"></script>
 <script src="assignment.js?v=75"></script>
 </body>
 </html>

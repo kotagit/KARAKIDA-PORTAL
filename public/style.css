@@ -258,33 +258,6 @@ body {
 .admin-row-chevron {
   font-size: 20px; color: #bbb; flex-shrink: 0;
 }
-/* ── トップ画面 青ベースリスト ── */
-#page-home .admin-list-menu {
-  border: 2px solid var(--primary);
-  box-shadow: 0 4px 12px rgba(4,124,188,0.2);
-}
-#page-home .admin-list-row {
-  padding: 18px 20px;
-  border-bottom: 1px solid rgba(4,124,188,0.12);
-}
-#page-home .admin-list-row:hover { background: rgba(4,124,188,0.06); }
-#page-home .admin-list-row:active { background: rgba(4,124,188,0.12); }
-#page-home .admin-row-icon {
-  font-size: 30px; color: var(--primary); margin-right: 18px;
-}
-#page-home .admin-row-label {
-  font-size: 16px; font-weight: 700; color: var(--primary);
-}
-#page-home .admin-row-chevron { color: var(--primary); opacity: 0.5; }
-#page-home .admin-list-row[data-page="admin"] {
-  background: #F1C232;
-  border-top: none;
-}
-#page-home .admin-list-row[data-page="admin"] .admin-row-icon,
-#page-home .admin-list-row[data-page="admin"] .admin-row-label { color: #333; }
-#page-home .admin-list-row[data-page="admin"] .admin-row-chevron { color: #333; opacity: 0.6; }
-#page-home .admin-list-row[data-page="admin"]:hover { background: #e6b52a; }
-
 .admin-role-header {
   display: flex; align-items: center; padding: 10px 18px;
   background: #f0f4f8; border-bottom: 1px solid var(--border);
