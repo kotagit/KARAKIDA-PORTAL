@@ -2102,14 +2102,17 @@ async function initProgramPage() {
   if (monthEl) monthEl.innerHTML = '';
   try {
     await Promise.all([awLoadCodes(), awLoadWeeks()]);
-    // データはあるが自動表示しない — 月タイルだけ出す
     if (awWeeks.length > 0) {
+      // データあり — 月タイルだけ出し、選択で表示
       const months = awExtractMonths(awWeeks);
       awProgramSelectedMonth = null;
       awRenderMonthTiles('program-month-selector', months, null, (y, m) => {
         awProgramSelectedMonth = { year: y, month: m };
         awRenderProgramList();
       });
+      if (list) list.innerHTML = '<div class="empty-state">月を選択してください。新規作成する場合は、インポートからZIPファイルをインポートしてください。</div>';
+    } else {
+      if (list) list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>新規作成する場合は、インポートからZIPファイルをインポートしてください。</div>';
     }
   } catch(e) {
     if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
