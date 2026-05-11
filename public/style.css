@@ -218,9 +218,9 @@ body {
 .admin-card .material-icons { font-size: 48px; color: var(--primary); margin-bottom: 12px; }
 .admin-card h3 { font-size: 16px; margin-bottom: 0; }
 .admin-section-tag {
-  display: inline-block; padding: 4px 14px; border-radius: 12px;
+  display: inline-block; padding: 6px 18px; border-radius: 14px;
   background: #F1C232; color: #333;
-  font-size: 12px; font-weight: 700; margin-bottom: 10px;
+  font-size: 14px; font-weight: 700; margin-bottom: 10px;
 }
 .admin-tile-grid { padding-bottom: 12px; margin-bottom: 12px; }
 .admin-tile {
@@ -262,16 +262,16 @@ body {
   box-shadow: 0 4px 12px rgba(4,124,188,0.2);
 }
 .home-list-menu .admin-list-row {
-  padding: 18px 20px;
+  padding: 20px 20px;
   border-bottom: 1px solid rgba(4,124,188,0.12);
 }
 .home-list-menu .admin-list-row:hover { background: rgba(4,124,188,0.06); }
 .home-list-menu .admin-list-row:active { background: rgba(4,124,188,0.12); }
 .home-list-menu .admin-row-icon {
-  font-size: 30px; color: var(--primary); margin-right: 18px;
+  font-size: 32px; color: var(--primary); margin-right: 18px;
 }
 .home-list-menu .admin-row-label {
-  font-size: 16px; font-weight: 700; color: var(--primary);
+  font-size: 19px; font-weight: 700; color: var(--primary);
 }
 .home-list-menu .admin-row-chevron { color: var(--primary); opacity: 0.5; }
 .home-list-menu .admin-list-row[data-page="admin"] {
@@ -283,14 +283,14 @@ body {
 .home-list-menu .admin-list-row[data-page="admin"]:hover { background: rgba(241,194,50,0.06); }
 
 .admin-role-header {
-  display: flex; align-items: center; padding: 10px 18px;
-  background: #f0f4f8; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 8px 18px;
+  background: var(--primary); border-bottom: none;
 }
 .admin-role-icon {
-  font-size: 18px; color: #888; margin-right: 8px;
+  font-size: 18px; color: rgba(255,255,255,0.8); margin-right: 8px;
 }
 .admin-role-name {
-  font-size: 12px; font-weight: 700; color: #777; letter-spacing: 0.5px;
+  font-size: 12px; font-weight: 700; color: #fff; letter-spacing: 0.5px;
 }
 
 /* ── 管理用リスト ── */
@@ -344,7 +344,7 @@ body {
 }
 .admin-list { background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
 .admin-list-item {
-  display: flex; align-items: center; padding: 8px 16px;
+  display: flex; align-items: center; padding: 4px 16px;
   border-bottom: 1px solid var(--border); gap: 16px;
 }
 .admin-list-item:last-child { border-bottom: none; }
@@ -475,8 +475,12 @@ body {
   position: relative; z-index: 1;
   background: white; border-radius: 16px;
   width: 90%; max-width: 480px;
-  max-height: 90vh; overflow-y: auto;
+  max-height: 90vh; overflow-y: auto; overflow-x: hidden;
   padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+}
+.modal-card *, .modal-card *::before, .modal-card *::after {
+  box-sizing: border-box;
 }
 .modal-small { max-width: 320px; text-align: center; }
 .modal-small p { font-size: 16px; margin-bottom: 20px; }
@@ -1145,14 +1149,10 @@ body {
 .sr-label {
   min-width: 90px; font-size: 13px; font-weight: 700; color: #555; flex-shrink: 0;
 }
-.sr-field { overflow: hidden; }
-.sr-input-wrap { flex: 1; min-width: 0; overflow: hidden; }
+.sr-input-wrap { flex: 1; }
 .sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
-  width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
   border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
-}
-.sr-input-wrap input[type="date"] {
-  -webkit-appearance: none; appearance: none;
 }
 /* ── 連絡先情報 ── */
 .renraku-group { margin-bottom: 20px; }
@@ -1508,86 +1508,253 @@ body {
 .atm-type-weekend { background: #fff3e0; color: #e65100; }
 .atm-type-special { background: #f3e5f5; color: #6a1b9a; }
 
-/* ── 組織タブ ── */
-.org-tab-bar {
-  display: flex; gap: 0; margin-bottom: 16px;
-  background: #e8eaf0; border-radius: 10px; padding: 3px; overflow: hidden;
+/* ── 発表管理 週次ダッシュボード ── */
+/* 週/全表示 切替トグル */
+.ann-view-toggle {
+  display: flex; gap: 8px; margin-bottom: 14px;
 }
-.org-tab {
-  flex: 1; padding: 10px 0; border: none; background: transparent;
-  font-size: 14px; font-weight: 700; color: #888; cursor: pointer;
-  border-radius: 8px; transition: all 0.2s;
+.ann-view-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 8px; border-radius: 10px; border: 2px solid var(--primary);
+  background: #fff; color: var(--primary); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
 }
-.org-tab.active {
-  background: white; color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+.ann-view-btn .material-icons { font-size: 17px; }
+.ann-view-btn.active { background: var(--primary); color: #fff; }
+
+/* 全表示 日付グループ */
+.ann-all-date-group { margin-bottom: 20px; }
+.ann-all-date-label {
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  background: rgba(4,124,188,0.07); border-left: 3px solid var(--primary);
+  padding: 5px 10px; border-radius: 0 6px 6px 0; margin-bottom: 8px;
+}
+
+.ann-week-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border: 2px solid var(--primary);
+  border-radius: 14px; padding: 8px 6px; margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(4,124,188,0.12);
+}
+.ann-week-btn {
+  background: none; border: none; cursor: pointer; color: var(--primary);
+  padding: 4px; border-radius: 8px; display: flex; align-items: center;
+  transition: background 0.15s;
+}
+.ann-week-btn:hover { background: rgba(4,124,188,0.08); }
+.ann-week-btn .material-icons { font-size: 28px; }
+.ann-week-center {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+#ann-week-label {
+  font-size: 15px; font-weight: 700; color: var(--primary);
+}
+.ann-today-btn {
+  background: var(--primary); color: #fff; border: none; cursor: pointer;
+  font-size: 11px; font-weight: 700; padding: 2px 10px;
+  border-radius: 10px; letter-spacing: 0.3px;
+}
+.ann-item-card {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.ann-item-order {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 30px;
+}
+.ann-order-btn {
+  background: none; border: none; cursor: pointer; padding: 1px;
+  color: #aaa; border-radius: 6px; display: flex; align-items: center;
+  transition: color 0.15s;
+}
+.ann-order-btn:hover:not(:disabled) { color: var(--primary); }
+.ann-order-btn:disabled { opacity: 0.25; cursor: default; }
+.ann-order-btn .material-icons { font-size: 16px; }
+.ann-order-num {
+  font-size: 12px; font-weight: 700; color: #aaa; line-height: 1;
+}
+.ann-item-body { flex: 1; min-width: 0; }
+.ann-item-title {
+  font-size: 14px; font-weight: 700; color: #222;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ann-item-preview {
+  font-size: 12px; color: #888; margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ann-link-badge {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;
+}
+.ann-link-badge .material-icons { font-size: 13px; }
+.ann-item-actions {
+  display: flex; gap: 4px; align-items: center;
+}
+.ann-add-btn {
+  width: 100%; margin-top: 4px; padding: 12px;
+  background: none; border: 2px dashed rgba(4,124,188,0.35);
+  border-radius: 12px; color: var(--primary); font-size: 14px;
+  font-weight: 700; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; gap: 6px; transition: background 0.15s, border-color 0.15s;
+}
+.ann-add-btn:hover { background: rgba(4,124,188,0.05); border-color: var(--primary); }
+.ann-add-btn .material-icons { font-size: 18px; }
+.ann-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 32px 0; color: #bbb; font-size: 13px;
+}
+.ann-empty .material-icons { font-size: 36px; }
+
+/* 成員ピッカー */
+.af-member-picker {
+  border: 1px solid var(--border); border-radius: 10px;
+  max-height: 280px; overflow-y: auto; background: #fafafa;
+}
+.af-member-check {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.af-member-check:last-child { border-bottom: none; }
+.af-member-check:hover { background: rgba(4,124,188,0.05); }
+.af-member-check input { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
+.af-member-check-name { font-size: 14px; flex: 1; }
+.af-member-check-group { font-size: 11px; color: #aaa; }
+.af-member-check input:checked ~ .af-member-check-name { color: var(--primary); font-weight: 700; }
+
+/* 種別バッジ */
+.af-type-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 8px; margin-right: 5px;
+  vertical-align: middle;
+}
+/* 開拓者集まりトグル */
+.af-pioneer-meeting-toggle {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 14px; margin: 4px 0 12px;
+  border-radius: 10px; cursor: pointer;
+  background: #e8f5e9; border: 1.5px solid #66bb6a;
+  font-size: 13px; font-weight: 600; color: #2e7d32;
+}
+.af-pioneer-meeting-toggle input { accent-color: #2e7d32; width: 16px; height: 16px; }
+.af-pioneer-meeting-toggle .material-icons { font-size: 17px; color: #66bb6a; }
+#af-pioneer-meeting-fields {
+  border-left: 3px solid #66bb6a;
+  padding-left: 14px; margin-bottom: 8px;
+}
+
+.af-type-pioneer            { background: #e3f2fd; color: #1565c0; }
+.af-type-circuit            { background: #fff3e0; color: #e65100; }
+.af-type-circuit-assembly   { background: #e8f5e9; color: #2e7d32; }
+.af-type-district-convention{ background: #fce4ec; color: #880e4f; }
+
+/* 即時公開 */
+.af-publish-now-label {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 14px; margin-bottom: 16px;
+  border-radius: 10px; cursor: pointer;
+  background: #fff8e1; border: 1.5px solid #f9a825;
+  font-size: 13px; font-weight: 600; color: #e65100;
+}
+.af-publish-now-label input { accent-color: #e65100; width: 16px; height: 16px; }
+.af-publish-now-label .material-icons { font-size: 17px; color: #f9a825; }
+.ann-publish-now-badge {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; font-weight: 700; color: #e65100;
+  background: #fff8e1; border: 1px solid #f9a825;
+  border-radius: 8px; padding: 1px 7px;
+}
+.ann-publish-now-badge .material-icons { font-size: 12px; }
+
+/* 補助開拓奉仕者 グループ別テーブル */
+.pioneer-group-table {
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; margin-top: 6px;
+}
+.pioneer-group-row {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.pioneer-group-row:last-child { border-bottom: none; }
+.pioneer-group-label {
+  min-width: 90px; max-width: 90px;
+  background: var(--primary); color: #fff;
+  font-size: 12px; font-weight: 700;
+  padding: 8px 10px; display: flex; align-items: center;
+  word-break: break-all;
+}
+.pioneer-group-names {
+  padding: 8px 12px; font-size: 14px; line-height: 1.6;
+  flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px;
 }
 
 /* ── グループ成員表 ── */
-.group-member-section { margin-top: 32px; }
-.group-member-card {
-  background: white; border-radius: 12px; box-shadow: var(--shadow);
-  margin-bottom: 16px; overflow: hidden;
+.gm-group { margin-bottom: 24px; }
+.gm-group-header {
+  font-size: 15px; font-weight: 700; color: var(--primary);
+  padding: 10px 14px; background: var(--primary-light);
+  border-radius: 8px 8px 0 0;
+  display: flex; align-items: center;
 }
-.group-member-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; font-size: 15px; font-weight: 700; color: white;
-  background: var(--primary);
+.gm-count {
+  margin-left: auto; font-size: 12px; font-weight: 600;
+  background: var(--primary); color: white;
+  padding: 2px 10px; border-radius: 12px;
 }
-.group-member-count {
-  font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.25);
-  padding: 2px 10px; border-radius: 10px;
+.gm-group .admin-list { border-radius: 0 0 8px 8px; }
+.gm-gender-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 10px;
+  border-radius: 12px; white-space: nowrap; flex-shrink: 0;
 }
-.group-member-list { padding: 0; }
-.group-member-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
-}
-.group-member-row:last-child { border-bottom: none; }
-.group-member-icon { font-size: 22px; color: #bbb; flex-shrink: 0; }
-.group-member-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
-.group-member-role { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+.gm-gender-m { background: #e3f2fd; color: #1565c0; }
+.gm-gender-f { background: #fce4ec; color: #c62828; }
 
-/* ── アクセスログ ── */
-.access-log-list { display: flex; flex-direction: column; gap: 0; }
-.access-log-date {
-  font-size: 13px; font-weight: 700; color: var(--primary);
-  padding: 12px 16px 6px; background: var(--bg);
-  position: sticky; top: 0; z-index: 1;
+/* ── 公共エリア策定 ── */
+.pw-date-group { margin-bottom: 28px; }
+.pw-date-tag {
+  display: inline-block; padding: 4px 14px; border-radius: 12px;
+  background: var(--primary); color: white;
+  font-size: 12px; font-weight: 700; margin-bottom: 10px;
 }
-.access-log-card {
-  background: white; padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0; cursor: pointer;
+.pw-slot-card {
+  display: flex; align-items: center; gap: 10px;
+  background: white; border-radius: 10px; padding: 12px 14px;
+  margin-bottom: 10px; cursor: pointer;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  transition: background 0.12s;
 }
-.access-log-main {
-  display: flex; align-items: center; gap: 12px;
+.pw-slot-card:hover { background: #f5f9fc; }
+.pw-slot-icon { font-size: 22px; color: var(--primary); flex-shrink: 0; }
+.pw-slot-time { font-size: 15px; font-weight: 700; flex: 1; }
+.pw-place-badge {
+  font-size: 12px; font-weight: 700; padding: 4px 12px;
+  border-radius: 6px; white-space: nowrap;
 }
-.access-log-icon {
-  font-size: 28px; color: #bbb; flex-shrink: 0;
+.pw-place-karakida  { background: #d4f4d4; color: #2e7d32; }
+.pw-place-horinouchi { background: #d0eeff; color: #01579b; }
+.pw-place-other      { background: #f0f0f0; color: #555; }
+
+.pw-subloc-card {
+  background: white; border-radius: 12px; margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden;
 }
-.access-log-info { flex: 1; min-width: 0; }
-.access-log-name {
-  font-size: 15px; font-weight: 700; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.pw-subloc-header {
+  padding: 12px 16px; background: #f5f5f5;
+  font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--border);
 }
-.access-log-email {
-  font-size: 12px; color: var(--text-light); margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.pw-subloc-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.pw-assign-row { display: flex; align-items: center; gap: 12px; }
+.pw-assign-label {
+  width: 80px; flex-shrink: 0;
+  font-size: 13px; font-weight: 600; color: var(--text-light);
 }
-.access-log-meta {
-  text-align: right; flex-shrink: 0;
+.pw-assign-select {
+  flex: 1; padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 14px; background: white;
 }
-.access-log-time {
-  font-size: 14px; font-weight: 600; color: var(--text);
-}
-.access-log-device {
-  font-size: 11px; color: #999; margin-top: 2px;
-}
-.al-detail {
-  margin-top: 8px; padding: 8px 0 0; border-top: 1px solid #f0f0f0;
-}
-.al-detail-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 0 5px 40px; font-size: 13px; color: #666;
-}
-.al-detail-time { font-weight: 500; }
-.al-detail-device { font-size: 11px; color: #999; }
+.pw-assign-select:focus { outline: none; border-color: var(--primary); }
+.pw-divider { height: 1px; background: var(--border); margin: 4px 0; }

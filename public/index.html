@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=102">
+  <link rel="stylesheet" href="style.css?v=111">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -105,7 +105,7 @@
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" data-page="saigai">
-            <span class="material-icons admin-row-icon">bolt</span>
+            <span class="material-icons admin-row-icon">crisis_alert</span>
             <span class="admin-row-label">災害対応</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
@@ -146,6 +146,10 @@
           <div class="admin-role-header">
             <span class="material-icons admin-role-icon">map</span>
             <span class="admin-role-name">区域係</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-pw">
+            <span class="admin-row-label">公共エリア伝道取決表策定</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" id="admin-manage-field-service">
             <span class="admin-row-label">野外奉仕取決表策定</span>
@@ -211,6 +215,10 @@
             <span class="material-icons admin-role-icon">edit_note</span>
             <span class="admin-role-name">書記</span>
           </div>
+          <div class="admin-list-row" id="admin-manage-group-members">
+            <span class="admin-row-label">グループ成員表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-org">
             <span class="admin-row-label">組織表編集</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
@@ -229,36 +237,49 @@
           </div>
         </div>
 
-        <!-- ── 唐木田PORTAL（ADMINのみ） ── -->
-        <div id="admin-portal-section" class="hidden">
-          <div class="admin-section-tag">唐木田PORTAL</div>
-          <div class="admin-list-menu">
-            <div class="admin-role-header">
-              <span class="material-icons admin-role-icon">admin_panel_settings</span>
-              <span class="admin-role-name">ADMIN</span>
-            </div>
-            <div class="admin-list-row" id="admin-manage-access-log">
-              <span class="admin-row-label">アクセスログ</span>
-              <span class="material-icons admin-row-chevron">chevron_right</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- アクセスログ -->
-    <section id="page-admin-access-log" class="page">
-      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
-        <h2 style="margin:0">アクセスログ</h2>
-      </div>
-      <div class="page-content">
-        <div id="access-log-view"></div>
       </div>
     </section>
 
     <!-- 組織表管理 -->
+    <!-- 公共エリア策定：スロット一覧 -->
+    <section id="page-admin-pw" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">公共エリア伝道取決表策定</h2>
+        <button id="pw-refresh-btn" class="icon-btn" style="margin-left:auto" title="再読み込み">
+          <span class="material-icons">refresh</span>
+        </button>
+      </div>
+      <div class="page-content">
+        <div id="pw-slot-list"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <!-- 公共エリア策定：割当て -->
+    <section id="page-admin-pw-assignment" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button id="pw-assignment-back-btn" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 id="pw-assignment-title" style="margin:0;font-size:16px">策定</h2>
+        <button id="pw-save-btn" class="btn-primary" style="margin-left:auto;padding:6px 16px">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存
+        </button>
+      </div>
+      <div class="page-content">
+        <div id="pw-assignment-body"></div>
+      </div>
+    </section>
+
+    <!-- グループ成員表 -->
+    <section id="page-admin-group-members" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">グループ成員表</h2>
+      </div>
+      <div class="page-content">
+        <div id="group-members-list"></div>
+      </div>
+    </section>
+
     <section id="page-admin-org" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
         <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
@@ -281,20 +302,42 @@
       </div>
     </section>
 
-    <!-- 発表管理（リスト形式） -->
+    <!-- 発表管理 -->
     <section id="page-admin-announcements" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
         <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
         <h2 style="margin:0">発表管理</h2>
       </div>
       <div class="page-content">
-        <div class="admin-actions-bar">
-          <button id="admin-add-announce-btn" class="btn-primary">
-            <span class="material-icons">add</span> 新規作成
+        <!-- 表示切替 -->
+        <div class="ann-view-toggle">
+          <button class="ann-view-btn active" id="ann-toggle-week">
+            <span class="material-icons">calendar_today</span>週選択
+          </button>
+          <button class="ann-view-btn" id="ann-toggle-all">
+            <span class="material-icons">list</span>全表示
           </button>
         </div>
-        <div id="admin-announce-list" class="admin-list">
-          <div class="loading">読み込み中...</div>
+
+        <!-- 週ビュー -->
+        <div id="ann-view-week">
+          <div class="ann-week-nav">
+            <button class="ann-week-btn" id="ann-prev-week"><span class="material-icons">chevron_left</span></button>
+            <div class="ann-week-center">
+              <span id="ann-week-label">読み込み中...</span>
+              <button class="ann-today-btn hidden" id="ann-today-btn">今週</button>
+            </div>
+            <button class="ann-week-btn" id="ann-next-week"><span class="material-icons">chevron_right</span></button>
+          </div>
+          <div id="ann-week-list"><div class="loading">読み込み中...</div></div>
+          <button class="ann-add-btn" id="admin-add-announce-btn">
+            <span class="material-icons">add</span> この週に発表を追加
+          </button>
+        </div>
+
+        <!-- 全表示ビュー -->
+        <div id="ann-view-all" class="hidden">
+          <div id="ann-all-list"><div class="loading">読み込み中...</div></div>
         </div>
       </div>
     </section>
@@ -575,60 +618,6 @@
       </div>
     </section>
 
-    <!-- 出席人数登録（ページ版） -->
-    <section id="page-attendance-form" class="page">
-      <div class="page-banner banner-shinsei"><h2>出席人数登録</h2></div>
-      <div class="page-content">
-        <div class="form-container">
-          <div class="sr-field">
-            <label class="sr-label">日付 <span style="color:#d32f2f">*</span></label>
-            <div class="sr-input-wrap"><input type="date" id="attf-date"></div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">会場 <span style="color:#d32f2f">*</span></label>
-            <div class="sr-input-wrap">
-              <select id="attf-venue">
-                <option value="kingdom_hall">王国会館</option>
-                <option value="zoom">Zoom</option>
-              </select>
-            </div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">集会の種類 <span style="color:#d32f2f">*</span></label>
-            <div class="sr-input-wrap">
-              <select id="attf-type">
-                <option value="midweek">週中の集会</option>
-                <option value="weekend">週末の集会</option>
-                <option value="memorial">記念式</option>
-                <option value="special">特別な集会</option>
-              </select>
-            </div>
-          </div>
-          <div class="sr-field hidden" id="attf-special-group">
-            <label class="sr-label">内容</label>
-            <div class="sr-input-wrap"><input type="text" id="attf-special-detail" placeholder="例: 特別講演会"></div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">出席人数 <span style="color:#d32f2f">*</span></label>
-            <div class="sr-input-wrap"><input type="number" id="attf-count" min="0" placeholder="例: 85"></div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">備考</label>
-            <div class="sr-input-wrap"><textarea id="attf-remarks" rows="2" placeholder="自由記入"></textarea></div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">提出者</label>
-            <div class="sr-input-wrap"><input type="text" id="attf-submitter" readonly style="background:#f5f5f5"></div>
-          </div>
-          <div style="margin-top:20px">
-            <button type="button" id="attf-submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
-              <span class="material-icons" style="font-size:18px">send</span> 送信する
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- 区域情報登録 -->
     <section id="page-area-info" class="page">
       <div class="page-banner banner-shinsei">
@@ -682,12 +671,7 @@
         <h2>組織</h2>
       </div>
       <div class="page-content" style="max-width:1100px">
-        <div class="org-tab-bar">
-          <button class="org-tab active" id="org-tab-group" onclick="switchOrgTab('group')">グループ成員表</button>
-          <button class="org-tab" id="org-tab-chart" onclick="switchOrgTab('chart')">組織表</button>
-        </div>
-        <div id="org-view-chart" class="hidden"></div>
-        <div id="org-view-group"></div>
+        <div id="org-view"></div>
       </div>
     </section>
 
@@ -1143,24 +1127,204 @@
       <button class="icon-btn" id="announce-modal-close"><span class="material-icons">close</span></button>
     </div>
     <form id="announce-form">
+
+      <!-- 種別（新規のみ） -->
+      <div class="form-group" id="af-type-row">
+        <label>種別</label>
+        <select id="af-type">
+          <option value="general">一般発表</option>
+          <option value="pioneer">補助開拓奉仕者</option>
+          <option value="circuit">巡回監督訪問</option>
+          <option value="circuit-assembly">巡回大会</option>
+          <option value="district-convention">地区大会</option>
+        </select>
+      </div>
+
+      <!-- 会場（大会のみ、日付の前に表示） -->
+      <div id="af-convention-venue-top" class="hidden">
+        <div class="form-group">
+          <label>会場</label>
+          <select id="af-convention-venue">
+            <option value="">未選択</option>
+            <option value="海老名大会ホール">海老名大会ホール</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div id="af-convention-other-row" class="hidden">
+          <div class="form-group">
+            <label>会場名</label>
+            <input type="text" id="af-convention-location" placeholder="例：多摩市立多摩市民館">
+          </div>
+          <div class="form-group">
+            <label>住所</label>
+            <input type="text" id="af-convention-address" placeholder="例：東京都多摩市落合2-35">
+          </div>
+        </div>
+      </div>
+
+      <!-- 日付 -->
       <div class="form-group">
-        <label>日付</label>
+        <label id="af-date-label">日付</label>
         <input type="date" id="af-date" required>
       </div>
+
+      <!-- 繰り返し（新規のみ） -->
+      <div id="af-repeat-section">
+        <div class="form-group">
+          <label>繰り返し</label>
+          <select id="af-repeat-type">
+            <option value="none">繰り返しなし</option>
+            <option value="weeks">○週間繰り返す</option>
+            <option value="until">日付まで繰り返す</option>
+          </select>
+        </div>
+        <div id="af-repeat-weeks-row" class="form-group hidden">
+          <label>繰り返し週数</label>
+          <input type="number" id="af-repeat-weeks" min="1" max="12" value="2" placeholder="週数">
+        </div>
+        <div id="af-repeat-until-row" class="form-group hidden">
+          <label>繰り返し終了日</label>
+          <input type="date" id="af-repeat-until">
+        </div>
+      </div>
+
+      <!-- ── 一般発表 ── -->
+      <div id="af-section-general">
+        <div class="form-group">
+          <label>タイトル（任意）</label>
+          <input type="text" id="af-title" placeholder="例：集会に関するお知らせ">
+        </div>
+        <div class="form-group">
+          <label>本文（任意）</label>
+          <textarea id="af-body" rows="3" placeholder="内容を入力..."></textarea>
+        </div>
+      </div>
+
+      <!-- ── 補助開拓奉仕者 / バプテスマ候補者 ── -->
+      <div id="af-section-member-pick" class="hidden">
+        <div class="form-group">
+          <label id="af-member-pick-label">成員を選択</label>
+          <div id="af-member-picker" class="af-member-picker">
+            <div class="loading">読み込み中...</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>追加メッセージ（任意）</label>
+          <textarea id="af-pioneer-note" rows="2" placeholder="追加のメッセージがあれば入力..."></textarea>
+        </div>
+      </div>
+
+      <!-- ── 巡回監督訪問 ── -->
+      <div id="af-section-circuit" class="hidden">
+        <div class="form-group">
+          <label>巡回監督名</label>
+          <select id="af-circuit-name-select" onchange="onCircuitNameSelectChange(this.value)">
+            <option value="井出佳範 兄弟">井出佳範 兄弟</option>
+            <option value="代理巡回監督">代理巡回監督</option>
+          </select>
+          <input type="text" id="af-circuit-name-custom" placeholder="代理監督の氏名（例：田中 太郎 兄弟）" style="margin-top:6px;display:none">
+        </div>
+        <div class="form-group">
+          <label>訪問開始日</label>
+          <input type="date" id="af-circuit-start">
+        </div>
+        <div class="form-group">
+          <label>訪問終了日（任意）</label>
+          <input type="date" id="af-circuit-end">
+        </div>
+        <div class="form-group">
+          <label>メモ（任意）</label>
+          <textarea id="af-circuit-note" rows="2" placeholder="集会の入れ替えなど追加情報があれば..."></textarea>
+        </div>
+      </div>
+
+      <!-- ── 巡回大会 / 地区大会 ── -->
+      <div id="af-section-convention" class="hidden">
+        <!-- 地区大会のみ：日付2・3を自動入力 -->
+        <div id="af-convention-days-row" class="hidden">
+          <div class="form-group">
+            <label>日付 2</label>
+            <input type="date" id="af-convention-day2" readonly style="background:#f5f5f5">
+          </div>
+          <div class="form-group">
+            <label>日付 3</label>
+            <input type="date" id="af-convention-day3" readonly style="background:#f5f5f5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>メモ（任意）</label>
+          <textarea id="af-convention-note" rows="2" placeholder="追加情報があれば..."></textarea>
+        </div>
+
+        <!-- 巡回大会のみ：開拓者の集まり -->
+        <div id="af-pioneer-meeting-section" class="hidden">
+          <label class="af-pioneer-meeting-toggle">
+            <input type="checkbox" id="af-pioneer-meeting-enabled">
+            <span class="material-icons">groups</span>
+            開拓者の集まりの情報を追加
+          </label>
+          <div id="af-pioneer-meeting-fields" class="hidden">
+            <div class="form-group">
+              <label>日付</label>
+              <input type="date" id="af-pm-date">
+            </div>
+            <div class="form-group">
+              <label>時間</label>
+              <input type="time" id="af-pm-time" placeholder="例：09:00">
+            </div>
+            <div class="form-group">
+              <label>会場</label>
+              <select id="af-pm-venue">
+                <option value="">未選択</option>
+                <option value="海老名大会ホール">海老名大会ホール</option>
+                <option value="other">その他</option>
+              </select>
+            </div>
+            <div id="af-pm-other-row" class="hidden">
+              <div class="form-group">
+                <label>会場名</label>
+                <input type="text" id="af-pm-location" placeholder="例：大会ホール内 〇〇室">
+              </div>
+              <div class="form-group">
+                <label>住所</label>
+                <input type="text" id="af-pm-address" placeholder="例：東京都...">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>メモ（任意）</label>
+              <textarea id="af-pm-note" rows="2" placeholder="対象者など追加情報があれば..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- リンク（全種別共通） -->
       <div class="form-group">
-        <label>タイトル（任意）</label>
-        <input type="text" id="af-title" placeholder="例：5月の補助開拓奉仕者">
+        <label>ファイル / リンク</label>
+        <div id="af-links-container"></div>
+        <button type="button" class="btn-secondary" id="af-add-link-btn" style="width:100%;margin-top:6px;">
+          <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 追加
+        </button>
       </div>
+
+      <!-- Googleフォーム（全種別共通） -->
       <div class="form-group">
-        <label>本文（任意）</label>
-        <textarea id="af-body" rows="3" placeholder="内容を入力..."></textarea>
+        <label>
+          <img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png"
+               style="width:16px;height:16px;vertical-align:middle;margin-right:4px">
+          Google フォーム（任意）
+        </label>
+        <input type="url" id="af-google-form-url" placeholder="https://forms.gle/...">
+        <input type="text" id="af-google-form-title" placeholder="フォームのタイトル（任意）" style="margin-top:6px">
       </div>
-      <div id="af-links-container">
-        <!-- リンク入力がここに追加される -->
-      </div>
-      <button type="button" class="btn-secondary" id="af-add-link-btn" style="width:100%; margin-bottom:20px;">
-        <span class="material-icons" style="font-size:18px; vertical-align:middle;">add</span> リンクを追加
-      </button>
+
+      <!-- 即時公開 -->
+      <label class="af-publish-now-label">
+        <input type="checkbox" id="af-publish-now">
+        <span class="material-icons">flash_on</span>
+        全員に即時公開する（木曜20:40を待たない）
+      </label>
+
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="af-cancel">キャンセル</button>
         <button type="submit" class="btn-primary">保存</button>
@@ -1215,18 +1379,6 @@
 </div>
 
 <!-- 削除確認モーダル -->
-<!-- カスタム確認モーダル（confirm()の代替） -->
-<div id="custom-confirm-modal" class="modal hidden">
-  <div class="modal-overlay" id="custom-confirm-overlay"></div>
-  <div class="modal-card modal-small" style="max-width:400px;text-align:left">
-    <p id="custom-confirm-msg" style="white-space:pre-wrap;font-size:14px;line-height:1.6;margin-bottom:20px"></p>
-    <div class="form-actions" style="justify-content:flex-end">
-      <button class="btn-secondary" id="custom-confirm-cancel">キャンセル</button>
-      <button class="btn-primary" id="custom-confirm-ok">OK</button>
-    </div>
-  </div>
-</div>
-
 <div id="delete-modal" class="modal hidden">
   <div class="modal-overlay" id="delete-overlay"></div>
   <div class="modal-card modal-small">
@@ -1255,7 +1407,8 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=105"></script>
-<script src="assignment.js?v=76"></script>
+<script src="main.js?v=115"></script>
+<script src="assignment.js?v=75"></script>
+<script src="pw.js?v=3"></script>
 </body>
 </html>

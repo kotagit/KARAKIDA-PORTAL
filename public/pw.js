@@ -1,0 +1,291 @@
+// ── 公共エリア伝道策定 ──────────────────────────────────────────
+
+// 現在策定中のスロットデータ
+let pwCurrentSlot = null;
+// slotKey -> { subLocation -> { '司会者': name|null, '参加者': [name|null, ...] } }
+let pwAssignmentsMap = {};
+
+// ── ページタイトル登録（main.js の PAGE_TITLES に追記）
+PAGE_TITLES['admin-pw']            = '公共エリア伝道取決表策定';
+PAGE_TITLES['admin-pw-assignment'] = '策定';
+
+// ── ナビゲーション
+document.getElementById('admin-manage-pw')?.addEventListener('click', () => {
+  navigate('admin-pw');
+  loadPWSlots();
+});
+
+document.getElementById('pw-refresh-btn')?.addEventListener('click', () => {
+  loadPWSlots();
+});
+
+document.getElementById('pw-assignment-back-btn')?.addEventListener('click', () => {
+  navigate('admin-pw');
+});
+
+document.getElementById('pw-save-btn')?.addEventListener('click', () => {
+  savePWAssignments();
+});
+
+// ── サブロケーション名を取得（Flutterと同じロジック）
+function pwGetFullPlaceNames(weekday, time, place) {
+  if (place.includes('唐木田')) return ['唐木田構内'];
+  if (place.includes('堀之内')) {
+    const base = '堀之内';
+    if (weekday === '水' && time === '18:00') {
+      return [`${base}三和前`, `${base}FM前`];
+    }
+    return [`${base}三和前`, `${base}FM前`, `${base}信号前`];
+  }
+  return [place];
+}
+
+// ── スロット一覧の読み込み
+async function loadPWSlots() {
+  const list = document.getElementById('pw-slot-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  pwAssignmentsMap = {};
+
+  try {
+    // 1. 募集スロット
+    const optSnap  = await db.collection('PUBLIC_WITNESSING_OPTIONS').get();
+    // 2. 全申込み
+    const appSnap  = await db.collection('PUBLIC_WITNESSING').get();
+    // 3. 既存割当て
+    const assSnap  = await db.collection('PUBLIC_WITNESSING_ASSIGNMENTS').get();
+
+    const existingDocs = {};
+    assSnap.docs.forEach(d => { existingDocs[d.id] = d.data(); });
+
+    // スロットを order → date → time でソート
+    const opts = optSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    opts.sort((a, b) => {
+      const oa = typeof a.order === 'number' ? a.order : 9999;
+      const ob = typeof b.order === 'number' ? b.order : 9999;
+      if (oa !== ob) return oa - ob;
+      return String(a.day || '').localeCompare(String(b.day || ''));
+    });
+
+    if (opts.length === 0) {
+      list.innerHTML = '<div class="empty-state">募集項目がありません</div>';
+      return;
+    }
+
+    const slots = [];
+    opts.forEach(opt => {
+      const dateStr  = String(opt.day       || '');
+      const weekday  = String(opt.dayofweek || '');
+      const time     = String(opt.starttime || '');
+      const place    = String(opt.place     || '');
+      const dateLabel = `${dateStr}(${weekday})`;
+      const slotKey  = `${dateStr}_${time}_${place}`;
+
+      // 申込者を抽出
+      const applicantsForSlot = appSnap.docs
+        .map(d => d.data())
+        .filter(d =>
+          d.day       === dateStr &&
+          d.dayofweek === weekday &&
+          d.starttime === time    &&
+          d.place     === place
+        );
+
+      const conductorApplicants = [...new Set(
+        applicantsForSlot
+          .filter(d => String(d.role || '').includes('司会者'))
+          .map(d => String(d.name || ''))
+          .filter(Boolean)
+      )].sort();
+
+      const allApplicants = [...new Set(
+        applicantsForSlot
+          .map(d => String(d.name || ''))
+          .filter(Boolean)
+      )].sort();
+
+      const fullPlaces = pwGetFullPlaceNames(weekday, time, place);
+
+      // 既存割当てを初期化
+      const subMap = {};
+      fullPlaces.forEach(fp => {
+        const docId = `${dateStr}_${time}_${fp}`;
+        if (existingDocs[docId]) {
+          const ass = existingDocs[docId].assignments || {};
+          const parts = Array.isArray(ass['参加者']) ? ass['参加者'] : [];
+          while (parts.length < 5) parts.push(null);
+          subMap[fp] = { '司会者': ass['司会者'] || null, '参加者': parts.slice(0, 5) };
+        } else {
+          subMap[fp] = { '司会者': null, '参加者': [null, null, null, null, null] };
+        }
+      });
+      pwAssignmentsMap[slotKey] = subMap;
+
+      slots.push({ dateStr, weekday, dateLabel, time, place, slotKey, fullPlaces, conductorApplicants, allApplicants });
+    });
+
+    // 日付ごとにグループ化して描画
+    let html = '';
+    let lastDate = '';
+    slots.forEach(slot => {
+      if (slot.dateLabel !== lastDate) {
+        if (lastDate) html += '</div>';
+        html += `<div class="pw-date-group">
+          <div class="pw-date-tag">${esc(slot.dateLabel)}</div>`;
+        lastDate = slot.dateLabel;
+      }
+      const placeColor = slot.place.includes('唐木田') ? 'pw-place-karakida'
+                       : slot.place.includes('堀之内') ? 'pw-place-horinouchi'
+                       : 'pw-place-other';
+      html += `
+        <div class="pw-slot-card" data-slotkey="${esc(slot.slotKey)}"
+          onclick="openPWAssignment('${esc(slot.slotKey)}')">
+          <span class="material-icons pw-slot-icon">access_time</span>
+          <span class="pw-slot-time">${esc(slot.time)}</span>
+          <span class="pw-place-badge ${placeColor}">${esc(slot.place)}</span>
+          <span class="material-icons" style="color:#bbb;font-size:20px">chevron_right</span>
+        </div>`;
+    });
+    if (lastDate) html += '</div>';
+    list.innerHTML = html;
+
+    // スロットデータをキャッシュ
+    list._pwSlots = slots;
+
+  } catch (e) {
+    list.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── 割当て画面を開く
+function openPWAssignment(slotKey) {
+  const list = document.getElementById('pw-slot-list');
+  const slots = list._pwSlots || [];
+  const slot = slots.find(s => s.slotKey === slotKey);
+  if (!slot) return;
+
+  pwCurrentSlot = slot;
+
+  // タイトル更新
+  document.getElementById('pw-assignment-title').textContent =
+    `${slot.dateLabel} ${slot.time} 策定`;
+
+  renderPWAssignment(slot);
+  navigate('admin-pw-assignment');
+}
+
+// ── 割当て画面の描画
+function renderPWAssignment(slot) {
+  const body = document.getElementById('pw-assignment-body');
+  const subMap = pwAssignmentsMap[slot.slotKey] || {};
+
+  let html = '';
+  slot.fullPlaces.forEach(fp => {
+    const data = subMap[fp] || { '司会者': null, '参加者': [null,null,null,null,null] };
+    html += `
+      <div class="pw-subloc-card">
+        <div class="pw-subloc-header">${esc(fp)}</div>
+        <div class="pw-subloc-body">
+          ${buildPWRow('司会者', fp, '司会者', data['司会者'], slot.conductorApplicants)}
+          <div class="pw-divider"></div>
+          ${[0,1,2,3,4].map(i =>
+            buildPWRow(`参加者 ${i+1}`, fp, `参加者_${i}`, data['参加者'][i], slot.allApplicants)
+          ).join('')}
+        </div>
+      </div>`;
+  });
+  body.innerHTML = html;
+}
+
+// ── 割当て行を構築
+function buildPWRow(label, fp, key, currentVal, applicants) {
+  const allAssigned = pwGetAllAssigned(pwCurrentSlot.slotKey);
+  const filtered = applicants.filter(n => n === currentVal || !allAssigned.has(n));
+
+  let options = '<option value="">未選択</option>';
+  if (currentVal && !filtered.includes(currentVal)) {
+    options += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`;
+  }
+  filtered.forEach(n => {
+    const sel = n === currentVal ? ' selected' : '';
+    options += `<option value="${esc(n)}"${sel}>${esc(n)}</option>`;
+  });
+
+  const safeKey = key.replace(/\s/g, '_');
+  return `
+    <div class="pw-assign-row">
+      <span class="pw-assign-label">${esc(label)}</span>
+      <select class="pw-assign-select"
+        onchange="onPWSelectChange('${esc(pwCurrentSlot.slotKey)}','${esc(fp)}','${esc(key)}',this.value)">
+        ${options}
+      </select>
+    </div>`;
+}
+
+// ── 全割当て済み名前を取得
+function pwGetAllAssigned(slotKey) {
+  const assigned = new Set();
+  const subMap = pwAssignmentsMap[slotKey] || {};
+  Object.values(subMap).forEach(data => {
+    if (data['司会者']) assigned.add(data['司会者']);
+    (data['参加者'] || []).forEach(n => { if (n) assigned.add(n); });
+  });
+  return assigned;
+}
+
+// ── セレクト変更時
+function onPWSelectChange(slotKey, fp, key, value) {
+  const subMap = pwAssignmentsMap[slotKey];
+  if (!subMap || !subMap[fp]) return;
+  const val = value || null;
+
+  if (key === '司会者') {
+    subMap[fp]['司会者'] = val;
+  } else if (key.startsWith('参加者_')) {
+    const idx = parseInt(key.split('_')[1]);
+    subMap[fp]['参加者'][idx] = val;
+  }
+  // 重複排除のため再描画
+  renderPWAssignment(pwCurrentSlot);
+}
+
+// ── Firestore に保存
+async function savePWAssignments() {
+  const btn = document.getElementById('pw-save-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    const slot = pwCurrentSlot;
+    const datePart = slot.dateStr;
+    const subMap = pwAssignmentsMap[slot.slotKey] || {};
+    const batch = db.batch();
+
+    slot.fullPlaces.forEach(fp => {
+      const data = subMap[fp] || {};
+      const docId = `${datePart}_${slot.time}_${fp}`;
+      const ref = db.collection('PUBLIC_WITNESSING_ASSIGNMENTS').doc(docId);
+      batch.set(ref, {
+        date:  slot.dateLabel,
+        time:  slot.time,
+        place: fp,
+        assignments: {
+          '司会者': data['司会者'] || null,
+          '参加者': data['参加者'] || [null,null,null,null,null],
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    btn.textContent = '✓ 保存しました';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存';
+      btn.disabled = false;
+    }, 1500);
+
+  } catch (e) {
+    btn.textContent = '保存失敗';
+    btn.disabled = false;
+    alert('保存に失敗しました: ' + e.message);
+  }
+}

@@ -1,28 +1,4 @@
 
-// ── カスタム確認ダイアログ（confirm()の代替） ──
-function customConfirm(msg) {
-  return new Promise(resolve => {
-    const modal = document.getElementById('custom-confirm-modal');
-    document.getElementById('custom-confirm-msg').textContent = msg;
-    modal.classList.remove('hidden');
-    const ok = document.getElementById('custom-confirm-ok');
-    const cancel = document.getElementById('custom-confirm-cancel');
-    const overlay = document.getElementById('custom-confirm-overlay');
-    function cleanup(result) {
-      modal.classList.add('hidden');
-      ok.removeEventListener('click', onOk);
-      cancel.removeEventListener('click', onCancel);
-      overlay.removeEventListener('click', onCancel);
-      resolve(result);
-    }
-    function onOk() { cleanup(true); }
-    function onCancel() { cleanup(false); }
-    ok.addEventListener('click', onOk);
-    cancel.addEventListener('click', onCancel);
-    overlay.addEventListener('click', onCancel);
-  });
-}
-
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
@@ -41,7 +17,6 @@ let currentUser   = null;
 let isAdmin       = false;
 let isAnnaigakari = false;
 let isElder       = false;
-let isPortalAdmin = false;
 let serverTimeOffset = 0; // サーバー時刻との差分(ms)
 let currentPage   = 'home';
 let scheduleType  = 'meeting';
@@ -89,10 +64,10 @@ const PAGE_TITLES = {
   'admin-s89': 'S-89 生成',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-members': 'メンバー管理',
-  'attendance-form': '出席人数登録',
   'admin-attendance': '集会出席',
   'admin-attendance-monthly': '出席 月集計',
   'admin-s13': '区域割当ての記録',
+  'admin-group-members': 'グループ成員表',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
@@ -161,12 +136,9 @@ async function initApp() {
           isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
           isAnnaigakari = statusValues.some(v => v === '案内係');
           isElder = statusValues.some(v => v.toUpperCase() === 'EL');
-          isPortalAdmin = statusValues.some(v => v.toUpperCase() === 'ADMIN');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
-          const portalAdminSection = document.getElementById('admin-portal-section');
-          if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
         } else {
           console.warn('User not found in USER_LIST');
           memberUserName = user.displayName || '';
@@ -183,17 +155,6 @@ async function initApp() {
           ref.delete();
         } catch (e2) { console.warn('Server time sync failed:', e2); }
 
-        // ログイン履歴を記録
-        try {
-          await db.collection('LOGIN_LOG').add({
-            email: user.email || '',
-            name: memberUserName || user.displayName || '',
-            uid: user.uid,
-            loginAt: firebase.firestore.FieldValue.serverTimestamp(),
-            userAgent: navigator.userAgent || ''
-          });
-        } catch (e3) { console.warn('Login log failed:', e3); }
-
       } catch (e) {
         console.error('Auth Check Error:', e);
       }
@@ -202,7 +163,6 @@ async function initApp() {
       isAdmin = false;
       isAnnaigakari = false;
       isElder = false;
-      isPortalAdmin = false;
       app.classList.add('hidden');
       loginScreen.classList.remove('hidden');
     }
@@ -321,7 +281,6 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
   if (page === 'admin-members')            initMembersPage();
-  if (page === 'attendance-form')           initAttendanceForm();
   if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-attendance-monthly') initAttendanceMonthly();
   if (page === 'admin-s13')                loadAdminS13Table();
@@ -332,7 +291,6 @@ function navigate(page, pushHistory) {
   if (page === 'admin-field-service')      loadAdminFieldService();
   if (page === 'senkyo-field')             loadUserFieldService();
   if (page === 'admin-org')                loadOrgEditor();
-  if (page === 'admin-access-log')         loadAccessLog();
 
   if (isAdmin) {
     const fab = document.getElementById('add-announce-btn');
@@ -361,6 +319,11 @@ document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
   navigate('admin-s13');
 });
 
+document.getElementById('admin-manage-group-members')?.addEventListener('click', () => {
+  navigate('admin-group-members');
+  loadGroupMembers();
+});
+
 document.getElementById('admin-manage-org')?.addEventListener('click', () => {
   navigate('admin-org');
 });
@@ -387,10 +350,6 @@ document.getElementById('admin-manage-attendance')?.addEventListener('click', ()
 
 document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
   navigate('admin-attendance-monthly');
-});
-
-document.getElementById('admin-manage-access-log')?.addEventListener('click', () => {
-  navigate('admin-access-log');
 });
 
 // メニューのクリック（data-page属性があるもののみ）
@@ -422,53 +381,205 @@ async function loadAnnouncements() {
   }
 }
 
+// ── 発表管理 週次ダッシュボード ─────────────────
+
+function _getThursday(d) {
+  const date = new Date(d);
+  date.setHours(12, 0, 0, 0);
+  const diff = (4 - date.getDay() + 7) % 7;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+function _dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+let annCurrentThursday = _getThursday(new Date());
+let annCurrentWeekDocs = [];
+
+function _updateAnnWeekLabel() {
+  const thu = annCurrentThursday;
+  document.getElementById('ann-week-label').textContent =
+    `${thu.getFullYear()}年${thu.getMonth()+1}月${thu.getDate()}日（木）`;
+  const isNow = _dateKey(thu) === _dateKey(_getThursday(new Date()));
+  document.getElementById('ann-today-btn').classList.toggle('hidden', isNow);
+}
+
 async function loadAdminAnnouncements() {
-  const list = document.getElementById('admin-announce-list');
-  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  _updateAnnWeekLabel();
+  const weekList = document.getElementById('ann-week-list');
+  weekList.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  const start = new Date(annCurrentThursday); start.setHours(0, 0, 0, 0);
+  const end   = new Date(annCurrentThursday); end.setHours(23, 59, 59, 999);
+
   try {
     const snap = await db.collection('ANNOUNCEMENT')
-      .orderBy('date', 'desc').limit(100).get();
-    renderAdminAnnouncements(snap.docs);
+      .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
+      .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
+      .get();
+
+    annCurrentWeekDocs = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) =>
+        (a.order ?? 9999) - (b.order ?? 9999) ||
+        (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
+
+    renderAnnWeekList();
   } catch (e) {
-    list.innerHTML = '<div class="loading">読み込みエラー: ' + e.message + '</div>';
+    weekList.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
   }
 }
 
-function renderAdminAnnouncements(docs) {
-  const list = document.getElementById('admin-announce-list');
-  if (docs.length === 0) {
-    list.innerHTML = '<div class="empty-state">発表データがありません</div>';
+function renderAnnWeekList() {
+  const weekList = document.getElementById('ann-week-list');
+  if (annCurrentWeekDocs.length === 0) {
+    weekList.innerHTML = '<div class="ann-empty"><span class="material-icons">inbox</span><span>この週の発表はありません</span></div>';
     return;
   }
-  list.innerHTML = '';
-  docs.forEach(docSnap => {
-    const d = docSnap.data();
-    const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
-    const dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()}`;
-    
-    const item = document.createElement('div');
-    item.className = 'admin-list-item';
-    item.innerHTML = `
-      <div class="admin-list-info">
-        <div class="admin-list-date">${esc(dateStr)}</div>
-        <div class="admin-list-title">${esc(d.title || '(タイトルなし)')}</div>
-      </div>
-      <div class="admin-list-actions">
-        <button class="btn-edit icon-btn" data-id="${docSnap.id}" style="color:var(--primary)">
-          <span class="material-icons">edit</span>
-        </button>
-        <button class="btn-delete icon-btn" data-id="${docSnap.id}" data-type="announce" style="color:#d32f2f">
-          <span class="material-icons">delete</span>
-        </button>
-      </div>
-    `;
-    list.appendChild(item);
+  const total = annCurrentWeekDocs.length;
+  let html = '';
+  annCurrentWeekDocs.forEach((item, idx) => {
+    const links = (item.links || []).filter(l => l.title && l.url);
+    const preview = (item.body || '').trim();
+    html += `
+      <div class="ann-item-card">
+        <div class="ann-item-order">
+          <button class="ann-order-btn" onclick="annMoveUp(${idx})" ${idx === 0 ? 'disabled' : ''}>
+            <span class="material-icons">arrow_upward</span>
+          </button>
+          <span class="ann-order-num">${idx + 1}</span>
+          <button class="ann-order-btn" onclick="annMoveDown(${idx})" ${idx === total - 1 ? 'disabled' : ''}>
+            <span class="material-icons">arrow_downward</span>
+          </button>
+        </div>
+        <div class="ann-item-body">
+          <div class="ann-item-title">
+            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
+            ${esc(item.title || '（タイトルなし）')}
+          </div>
+          ${preview ? `<div class="ann-item-preview">${esc(preview.length > 60 ? preview.slice(0,60)+'…' : preview)}</div>` : ''}
+          <div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">
+            ${links.length > 0 ? `<div class="ann-link-badge"><span class="material-icons">link</span>${links.length}</div>` : ''}
+            ${item.googleFormUrl ? `<div class="ann-link-badge" style="background:#673ab7"><img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;filter:brightness(10)">フォーム</div>` : ''}
+            ${item.publishNow ? `<div class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時公開</div>` : ''}
+          </div>
+        </div>
+        <div class="ann-item-actions">
+          <button class="icon-btn" style="color:var(--primary)" onclick="openAnnounceModal('${esc(item.id)}')">
+            <span class="material-icons">edit</span>
+          </button>
+          <button class="icon-btn" style="color:#d32f2f" onclick="openDeleteModal('${esc(item.id)}','announce')">
+            <span class="material-icons">delete</span>
+          </button>
+        </div>
+      </div>`;
   });
+  weekList.innerHTML = html;
+}
 
-  list.querySelectorAll('.btn-edit').forEach(btn =>
-    btn.addEventListener('click', () => openAnnounceModal(btn.dataset.id)));
-  list.querySelectorAll('.btn-delete').forEach(btn =>
-    btn.addEventListener('click', () => openDeleteModal(btn.dataset.id, 'announce')));
+async function annMoveUp(idx) {
+  if (idx === 0) return;
+  [annCurrentWeekDocs[idx-1], annCurrentWeekDocs[idx]] = [annCurrentWeekDocs[idx], annCurrentWeekDocs[idx-1]];
+  renderAnnWeekList();
+  await _annSaveOrder();
+}
+async function annMoveDown(idx) {
+  if (idx >= annCurrentWeekDocs.length - 1) return;
+  [annCurrentWeekDocs[idx], annCurrentWeekDocs[idx+1]] = [annCurrentWeekDocs[idx+1], annCurrentWeekDocs[idx]];
+  renderAnnWeekList();
+  await _annSaveOrder();
+}
+async function _annSaveOrder() {
+  const batch = db.batch();
+  annCurrentWeekDocs.forEach((item, idx) => {
+    item.order = idx;
+    batch.update(db.collection('ANNOUNCEMENT').doc(item.id), { order: idx });
+  });
+  await batch.commit();
+}
+
+document.getElementById('ann-prev-week')?.addEventListener('click', () => {
+  annCurrentThursday = new Date(annCurrentThursday);
+  annCurrentThursday.setDate(annCurrentThursday.getDate() - 7);
+  loadAdminAnnouncements();
+});
+document.getElementById('ann-next-week')?.addEventListener('click', () => {
+  annCurrentThursday = new Date(annCurrentThursday);
+  annCurrentThursday.setDate(annCurrentThursday.getDate() + 7);
+  loadAdminAnnouncements();
+});
+document.getElementById('ann-today-btn')?.addEventListener('click', () => {
+  annCurrentThursday = _getThursday(new Date());
+  loadAdminAnnouncements();
+});
+
+// ── 週/全表示 切替 ────────────────────────────
+let annViewMode = 'week'; // 'week' | 'all'
+
+document.getElementById('ann-toggle-week')?.addEventListener('click', () => _setAnnView('week'));
+document.getElementById('ann-toggle-all')?.addEventListener('click',  () => _setAnnView('all'));
+
+function _setAnnView(mode) {
+  annViewMode = mode;
+  document.getElementById('ann-view-week').classList.toggle('hidden', mode !== 'week');
+  document.getElementById('ann-view-all').classList.toggle('hidden',  mode !== 'all');
+  document.getElementById('ann-toggle-week').classList.toggle('active', mode === 'week');
+  document.getElementById('ann-toggle-all').classList.toggle('active',  mode === 'all');
+  if (mode === 'all') loadAnnAllList();
+}
+
+async function loadAnnAllList() {
+  const container = document.getElementById('ann-all-list');
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('ANNOUNCEMENT').orderBy('date', 'desc').limit(200).get();
+    if (snap.empty) { container.innerHTML = '<div class="ann-empty"><span class="material-icons">inbox</span><span>発表データがありません</span></div>'; return; }
+
+    // 日付ごとにグループ化
+    const dateGroups = {};
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const dt = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+      const key = `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日（${WD[dt.getDay()]}）`;
+      if (!dateGroups[key]) dateGroups[key] = [];
+      dateGroups[key].push({ id: d.id, ...data, _dt: dt });
+    });
+
+    let html = '';
+    Object.keys(dateGroups).forEach(dateKey => {
+      html += `<div class="ann-all-date-group">
+        <div class="ann-all-date-label">${esc(dateKey)}</div>`;
+      dateGroups[dateKey]
+        .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
+        .forEach(item => {
+          const typeBadge = item.type && item.type !== 'general'
+            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
+            : '';
+          const publishBadge = item.publishNow ? `<span class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時</span>` : '';
+          html += `<div class="ann-item-card">
+            <div class="ann-item-body">
+              <div class="ann-item-title">${typeBadge}${esc(item.title||'（タイトルなし）')}</div>
+              ${(item.body||'').trim() ? `<div class="ann-item-preview">${esc((item.body||'').trim().length>60?(item.body||'').trim().slice(0,60)+'…':(item.body||'').trim())}</div>` : ''}
+              <div style="display:flex;gap:6px;margin-top:4px">${publishBadge}</div>
+            </div>
+            <div class="ann-item-actions">
+              <button class="icon-btn" style="color:var(--primary)" onclick="openAnnounceModal('${esc(item.id)}')">
+                <span class="material-icons">edit</span>
+              </button>
+              <button class="icon-btn" style="color:#d32f2f" onclick="openDeleteModal('${esc(item.id)}','announce')">
+                <span class="material-icons">delete</span>
+              </button>
+            </div>
+          </div>`;
+        });
+      html += `</div>`;
+    });
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+  }
 }
 
 const WD = ['日','月','火','水','木','金','土'];
@@ -496,9 +607,10 @@ function renderAnnouncements(docs) {
   list.innerHTML = '';
 
   const now = new Date(Date.now() + serverTimeOffset);
-  // 長老以外は公開日時でフィルタ（サーバー時刻基準）
-  const visibleDocs = isElder ? docs : docs.filter(docSnap => {
+  // 長老 or 即時公開フラグがあれば表示、それ以外は木曜20:40以降
+  const visibleDocs = docs.filter(docSnap => {
     const d = docSnap.data();
+    if (isElder || d.publishNow) return true;
     const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
     return now >= getNextMeetingRelease(date);
   });
@@ -528,13 +640,39 @@ function renderAnnouncements(docs) {
       if (item.link1_title && item.link1_url) links.push({ title: item.link1_title, url: item.link1_url });
       if (item.link2_title && item.link2_url) links.push({ title: item.link2_title, url: item.link2_url });
 
+      // 補助開拓奉仕者はグループ別テーブル表示
+      let bodyHtml = '';
+      if (item.type === 'pioneer' && Array.isArray(item.members) && item.members.length > 0) {
+        const grpMap = {};
+        item.members.forEach(m => {
+          const g = m.group || '未分類';
+          if (!grpMap[g]) grpMap[g] = [];
+          grpMap[g].push(m.name);
+        });
+        bodyHtml = '<div class="pioneer-group-table">';
+        Object.keys(grpMap).sort((a,b) => a.localeCompare(b,'ja')).forEach(g => {
+          bodyHtml += `<div class="pioneer-group-row">
+            <div class="pioneer-group-label">${esc(g)}</div>
+            <div class="pioneer-group-names">${grpMap[g].map(n => esc(n)).join('　')}</div>
+          </div>`;
+        });
+        bodyHtml += '</div>';
+        // メモ（bodyに追加メッセージが含まれている場合）
+        const note = (item.body || '').replace(item.members.map(m=>m.name).join('、'), '').replace(/^[、\n]+/, '').trim();
+        if (note) bodyHtml += `<div class="announce-item-body" style="margin-top:6px">${esc(note).replace(/\n/g,'<br>')}</div>`;
+      } else if (item.body) {
+        bodyHtml = `<div class="announce-item-body">${item.body.replace(/\n/g, '<br>')}</div>`;
+      }
+
       itemsHtml += `
         <div class="announce-item">
           ${item.title ? `<div class="announce-item-title">${esc(item.title)}</div>` : ''}
-          ${item.body  ? `<div class="announce-item-body">${item.body.replace(/\n/g, '<br>')}</div>` : ''}
+          ${bodyHtml}
           <div class="announce-item-links">
             ${links.map(l => `<a class="announce-item-link" href="${esc(l.url)}" target="_blank" rel="noopener">
               <span class="material-icons">open_in_new</span>${esc(l.title)}</a>`).join('')}
+            ${item.googleFormUrl ? `<a class="announce-item-link announce-item-link-gform" href="${esc(item.googleFormUrl)}" target="_blank" rel="noopener">
+              <img src="https://www.gstatic.com/images/branding/product/1x/forms_2020q4_32dp.png" style="width:14px;height:14px;vertical-align:middle;margin-right:4px">${esc(item.googleFormTitle || 'Googleフォーム')}</a>` : ''}
           </div>
         </div>
       `;
@@ -557,11 +695,123 @@ const linksContainer = document.getElementById('af-links-container');
 const addLinkBtn = document.getElementById('af-add-link-btn');
 
 document.getElementById('add-announce-btn')?.addEventListener('click', () => openAnnounceModal(null));
+document.getElementById('admin-add-announce-btn')?.addEventListener('click', () => openAnnounceModal(null));
 document.getElementById('announce-modal-close')?.addEventListener('click', closeAnnounceModal);
 document.getElementById('announce-overlay')?.addEventListener('click', closeAnnounceModal);
 document.getElementById('af-cancel')?.addEventListener('click', closeAnnounceModal);
 
 addLinkBtn.addEventListener('click', () => addLinkInput('', ''));
+
+document.getElementById('af-repeat-type')?.addEventListener('change', function() {
+  document.getElementById('af-repeat-weeks-row').classList.toggle('hidden', this.value !== 'weeks');
+  document.getElementById('af-repeat-until-row').classList.toggle('hidden', this.value !== 'until');
+});
+
+document.getElementById('af-type')?.addEventListener('change', function() {
+  _afTypeChanged(this.value);
+});
+
+document.getElementById('af-convention-venue')?.addEventListener('change', function() {
+  document.getElementById('af-convention-other-row').classList.toggle('hidden', this.value !== 'other');
+});
+
+document.getElementById('af-pm-venue')?.addEventListener('change', function() {
+  document.getElementById('af-pm-other-row').classList.toggle('hidden', this.value !== 'other');
+});
+
+// ── 種別切替 ────────────────────────────────────
+function _afTypeChanged(type) {
+  const isConvention = type === 'circuit-assembly' || type === 'district-convention';
+  const isDistrict   = type === 'district-convention';
+  document.getElementById('af-section-general').classList.toggle('hidden', type !== 'general');
+  document.getElementById('af-section-member-pick').classList.toggle('hidden', type !== 'pioneer');
+  document.getElementById('af-section-circuit').classList.toggle('hidden', type !== 'circuit');
+  document.getElementById('af-section-convention').classList.toggle('hidden', !isConvention);
+  document.getElementById('af-convention-venue-top').classList.toggle('hidden', !isConvention);
+  // 巡回監督・大会は繰り返し不要
+  document.getElementById('af-repeat-section').classList.toggle('hidden', type === 'circuit' || isConvention);
+  // 地区大会のみ日付2・3を表示
+  document.getElementById('af-convention-days-row').classList.toggle('hidden', !isDistrict);
+  // 巡回大会のみ開拓者集まりセクションを表示
+  const pmSection = document.getElementById('af-pioneer-meeting-section');
+  if (pmSection) {
+    pmSection.classList.toggle('hidden', type !== 'circuit-assembly');
+    if (type !== 'circuit-assembly') {
+      document.getElementById('af-pioneer-meeting-enabled').checked = false;
+      document.getElementById('af-pioneer-meeting-fields').classList.add('hidden');
+    }
+  }
+  // 日付ラベルを切替
+  const dateLabel = document.getElementById('af-date-label');
+  if (dateLabel) dateLabel.textContent = isDistrict ? '日付 1' : '日付';
+  // 成員ピッカーをロード
+  if (type === 'pioneer') _renderMemberPicker();
+  // 巡回監督名セレクトを初期化
+  if (type === 'circuit') {
+    const sel = document.getElementById('af-circuit-name-select');
+    if (sel) { sel.value = '井出佳範 兄弟'; onCircuitNameSelectChange(sel.value); }
+  }
+}
+
+document.getElementById('af-pioneer-meeting-enabled')?.addEventListener('change', function() {
+  document.getElementById('af-pioneer-meeting-fields').classList.toggle('hidden', !this.checked);
+});
+
+// 地区大会：日付1変更で日付2・3を自動入力
+document.getElementById('af-date')?.addEventListener('change', function() {
+  if (document.getElementById('af-type')?.value !== 'district-convention') return;
+  if (!this.value) return;
+  const d1 = new Date(this.value + 'T12:00:00');
+  const d2 = new Date(d1); d2.setDate(d2.getDate() + 1);
+  const d3 = new Date(d1); d3.setDate(d3.getDate() + 2);
+  const fmt = d => d.toISOString().split('T')[0];
+  document.getElementById('af-convention-day2').value = fmt(d2);
+  document.getElementById('af-convention-day3').value = fmt(d3);
+});
+
+// ── 成員ピッカー ────────────────────────────────
+let _cachedUserList = null;
+
+async function _renderMemberPicker() {
+  const container = document.getElementById('af-member-picker');
+  if (!container) return;
+
+  // 既にチェック済みの状態を保持しながら再描画しないよう初回のみ描画
+  if (container.dataset.loaded === '1') return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    if (!_cachedUserList) {
+      const snap = await db.collection('USER_LIST').orderBy('name').get();
+      _cachedUserList = snap.docs
+        .map(d => d.data())
+        .filter(d => d.name)
+        .sort((a, b) => {
+          const ga = a.group || 'zzz', gb = b.group || 'zzz';
+          if (ga !== gb) return ga.localeCompare(gb, 'ja');
+          return a.name.localeCompare(b.name, 'ja');
+        });
+    }
+
+    const members = _cachedUserList
+      .filter(m => !isPioneer(m))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+    let html = '';
+    members.forEach(m => {
+      html += `<label class="af-member-check af-member-check-row">
+        <input type="checkbox" value="${esc(m.name)}">
+        <span class="af-member-check-name">${esc(m.name)}</span>
+        <span class="af-member-check-group">${esc(m.group || '')}</span>
+      </label>`;
+    });
+
+    container.innerHTML = html;
+    container.dataset.loaded = '1';
+  } catch (e) {
+    container.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+  }
+}
 
 function addLinkInput(title = '', url = '') {
   const row = document.createElement('div');
@@ -581,28 +831,133 @@ function openAnnounceModal(id) {
   editingAnnounceId = id;
   document.getElementById('announce-modal-title').textContent = id ? '発表を編集' : '発表を追加';
   linksContainer.innerHTML = '';
-  
+
+  // ピッカーの再ロードフラグをリセット
+  const picker = document.getElementById('af-member-picker');
+  if (picker) { picker.dataset.loaded = ''; picker.innerHTML = ''; }
+
+  // 種別は常に表示、繰り返しは新規のみ
+  document.getElementById('af-type-row').classList.remove('hidden');
+  document.getElementById('af-repeat-section').classList.toggle('hidden', !!id);
+
   if (!id) {
+    // ── 新規
     announceForm.reset();
-    document.getElementById('af-date').value = new Date().toISOString().split('T')[0];
+    const defaultDate = currentPage === 'admin-announcements'
+      ? _dateKey(annCurrentThursday)
+      : new Date().toISOString().split('T')[0];
+    document.getElementById('af-date').value = defaultDate;
+    document.getElementById('af-type').value = 'general';
+    document.getElementById('af-repeat-type').value = 'none';
+    document.getElementById('af-repeat-weeks-row').classList.add('hidden');
+    document.getElementById('af-repeat-until-row').classList.add('hidden');
+    document.getElementById('af-convention-venue').value = '';
+    document.getElementById('af-convention-other-row').classList.add('hidden');
+    document.getElementById('af-convention-venue-top').classList.add('hidden');
+    document.getElementById('af-convention-day2').value = '';
+    document.getElementById('af-convention-day3').value = '';
+    document.getElementById('af-date-label').textContent = '日付';
+    document.getElementById('af-pioneer-meeting-enabled').checked = false;
+    document.getElementById('af-pioneer-meeting-fields').classList.add('hidden');
+    document.getElementById('af-pm-venue').value = '';
+    document.getElementById('af-pm-other-row').classList.add('hidden');
+    _afTypeChanged('general');
     addLinkInput('', '');
   } else {
-    db.collection('ANNOUNCEMENT').doc(id).get().then(snap => {
+    // ── 編集：rawデータで全フィールド復元
+    db.collection('ANNOUNCEMENT').doc(id).get().then(async snap => {
       const d = snap.data();
+      const r = d.raw || {};
+      const type = r.type || d.type || 'general';
       const date = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+
+      // 種別セット＆フォーム切替
+      const typeEl = document.getElementById('af-type');
+      if (typeEl) typeEl.value = type;
+      _afTypeChanged(type);
+
+      // 共通
       document.getElementById('af-date').value = date.toISOString().split('T')[0];
-      document.getElementById('af-title').value = d.title || '';
-      document.getElementById('af-body').value  = d.body  || '';
-      
+      const pnEl = document.getElementById('af-publish-now');
+      if (pnEl) pnEl.checked = !!d.publishNow;
+
+      // 種別ごと
+      if (type === 'general') {
+        document.getElementById('af-title').value = r.title ?? d.title ?? '';
+        document.getElementById('af-body').value  = r.body  ?? d.body  ?? '';
+
+      } else if (type === 'pioneer') {
+        await _renderMemberPicker();
+        const savedNames = (d.members || []).map(m => m.name);
+        document.querySelectorAll('#af-member-picker input[type=checkbox]').forEach(cb => {
+          cb.checked = savedNames.includes(cb.value);
+        });
+        document.getElementById('af-pioneer-note').value = r.pioneerNote || '';
+
+      } else if (type === 'circuit') {
+        const sel = document.getElementById('af-circuit-name-select');
+        if (sel) {
+          sel.value = r.overseerSelect || '井出佳範 兄弟';
+          onCircuitNameSelectChange(sel.value);
+          if (sel.value === '代理巡回監督') {
+            document.getElementById('af-circuit-name-custom').value = r.overseerCustom || '';
+          }
+        }
+        document.getElementById('af-circuit-start').value = r.circuitStart || '';
+        document.getElementById('af-circuit-end').value   = r.circuitEnd   || '';
+        document.getElementById('af-circuit-note').value  = r.circuitNote  || '';
+
+      } else if (type === 'circuit-assembly' || type === 'district-convention') {
+        const venueEl = document.getElementById('af-convention-venue');
+        if (venueEl) {
+          venueEl.value = r.venue || '';
+          const otherRow = document.getElementById('af-convention-other-row');
+          if (r.venue === 'other') {
+            otherRow?.classList.remove('hidden');
+            document.getElementById('af-convention-location').value = r.venueLocation || '';
+            document.getElementById('af-convention-address').value  = r.venueAddress  || '';
+          } else {
+            otherRow?.classList.add('hidden');
+          }
+        }
+        document.getElementById('af-convention-note').value = r.conventionNote || '';
+        if (type === 'district-convention') {
+          document.getElementById('af-convention-day2').value = r.conventionDay2 || '';
+          document.getElementById('af-convention-day3').value = r.conventionDay3 || '';
+        }
+        if (type === 'circuit-assembly' && r.pmEnabled) {
+          const pmEl = document.getElementById('af-pioneer-meeting-enabled');
+          if (pmEl) { pmEl.checked = true; document.getElementById('af-pioneer-meeting-fields').classList.remove('hidden'); }
+          document.getElementById('af-pm-date').value = r.pmDate || '';
+          document.getElementById('af-pm-time').value = r.pmTime || '';
+          const pmVenueEl = document.getElementById('af-pm-venue');
+          if (pmVenueEl) {
+            pmVenueEl.value = r.pmVenue || '';
+            const pmOtherRow = document.getElementById('af-pm-other-row');
+            if (r.pmVenue === 'other') {
+              pmOtherRow?.classList.remove('hidden');
+              document.getElementById('af-pm-location').value = r.pmVenueLocation || '';
+              document.getElementById('af-pm-address').value  = r.pmVenueAddress  || '';
+            } else {
+              pmOtherRow?.classList.add('hidden');
+            }
+          }
+          document.getElementById('af-pm-note').value = r.pmNote || '';
+        }
+      }
+
+      // リンク
       const links = d.links || [];
       if (d.link1_title && d.link1_url) links.push({ title: d.link1_title, url: d.link1_url });
       if (d.link2_title && d.link2_url) links.push({ title: d.link2_title, url: d.link2_url });
-      
-      if (links.length > 0) {
-        links.forEach(l => addLinkInput(l.title, l.url));
-      } else {
-        addLinkInput('', '');
-      }
+      if (links.length > 0) links.forEach(l => addLinkInput(l.title, l.url));
+      else addLinkInput('', '');
+
+      // Google Form
+      const gfUrl = document.getElementById('af-google-form-url');
+      const gfTitle = document.getElementById('af-google-form-title');
+      if (gfUrl)   gfUrl.value   = d.googleFormUrl   || '';
+      if (gfTitle) gfTitle.value = d.googleFormTitle || '';
     });
   }
   announceModal.classList.remove('hidden');
@@ -613,33 +968,164 @@ function closeAnnounceModal() {
   editingAnnounceId = null;
 }
 
+function onCircuitNameSelectChange(val) {
+  const custom = document.getElementById('af-circuit-name-custom');
+  if (!custom) return;
+  custom.style.display = val === '代理巡回監督' ? '' : 'none';
+  if (val !== '代理巡回監督') custom.value = '';
+}
+
 announceForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
-  const links = [];
-  linksContainer.querySelectorAll('.link-input-row').forEach(row => {
-    const title = row.querySelector('.link-title').value.trim();
-    const url = row.querySelector('.link-url').value.trim();
-    if (title && url) links.push({ title, url });
-  });
 
-  const data = {
-    date:        firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('af-date').value)),
-    title:       document.getElementById('af-title').value.trim(),
-    body:        document.getElementById('af-body').value.trim(),
-    links:       links,
-    link1_title: '', link1_url: '', link2_title: '', link2_url: ''
+  const baseDate = new Date(document.getElementById('af-date').value + 'T12:00:00');
+  const type = document.getElementById('af-type')?.value || 'general';
+
+  let finalTitle = '', finalBody = '', finalLinks = [];
+  const baseDataExtra = {}; // 種別ごとの追加フィールド
+  const raw = { type }; // 編集時の復元用生データ
+
+  if (type === 'general') {
+    // 一般発表
+    finalTitle = document.getElementById('af-title').value.trim();
+    if (!finalTitle) {
+      document.getElementById('af-title').focus();
+      alert('タイトルを入力してください。');
+      return;
+    }
+    finalBody  = document.getElementById('af-body').value.trim();
+    linksContainer.querySelectorAll('.link-input-row').forEach(row => {
+      const t = row.querySelector('.link-title').value.trim();
+      const u = row.querySelector('.link-url').value.trim();
+      if (t && u) finalLinks.push({ title: t, url: u });
+    });
+    raw.title = finalTitle; raw.body = finalBody;
+
+  } else if (type === 'pioneer') {
+    // 補助開拓奉仕者
+    const checked = [...document.querySelectorAll('#af-member-picker input:checked')]
+      .map(cb => cb.value);
+    if (checked.length === 0) { alert('成員を1人以上選択してください。'); return; }
+    const note = document.getElementById('af-pioneer-note').value.trim();
+    finalTitle = '補助開拓奉仕者';
+    finalBody  = checked.join('、') + (note ? '\n' + note : '');
+    baseDataExtra.members = checked.map(name => {
+      const m = (_cachedUserList || []).find(u => u.name === name);
+      return { name, group: m?.group || '' };
+    });
+    raw.pioneerNote = note;
+
+  } else if (type === 'circuit') {
+    // 巡回監督訪問
+    const sel  = document.getElementById('af-circuit-name-select');
+    const customName = document.getElementById('af-circuit-name-custom').value.trim();
+    const name = sel?.value === '代理巡回監督'
+      ? ('代理巡回監督' + (customName ? '\n' + customName : ''))
+      : (sel?.value || '');
+    const start = document.getElementById('af-circuit-start').value;
+    const end   = document.getElementById('af-circuit-end').value;
+    const note  = document.getElementById('af-circuit-note').value.trim();
+    const fmt = d => { const dt = new Date(d+'T12:00:00'); return `${dt.getMonth()+1}月${dt.getDate()}日（${WD[dt.getDay()]}）`; };
+    finalTitle = '巡回監督訪問';
+    finalBody  = name ? name + '\n' : '';
+    if (start && end) finalBody += `${fmt(start)} 〜 ${fmt(end)}`;
+    else if (start)   finalBody += fmt(start);
+    if (note) finalBody += '\n' + note;
+    raw.overseerSelect = sel?.value || ''; raw.overseerCustom = customName;
+    raw.circuitStart = start; raw.circuitEnd = end; raw.circuitNote = note;
+
+  } else if (type === 'circuit-assembly' || type === 'district-convention') {
+    // 巡回大会 / 地区大会
+    const venue   = document.getElementById('af-convention-venue').value;
+    const locName = venue === 'other' ? document.getElementById('af-convention-location').value.trim() : venue;
+    const address = venue === 'other' ? document.getElementById('af-convention-address').value.trim() : '';
+    const note    = document.getElementById('af-convention-note').value.trim();
+    const fmt = d => { const dt = new Date(d+'T12:00:00'); return `${dt.getMonth()+1}月${dt.getDate()}日（${WD[dt.getDay()]}）`; };
+    finalTitle = type === 'circuit-assembly' ? '巡回大会' : '地区大会';
+    raw.venue = venue; raw.venueLocation = locName; raw.venueAddress = address; raw.conventionNote = note;
+
+    if (type === 'circuit-assembly') {
+      finalBody = fmt(document.getElementById('af-date').value);
+      if (document.getElementById('af-pioneer-meeting-enabled')?.checked) {
+        const pmDate    = document.getElementById('af-pm-date').value;
+        const pmTime    = document.getElementById('af-pm-time').value;
+        const pmVenue   = document.getElementById('af-pm-venue').value;
+        const pmLocName = pmVenue === 'other' ? document.getElementById('af-pm-location').value.trim() : pmVenue;
+        const pmAddress = pmVenue === 'other' ? document.getElementById('af-pm-address').value.trim() : '';
+        const pmNote    = document.getElementById('af-pm-note').value.trim();
+        finalBody += '\n\n【開拓者の集まり】';
+        if (pmDate)    finalBody += '\n' + fmt(pmDate);
+        if (pmTime)    finalBody += ' ' + pmTime;
+        if (pmLocName) finalBody += '\n' + pmLocName;
+        if (pmAddress) finalBody += '\n' + pmAddress;
+        if (pmNote)    finalBody += '\n' + pmNote;
+        raw.pmEnabled = true; raw.pmDate = pmDate; raw.pmTime = pmTime;
+        raw.pmVenue = pmVenue; raw.pmVenueLocation = pmLocName; raw.pmVenueAddress = pmAddress; raw.pmNote = pmNote;
+      } else {
+        raw.pmEnabled = false;
+      }
+    } else {
+      const d1 = document.getElementById('af-date').value;
+      const d2 = document.getElementById('af-convention-day2').value;
+      const d3 = document.getElementById('af-convention-day3').value;
+      finalBody = fmt(d1);
+      if (d2) finalBody += ` 〜 ${fmt(d3 || d2)}`;
+      raw.conventionDay2 = d2; raw.conventionDay3 = d3;
+    }
+    if (locName) finalBody += '\n' + locName;
+    if (address) finalBody += '\n' + address;
+    if (note) finalBody += '\n' + note;
+  }
+
+  const publishNow = document.getElementById('af-publish-now')?.checked || false;
+  const googleFormUrl   = document.getElementById('af-google-form-url')?.value.trim()   || '';
+  const googleFormTitle = document.getElementById('af-google-form-title')?.value.trim() || '';
+
+  const baseData = {
+    title: finalTitle, body: finalBody, links: finalLinks, type,
+    publishNow,
+    googleFormUrl, googleFormTitle,
+    raw,
+    link1_title: '', link1_url: '', link2_title: '', link2_url: '',
+    ...baseDataExtra,
   };
+
   try {
     if (editingAnnounceId) {
-      await db.collection('ANNOUNCEMENT').doc(editingAnnounceId).update(data);
+      await db.collection('ANNOUNCEMENT').doc(editingAnnounceId).update({
+        ...baseData,
+        date: firebase.firestore.Timestamp.fromDate(baseDate),
+      });
     } else {
-      data.createdAt = firebase.firestore.Timestamp.now();
-      await db.collection('ANNOUNCEMENT').add(data);
+      // 繰り返し（巡回監督以外）
+      const noRepeatTypes = ['circuit', 'circuit-assembly', 'district-convention'];
+      const repeatType = !noRepeatTypes.includes(type) ? (document.getElementById('af-repeat-type')?.value || 'none') : 'none';
+      const thursdays = [baseDate];
+      if (repeatType === 'weeks') {
+        const weeks = parseInt(document.getElementById('af-repeat-weeks').value) || 1;
+        for (let i = 1; i <= weeks; i++) {
+          const d = new Date(baseDate); d.setDate(d.getDate() + 7 * i); thursdays.push(d);
+        }
+      } else if (repeatType === 'until') {
+        const until = new Date(document.getElementById('af-repeat-until').value + 'T12:00:00');
+        let d = new Date(baseDate); d.setDate(d.getDate() + 7);
+        while (d <= until) { thursdays.push(new Date(d)); d.setDate(d.getDate() + 7); }
+      }
+
+      const batch = db.batch();
+      const createdAt = firebase.firestore.Timestamp.now();
+      thursdays.forEach(thu => {
+        const ref = db.collection('ANNOUNCEMENT').doc();
+        batch.set(ref, { ...baseData, date: firebase.firestore.Timestamp.fromDate(thu), order: 9999, createdAt });
+      });
+      await batch.commit();
     }
+
     closeAnnounceModal();
-    if (currentPage === 'admin-announcements') loadAdminAnnouncements();
-    else loadAnnouncements();
+    if (currentPage === 'admin-announcements') {
+      if (annViewMode === 'all') loadAnnAllList();
+      else loadAdminAnnouncements();
+    } else loadAnnouncements();
   } catch (err) {
     alert('保存エラー: ' + err.message);
   }
@@ -670,14 +1156,14 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
+        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
       }
       formItems.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
         el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
-        el.addEventListener('click', () => fi.action ? fi.action() : navigate(fi.page));
+        el.addEventListener('click', () => navigate(fi.page));
         listEl.appendChild(el);
       });
     }
@@ -707,14 +1193,14 @@ async function loadLinks(section) {
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
       if (isAnnaigakari || isAdmin) {
-        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
+        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'admin-attendance' });
       }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
         el.style.cursor = 'pointer';
         el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
-        el.addEventListener('click', () => fi.action ? fi.action() : navigate(fi.page));
+        el.addEventListener('click', () => navigate(fi.page));
         listEl.appendChild(el);
       });
     } else {
@@ -915,8 +1401,12 @@ document.getElementById('delete-confirm')?.addEventListener('click', async () =>
   try {
     await db.collection(col).doc(deleteTargetId).delete();
     closeDeleteModal();
-    if (deleteTargetType === 'announce') loadAnnouncements();
-    else loadSchedule();
+    if (deleteTargetType === 'announce') {
+      if (currentPage === 'admin-announcements') {
+        if (annViewMode === 'all') loadAnnAllList();
+        else loadAdminAnnouncements();
+      } else loadAnnouncements();
+    } else loadSchedule();
   } catch (err) {
     alert('削除エラー: ' + err.message);
   }
@@ -1095,7 +1585,7 @@ function initAreaInfoForm() {
       (reject ? `\n拒否理由: ${reject}` : '') +
       (memo ? `\nメモ: ${memo}` : '') +
       `\n\n送信しますか？`;
-    if (!(await customConfirm(msg))) return;
+    if (!confirm(msg)) return;
 
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
@@ -1415,7 +1905,7 @@ async function initServiceReportForm() {
     msg += '聖書研究: ' + (bible || '0') + '\n';
     if (remarks) msg += '備考: ' + remarks + '\n';
     msg += '\n送信しますか？';
-    if (!(await customConfirm(msg))) return;
+    if (!confirm(msg)) return;
 
     btn.disabled = true;
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
@@ -1638,7 +2128,7 @@ async function pwApplySubmit(items) {
     msg += item.place.replace(/駅/g, '') + ' / ' + pwApplySelected[key] + '\n\n';
   });
   msg += '送信しますか？';
-  if (!(await customConfirm(msg))) return;
+  if (!confirm(msg)) return;
 
   const btn = document.getElementById('pwa-submit-btn');
   btn.disabled = true;
@@ -2396,7 +2886,7 @@ async function s13RenderAssignPanel() {
         return;
       }
       const svName = s13SupervisorMap[groupName] || groupName;
-      if (!(await customConfirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`))) return;
+      if (!confirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
 
       try {
         await db.collection('GROUP_ASS_NO').add({
@@ -2511,19 +3001,10 @@ async function loadAdminS13Table() {
 var orgData = [];
 var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
 
-function switchOrgTab(tab) {
-  document.getElementById('org-tab-chart').classList.toggle('active', tab === 'chart');
-  document.getElementById('org-tab-group').classList.toggle('active', tab === 'group');
-  document.getElementById('org-view-chart').classList.toggle('hidden', tab !== 'chart');
-  document.getElementById('org-view-group').classList.toggle('hidden', tab !== 'group');
-}
-
 async function loadOrgView() {
-  const chartView = document.getElementById('org-view-chart');
-  const groupView = document.getElementById('org-view-group');
-  if (!chartView) return;
-  chartView.innerHTML = '<div class="loading">読み込み中...</div>';
-  groupView.innerHTML = '';
+  const view = document.getElementById('org-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
     const allData = snap.docs.map(doc => doc.data());
@@ -2633,55 +3114,10 @@ async function loadOrgView() {
     }
 
     html += '</tbody></table></div></div>';
-    chartView.innerHTML = html;
-
-    // グループ成員表
-    const userSnap = await db.collection('USER_LIST').get();
-    const users = [];
-    userSnap.docs.forEach(d => {
-      const data = d.data();
-      const name = String(data.name || '').trim();
-      if (!name) return;
-      const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-      const statuses = statusFields.map(f => String(data[f] || '').trim());
-      let roleLabel = '伝道者';
-      if (statuses.some(v => v === 'EL')) roleLabel = '長老';
-      else if (statuses.some(v => v === 'MS')) roleLabel = '援助奉仕者';
-      const pioneer = String(data.pioneer || '').trim();
-      if (pioneer === 'RP' || pioneer === '正規開拓者') roleLabel += ' / 開拓者';
-      else if (pioneer.includes('開拓')) roleLabel += ' / ' + pioneer;
-      users.push({
-        name,
-        group: String(data.group || '').trim(),
-        gender: String(data.gender || '').trim(),
-        roleLabel,
-      });
-    });
-    users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
-
-    const groupMap = {};
-    users.forEach(u => {
-      if (!u.group) return;
-      if (!groupMap[u.group]) groupMap[u.group] = [];
-      groupMap[u.group].push(u);
-    });
-
-    let gHtml = '';
-    Object.keys(groupMap).sort().forEach(gName => {
-      const members = groupMap[gName];
-      gHtml += '<div class="group-member-card">';
-      gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
-      gHtml += '<div class="group-member-list">';
-      members.forEach(m => {
-        const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-        gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
-      });
-      gHtml += '</div></div>';
-    });
-    groupView.innerHTML = gHtml;
+    view.innerHTML = html;
   } catch (e) {
     console.error('loadOrgView error:', e);
-    chartView.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
   }
 }
 
@@ -2804,7 +3240,7 @@ async function orgSaveRow(id) {
 }
 
 async function orgDeleteRow(id) {
-  if (!(await customConfirm('この行を削除しますか？'))) return;
+  if (!confirm('この行を削除しますか？')) return;
   try {
     await db.collection('ORG_CHART').doc(id).delete();
     orgData = orgData.filter(d => d.id !== id);
@@ -3508,9 +3944,9 @@ async function loadSenkyoPublic() {
     }
 
     function getPlaces(weekday, time, place) {
-      if (place.includes('唐木田')) return ['唐木田駅構内'];
+      if (place.includes('唐木田')) return ['唐木田構内'];
       if (place.includes('堀之内')) {
-        const base = '堀之内駅';
+        const base = '堀之内';
         if (weekday === '水' && time === '18:00') return [base+'三和前', base+'FM前'];
         return [base+'三和前', base+'FM前', base+'信号前'];
       }
@@ -3556,7 +3992,7 @@ async function loadSenkyoPublic() {
       // 場所ヘッダー行
       let placeRow = '<div class="pw-row pw-row-place">';
       places.forEach(p => {
-        const short = p.replace('堀之内駅', '').replace('唐木田駅', '').replace('唐木田', '構内');
+        const short = p.replace('堀之内', '').replace('唐木田', '');
         placeRow += `<div class="pw-cell pw-cell-place">${esc(short)}</div>`;
       });
       placeRow += '</div>';
@@ -3649,7 +4085,7 @@ async function loadAdminReportApprove() {
 }
 
 async function approveReport(docId) {
-  if (!(await customConfirm('この報告を承認してPREACHING_REPORTに反映しますか？'))) return;
+  if (!confirm('この報告を承認してPREACHING_REPORTに反映しますか？')) return;
   try {
     const docRef = db.collection('PREACHING_REPORT_DRAFTS').doc(docId);
     const snap = await docRef.get();
@@ -3673,7 +4109,7 @@ async function approveReport(docId) {
 }
 
 async function rejectReport(docId) {
-  if (!(await customConfirm('この報告を却下して削除しますか？'))) return;
+  if (!confirm('この報告を却下して削除しますか？')) return;
   try {
     await db.collection('PREACHING_REPORT_DRAFTS').doc(docId).delete();
     const card = document.getElementById('approve-' + docId);
@@ -3832,7 +4268,7 @@ document.getElementById('fs-add-row')?.addEventListener('click', () => {
 
 // ── 週を生成 ──
 document.getElementById('fs-generate-week')?.addEventListener('click', async () => {
-  if (!(await customConfirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。'))) return;
+  if (!confirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。')) return;
   try {
     // ローテ設定を読み込み
     const rotSnap = await db.collection('FS_ROTATION').get();
@@ -4080,7 +4516,7 @@ async function editFsRow(docId) {
 }
 
 async function deleteFsRow(docId) {
-  if (!(await customConfirm('この取決めを削除しますか？'))) return;
+  if (!confirm('この取決めを削除しますか？')) return;
   try {
     await db.collection('FIELD_SERVICE').doc(docId).delete();
     loadAdminFieldService();
@@ -4168,87 +4604,6 @@ function renderAdminAttendance(docs) {
     btn.addEventListener('click', () => openAttendanceDeleteModal(btn.dataset.id)));
 }
 
-// ── 出席人数登録ページ ──
-function initAttendanceForm() {
-  document.getElementById('attf-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('attf-venue').value = 'kingdom_hall';
-  document.getElementById('attf-type').value = 'midweek';
-  document.getElementById('attf-count').value = '';
-  document.getElementById('attf-remarks').value = '';
-  document.getElementById('attf-special-detail').value = '';
-  document.getElementById('attf-special-group').classList.add('hidden');
-  document.getElementById('attf-submitter').value =
-    memberUserName || (currentUser && currentUser.displayName) || (currentUser && currentUser.email) || '';
-}
-
-document.getElementById('attf-type')?.addEventListener('change', () => {
-  const sg = document.getElementById('attf-special-group');
-  if (sg) sg.classList.toggle('hidden', document.getElementById('attf-type').value !== 'special');
-});
-
-document.getElementById('attf-submit')?.addEventListener('click', async () => {
-  const date  = document.getElementById('attf-date').value;
-  const venue = document.getElementById('attf-venue').value;
-  const type  = document.getElementById('attf-type').value;
-  const specialDetail = document.getElementById('attf-special-detail').value.trim();
-  const countStr = document.getElementById('attf-count').value;
-  const remarks  = document.getElementById('attf-remarks').value.trim();
-  if (!date || !venue || !type || countStr === '') {
-    alert('必須項目を入力してください');
-    return;
-  }
-  const count = parseInt(countStr, 10);
-  if (isNaN(count) || count < 0) {
-    alert('出席人数は0以上の数値を入力してください');
-    return;
-  }
-  const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
-  const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
-  const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
-  let confirmMsg = '【送信内容の確認】\n';
-  confirmMsg += '日付: ' + date + '\n';
-  confirmMsg += '会場: ' + venueLabel + '\n';
-  confirmMsg += '集会: ' + typeLabel + detailStr + '\n';
-  confirmMsg += '出席人数: ' + count + '名\n';
-  if (remarks) confirmMsg += '備考: ' + remarks + '\n';
-  confirmMsg += '\n送信しますか？';
-  if (!(await customConfirm(confirmMsg))) return;
-
-  const btn = document.getElementById('attf-submit');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
-
-  const data = {
-    date, venue, meetingType: type,
-    specialDetail: type === 'special' ? specialDetail : '',
-    count, remarks,
-    submitterName:  memberUserName || (currentUser && currentUser.displayName) || '',
-    submitterEmail: (currentUser && currentUser.email) || '',
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  };
-  try {
-    const docId = `${date}_${venue}_${type}`;
-    const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
-    const existing = await ref.get();
-    if (existing.exists) {
-      if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
-        return;
-      }
-    }
-    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-    await ref.set(data, { merge: true });
-    alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
-    navigate('shinsei');
-  } catch (err) {
-    alert('保存エラー: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<span class="material-icons" style="font-size:18px">send</span> 送信する';
-  }
-});
-
 function openAttendanceModal(id) {
   editingAttendanceId = id;
   const modal = document.getElementById('attendance-modal');
@@ -4327,7 +4682,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   confirmMsg += '出席人数: ' + count + '名\n';
   if (remarks) confirmMsg += '備考: ' + remarks + '\n';
   confirmMsg += '\n送信しますか？';
-  if (!(await customConfirm(confirmMsg))) return;
+  if (!confirm(confirmMsg)) return;
 
   const data = {
     date,
@@ -4348,7 +4703,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
       const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
       const existing = await ref.get();
       if (existing.exists) {
-        if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) return;
+        if (!confirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？')) return;
       }
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await ref.set(data, { merge: true });
@@ -4364,8 +4719,8 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   }
 });
 
-async function openAttendanceDeleteModal(id) {
-  if (!(await customConfirm('この出席記録を削除しますか？'))) return;
+function openAttendanceDeleteModal(id) {
+  if (!confirm('この出席記録を削除しますか？')) return;
   db.collection('MEETING_ATTENDANCE').doc(id).delete()
     .then(() => loadAdminAttendance())
     .catch(err => alert('削除エラー: ' + err.message));
@@ -4533,69 +4888,63 @@ function renderAttendanceMonthly(docs) {
   wrap.innerHTML = html;
 }
 
-// ── アクセスログ ────────────────────────────────
-function alFormatDt(dt) {
-  return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-}
-function alDevice(ua) {
-  if (/iPhone/.test(ua)) return 'iPhone';
-  if (/Android/.test(ua)) return 'Android';
-  if (/iPad/.test(ua)) return 'iPad';
-  if (/Mac/.test(ua)) return 'Mac';
-  if (/Windows/.test(ua)) return 'Windows';
-  return 'その他';
-}
+// ── グループ成員表 ────────────────────────────
+async function loadGroupMembers() {
+  const container = document.getElementById('group-members-list');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
 
-async function loadAccessLog() {
-  const view = document.getElementById('access-log-view');
-  if (!view) return;
-  view.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
-    const snap = await db.collection('LOGIN_LOG')
-      .orderBy('loginAt', 'desc')
-      .limit(500)
-      .get();
-    if (snap.empty) {
-      view.innerHTML = '<div class="empty-state">ログがありません</div>';
+    const snap = await db.collection('USER_LIST').orderBy('name').get();
+
+    // グループ別に振り分け
+    const groupMap = {};
+    snap.docs.forEach(doc => {
+      const d = doc.data();
+      const name  = String(d.name  || '').trim();
+      const group = String(d.group || '（未所属）').trim() || '（未所属）';
+      const role  = String(d.role  || d.position || '').trim();
+      const gender = String(d.gender || '').trim();
+      if (!name) return;
+      if (!groupMap[group]) groupMap[group] = [];
+      groupMap[group].push({ name, role, gender });
+    });
+
+    const sortedGroups = Object.keys(groupMap).sort((a, b) => {
+      if (a === '（未所属）') return 1;
+      if (b === '（未所属）') return -1;
+      return a.localeCompare(b, 'ja');
+    });
+
+    if (sortedGroups.length === 0) {
+      container.innerHTML = '<div class="empty-state">データがありません</div>';
       return;
     }
-    const userMap = {};
-    snap.forEach(doc => {
-      const d = doc.data();
-      const key = d.email || d.name || 'unknown';
-      if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
-      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      userMap[key].logs.push({ dt, ua: d.userAgent || '' });
-    });
-    const users = Object.values(userMap).sort((a, b) => {
-      const ta = a.logs[0]?.dt?.getTime() || 0;
-      const tb = b.logs[0]?.dt?.getTime() || 0;
-      return tb - ta;
-    });
 
-    let html = '<div class="access-log-list">';
-    users.forEach((u, idx) => {
-      const latest = u.logs[0];
-      const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
-      const device = alDevice(latest.ua);
-      html += `<div class="access-log-card" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
-      html += `<div class="access-log-main">`;
-      html += `<span class="material-icons access-log-icon">person</span>`;
-      html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
-      html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
-      html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
-      html += `</div>`;
-      html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
-      u.logs.forEach(log => {
-        const dtStr = log.dt ? alFormatDt(log.dt) : '';
-        const dev = alDevice(log.ua);
-        html += `<div class="al-detail-row"><span class="al-detail-time">${esc(dtStr)}</span><span class="al-detail-device">${esc(dev)}</span></div>`;
-      });
-      html += `</div></div>`;
+    let html = '';
+    sortedGroups.forEach(group => {
+      const members = groupMap[group];
+      html += `
+        <div class="gm-group">
+          <div class="gm-group-header">
+            <span class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px">group</span>
+            ${esc(group)}
+            <span class="gm-count">${members.length}名</span>
+          </div>
+          <div class="admin-list">
+            ${members.map(m => `
+              <div class="admin-list-item">
+                <div class="admin-list-info">
+                  <div class="admin-list-title">${esc(m.name)}</div>
+                  ${m.role ? `<div class="admin-list-date">${esc(m.role)}</div>` : ''}
+                </div>
+                ${m.gender ? `<span class="gm-gender-badge gm-gender-${m.gender === '男' ? 'm' : 'f'}">${esc(m.gender)}</span>` : ''}
+              </div>`).join('')}
+          </div>
+        </div>`;
     });
-    html += '</div>';
-    view.innerHTML = html;
-  } catch (err) {
-    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
   }
 }
