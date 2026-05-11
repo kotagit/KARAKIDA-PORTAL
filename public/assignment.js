@@ -122,6 +122,7 @@ async function initAssignmentPage() {
 
   document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
   document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
+  document.getElementById('aw-s89-btn')?.addEventListener('click', awGenerateS89);
 }
 
 function awGenerateAll() {
@@ -165,6 +166,139 @@ async function awConfirmAll() {
     await awLoadHistory();
     alert(`${confirmed}週分を確定しました`);
   } catch(e) { alert('確定エラー: ' + e.message); }
+}
+
+// ── S-89 生成 ──────────────────────────────
+// 生徒用コード: 聖書朗読(E) と 野外奉仕に励む の生徒割当(H-O, Q)
+const S89_LEAD_CODES = new Set(['E','H','J','L','N','Q']);
+const S89_PARTNER_MAP = { H:'I', J:'K', L:'M', N:'O' };
+
+function awGetS89PartnerCode(leadCode) {
+  const base = awGetBase(leadCode);
+  const partnerBase = S89_PARTNER_MAP[base];
+  if (!partnerBase) return null;
+  const suffix = leadCode.includes('_') ? leadCode.split('_')[1] : '';
+  return suffix ? `${partnerBase}_${suffix}` : partnerBase;
+}
+
+async function awGenerateS89() {
+  const btn = document.getElementById('aw-s89-btn');
+  if (btn) { btn.disabled = true; btn.querySelector('span:last-child').textContent = '生成中...'; }
+
+  try {
+    const monthWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
+    if (monthWeeks.length === 0) { alert('表示中の月にデータがありません'); return; }
+
+    // 各週から生徒割当スリップデータを収集
+    const slips = [];
+    monthWeeks.forEach(week => {
+      if (week.conventionType) return; // 大会週はスキップ
+      const meetDate = awGetMeetingDate(week);
+      if (!meetDate) return;
+      const dateStr = `${meetDate.getFullYear()}年${meetDate.getMonth()+1}月${meetDate.getDate()}日`;
+      const slots = awLiveSlots[week.id] || week.slots || {};
+      const items = week.items || [];
+
+      items.forEach(item => {
+        const codes = item.codes || [];
+        codes.forEach(code => {
+          const base = awGetBase(code);
+          if (!S89_LEAD_CODES.has(base)) return;
+          const name = slots[code] || slots[base] || '';
+          if (!name) return;
+          const partnerCode = awGetS89PartnerCode(code);
+          const partner = partnerCode ? (slots[partnerCode] || slots[awGetBase(partnerCode)] || '') : '';
+          slips.push({ name, partner, date: dateStr, part: item.title });
+        });
+      });
+    });
+
+    if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
+
+    // S-89スリップをhtml2canvasでPDF化（4枚/ページ）
+    const area = document.getElementById('s89-render-area');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();   // 210
+    const pageH = pdf.internal.pageSize.getHeight();   // 297
+    const margin = 8;
+    const slipW = (pageW - margin * 3) / 2;           // ～97mm
+    const slipH = (pageH - margin * 3) / 2;           // ～140mm
+    const pxW = Math.round(slipW * 3.78);             // mm→px (96dpi)
+    const pxH = Math.round(slipH * 3.78);
+
+    for (let i = 0; i < slips.length; i += 4) {
+      if (i > 0) pdf.addPage();
+      const batch = slips.slice(i, i + 4);
+
+      // 4枚分のHTMLを一度にレンダリング
+      area.innerHTML = '';
+      area.style.width = (pxW * 2 + 20) + 'px';
+      const cards = batch.map(slip => awBuildS89Card(slip, pxW, pxH));
+      cards.forEach(c => area.appendChild(c));
+
+      // 各カードをcanvas化してPDFに配置
+      for (let j = 0; j < cards.length; j++) {
+        const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff', width: pxW, height: pxH });
+        const imgData = canvas.toDataURL('image/png');
+        const col = j % 2;
+        const row = Math.floor(j / 2);
+        const x = margin + col * (slipW + margin);
+        const y = margin + row * (slipH + margin);
+        pdf.addImage(imgData, 'PNG', x, y, slipW, slipH);
+      }
+    }
+
+    area.innerHTML = '';
+    const m = awAssignSelectedMonth;
+    const fname = `S-89_${m.year}年${m.month + 1}月.pdf`;
+    pdf.save(fname);
+
+  } catch(e) {
+    console.error('S-89 generation error:', e);
+    alert('S-89生成に失敗しました: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.querySelector('span:last-child').textContent = 'S-89'; }
+  }
+}
+
+function awBuildS89Card(slip, w, h) {
+  const card = document.createElement('div');
+  card.style.cssText = `width:${w}px;height:${h}px;padding:20px 24px;box-sizing:border-box;font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;display:inline-block;vertical-align:top;border:1px solid #ccc;background:#fff;position:relative;`;
+  card.innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:bold;line-height:1.5">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
+    </div>
+    <div style="margin-bottom:12px">
+      <span style="font-weight:bold;font-size:13px">氏名：</span>
+      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.name)}</span>
+    </div>
+    <div style="margin-bottom:12px">
+      <span style="font-weight:bold;font-size:13px">相手：</span>
+      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.partner)}</span>
+    </div>
+    <div style="margin-bottom:12px">
+      <span style="font-weight:bold;font-size:13px">日付：</span>
+      <span style="font-size:14px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.date)}</span>
+    </div>
+    <div style="margin-bottom:18px">
+      <span style="font-weight:bold;font-size:13px">担当部分：</span>
+      <span style="font-size:13px;border-bottom:1px solid #1565c0;color:#1565c0;padding-bottom:1px">${esc(slip.part)}</span>
+    </div>
+    <div style="margin-bottom:8px">
+      <span style="font-weight:bold;font-size:13px">会場：</span>
+    </div>
+    <div style="padding-left:16px;font-size:13px;line-height:2">
+      <div>☑ 本会場</div>
+      <div>☐ 第2会場</div>
+      <div>☐ 第3会場</div>
+    </div>
+    <div style="position:absolute;bottom:16px;left:24px;right:24px">
+      <div style="font-size:10px;color:#555;line-height:1.5"><b>注記：</b>資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
+      <div style="font-size:10px;color:#888;margin-top:6px">S-89-J　11/23</div>
+    </div>
+  `;
+  return card;
 }
 
 // 長老・援助奉仕者が担当するコード（生徒プレゼン H-O,P を除く）
