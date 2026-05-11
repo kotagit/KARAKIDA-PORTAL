@@ -210,135 +210,64 @@ function s89CollectSlips(weeks, selectedMonth) {
   return slips;
 }
 
-// Canvas 2D APIで直接カードを描画（ブラウザのフォントエンジン使用＝日本語確実）
-function s89DrawCard(canvas, slip) {
-  const W = canvas.width, H = canvas.height;
-  const ctx = canvas.getContext('2d');
-  const s = 2; // scale factor
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#ccc';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0, 0, W, H);
+// S-89 PDF — ブラウザ印刷機能でPDF保存（確実・シンプル）
+function s89DownloadPdf(slips, selectedMonth) {
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-  const font = n => `${n * s}px "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif`;
-  const fontB = n => `bold ${n * s}px "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif`;
-  const px = 20 * s, topY = 16 * s;
-  let cy = topY;
-
-  // タイトル
-  ctx.font = fontB(11);
-  ctx.fillStyle = '#000';
-  ctx.textAlign = 'center';
-  ctx.fillText('クリスチャンとしての生活と', W / 2, cy);
-  cy += 16 * s;
-  ctx.fillText('奉仕の集会　生徒の方へ', W / 2, cy);
-  cy += 24 * s;
-  ctx.textAlign = 'left';
-
-  // フィールド
-  const fields = [
-    ['氏名：', slip.name || ''],
-    ['相手：', slip.partner || ''],
-    ['日付：', slip.date || ''],
-    ['担当部分：', slip.part || ''],
-  ];
-  fields.forEach(([label, value]) => {
-    ctx.font = fontB(10);
-    ctx.fillStyle = '#000';
-    ctx.fillText(label, px, cy);
-    const lw = ctx.measureText(label).width;
-    ctx.font = font(10);
-    ctx.fillStyle = '#1565c0';
-    ctx.fillText(value, px + lw + 2 * s, cy);
-    const vw = ctx.measureText(value).width;
-    ctx.strokeStyle = '#1565c0';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(px + lw + 2 * s, cy + 3 * s);
-    ctx.lineTo(px + lw + 2 * s + Math.max(vw, 60 * s), cy + 3 * s);
-    ctx.stroke();
-    ctx.strokeStyle = '#ccc';
-    cy += 18 * s;
-  });
-
-  // 会場
-  cy += 6 * s;
-  ctx.font = fontB(10);
-  ctx.fillStyle = '#000';
-  ctx.fillText('会場：', px, cy);
-  cy += 14 * s;
-  ctx.font = font(9);
-  ctx.fillText('☑ 本会場', px + 12 * s, cy);
-  cy += 12 * s;
-  ctx.fillText('☐ 第2会場', px + 12 * s, cy);
-  cy += 12 * s;
-  ctx.fillText('☐ 第3会場', px + 12 * s, cy);
-
-  // フッター区切り線
-  const footerY = H - 50 * s;
-  ctx.strokeStyle = '#eee';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(px, footerY);
-  ctx.lineTo(W - px, footerY);
-  ctx.stroke();
-
-  // 注記
-  ctx.font = font(6.5);
-  ctx.fillStyle = '#555';
-  const noteText = '注記：資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。';
-  const maxNoteW = W - px * 2;
-  let line = '', noteY = footerY + 12 * s;
-  for (const ch of noteText) {
-    if (ctx.measureText(line + ch).width > maxNoteW) {
-      ctx.fillText(line, px, noteY);
-      noteY += 9 * s;
-      line = ch;
-    } else { line += ch; }
+  function cardHtml(slip) {
+    return `<div class="card">
+      <div class="title">クリスチャンとしての生活と<br>奉仕の集会　生徒の方へ</div>
+      <div class="field"><b>氏名：</b><span class="val">${esc(slip.name)}</span></div>
+      <div class="field"><b>相手：</b><span class="val">${esc(slip.partner)}</span></div>
+      <div class="field"><b>日付：</b><span class="val">${esc(slip.date)}</span></div>
+      <div class="field"><b>担当部分：</b><span class="val">${esc(slip.part)}</span></div>
+      <div class="venue"><b>会場：</b></div>
+      <div class="venue-list">☑ 本会場<br>☐ 第2会場<br>☐ 第3会場</div>
+      <div class="footer">
+        <div class="note">注記：資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。</div>
+        <div class="formid">S-89-J　11/23</div>
+      </div>
+    </div>`;
   }
-  if (line) ctx.fillText(line, px, noteY);
 
-  // フォームID
-  ctx.font = font(7);
-  ctx.fillStyle = '#999';
-  ctx.fillText('S-89-J　11/23', px, H - 10 * s);
-}
-
-async function s89DownloadPdf(slips, selectedMonth) {
-  if (!window.jspdf) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
-      s.onload = resolve; s.onerror = () => reject(new Error('jsPDF読み込み失敗'));
-      document.head.appendChild(s);
-    });
-  }
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 8;
-  const slipW = (pageW - margin * 3) / 2;
-  const slipH = (pageH - margin * 3) / 2;
-  // Canvas解像度（mm → px, 高解像度）
-  const cW = Math.round(slipW * 4);
-  const cH = Math.round(slipH * 4);
-
+  let pages = '';
   for (let i = 0; i < slips.length; i += 4) {
-    if (i > 0) pdf.addPage();
     const batch = slips.slice(i, i + 4);
-    for (let j = 0; j < batch.length; j++) {
-      const cvs = document.createElement('canvas');
-      cvs.width = cW; cvs.height = cH;
-      s89DrawCard(cvs, batch[j]);
-      const imgData = cvs.toDataURL('image/png');
-      const col = j % 2, row = Math.floor(j / 2);
-      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
-    }
+    pages += `<div class="page">${batch.map(s => cardHtml(s)).join('')}</div>`;
   }
 
-  pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>S-89_${selectedMonth.year}年${selectedMonth.month+1}月</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif; }
+  @page { size: A4 portrait; margin: 8mm; }
+  .page { width:100%; height:100vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:6mm; page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  .card { border:1px solid #aaa; border-radius:3px; padding:14px 16px; display:flex; flex-direction:column; overflow:hidden; }
+  .title { text-align:center; font-size:11px; font-weight:bold; line-height:1.7; margin-bottom:14px; }
+  .field { margin-bottom:8px; font-size:10px; }
+  .field b { font-size:10px; }
+  .val { color:#1565c0; border-bottom:1.5px dotted #1565c0; padding-bottom:1px; }
+  .venue { margin-top:10px; font-size:10px; }
+  .venue b { font-size:10px; }
+  .venue-list { padding-left:14px; font-size:9px; line-height:1.9; margin-top:3px; }
+  .footer { margin-top:auto; padding-top:10px; border-top:1px solid #ddd; }
+  .note { font-size:7px; color:#555; line-height:1.5; }
+  .formid { font-size:7px; color:#999; margin-top:4px; }
+  @media screen {
+    body { background:#eee; display:flex; flex-direction:column; align-items:center; gap:20px; padding:20px; }
+    .page { width:210mm; height:297mm; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); padding:8mm; }
+  }
+</style></head><body>${pages}
+<script>window.onafterprint=function(){window.close();};</script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('ポップアップがブロックされました。ポップアップを許可してください。'); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 400);
 }
 
 // 担当者策定ページからの呼び出し
