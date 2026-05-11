@@ -1921,6 +1921,7 @@ function awBuildProgramSection(week, container) {
   awProgramTopics[week.id] = topics;
   const items = week.items || [];
   const convention = week.conventionType || '';
+  const isCircuitVisit = !!week.circuitVisit;
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
@@ -1930,13 +1931,14 @@ function awBuildProgramSection(week, container) {
   const hdr = document.createElement('div');
   hdr.className = 'aw-inline-header';
   hdr.innerHTML = `
-    <div>
+    <div class="aw-header-left">
       <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="巡回大会" ${convention === '巡回大会' ? 'checked' : ''}> 巡回大会</label>
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="地区大会" ${convention === '地区大会' ? 'checked' : ''}> 地区大会</label>
+      <label class="aw-conv-check"><input type="checkbox" name="cvvisit" ${isCircuitVisit ? 'checked' : ''}> 巡回訪問</label>
       <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
         <span class="material-icons">edit_calendar</span>
         <span>編集</span>
@@ -1948,9 +1950,9 @@ function awBuildProgramSection(week, container) {
 
   // 大会チェックボックスのイベント
   const convChecks = hdr.querySelectorAll('input[name="conv"]');
+  const cvVisitCheck = hdr.querySelector('input[name="cvvisit"]');
   convChecks.forEach(cb => {
     cb.addEventListener('change', async () => {
-      // 排他: 片方チェックしたらもう片方OFF
       convChecks.forEach(other => { if (other !== cb) other.checked = false; });
       const val = cb.checked ? cb.value : '';
       week.conventionType = val;
@@ -1963,6 +1965,20 @@ function awBuildProgramSection(week, container) {
       } catch(err) { alert('保存エラー: ' + err.message); }
       awApplyConventionState(section, val);
     });
+  });
+
+  // 巡回訪問チェックボックスのイベント
+  cvVisitCheck.addEventListener('change', async () => {
+    const on = cvVisitCheck.checked;
+    week.circuitVisit = on;
+    try {
+      if (on) {
+        await db.collection('mwbWeeks').doc(week.id).set({ circuitVisit: true }, { merge: true });
+      } else {
+        await db.collection('mwbWeeks').doc(week.id).update({ circuitVisit: firebase.firestore.FieldValue.delete() });
+      }
+    } catch(err) { alert('保存エラー: ' + err.message); }
+    awApplyCircuitVisit(section, on);
   });
   section.appendChild(hdr);
 
@@ -2053,8 +2069,9 @@ function awBuildProgramSection(week, container) {
   bodyWrap.appendChild(tableDiv);
   section.appendChild(bodyWrap);
 
-  // 初期状態で大会ならグレーアウト適用
+  // 初期状態適用
   if (convention) awApplyConventionState(section, convention);
+  if (isCircuitVisit) awApplyCircuitVisit(section, true);
 
   container.appendChild(section);
 }
@@ -2062,7 +2079,6 @@ function awBuildProgramSection(week, container) {
 function awApplyConventionState(section, convType) {
   const body = section.querySelector('.aw-program-body');
   if (!body) return;
-  // 既存のオーバーレイ削除
   const old = body.querySelector('.aw-conv-overlay');
   if (old) old.remove();
 
@@ -2074,6 +2090,23 @@ function awApplyConventionState(section, convType) {
     body.appendChild(overlay);
   } else {
     body.classList.remove('aw-conv-greyed');
+  }
+}
+
+function awApplyCircuitVisit(section, on) {
+  const hdrLeft = section.querySelector('.aw-header-left');
+  if (!hdrLeft) return;
+  const oldLabel = hdrLeft.querySelector('.aw-cv-label');
+  if (oldLabel) oldLabel.remove();
+
+  if (on) {
+    hdrLeft.classList.add('aw-cv-highlight');
+    const lbl = document.createElement('div');
+    lbl.className = 'aw-cv-label';
+    lbl.textContent = '巡回訪問';
+    hdrLeft.appendChild(lbl);
+  } else {
+    hdrLeft.classList.remove('aw-cv-highlight');
   }
 }
 

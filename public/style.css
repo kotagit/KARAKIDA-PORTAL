@@ -248,6 +248,9 @@ body {
   font-size: 28px; font-weight: 700; color: var(--primary); letter-spacing: 4px;
   pointer-events: none; z-index: 2;
 }
+/* 巡回訪問 */
+.aw-header-left.aw-cv-highlight { background: #fce4ec; border-radius: 8px; padding: 4px 10px; }
+.aw-cv-label { font-size: 13px; font-weight: 600; color: #c62828; margin-top: 2px; }
 .am-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .am-filter-chip {
   padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border);
