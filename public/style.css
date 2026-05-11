@@ -1145,10 +1145,14 @@ body {
 .sr-label {
   min-width: 90px; font-size: 13px; font-weight: 700; color: #555; flex-shrink: 0;
 }
-.sr-input-wrap { flex: 1; min-width: 0; }
+.sr-field { overflow: hidden; }
+.sr-input-wrap { flex: 1; min-width: 0; overflow: hidden; }
 .sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
   width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid var(--border);
   border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
+}
+.sr-input-wrap input[type="date"] {
+  -webkit-appearance: none; appearance: none;
 }
 /* ── 連絡先情報 ── */
 .renraku-group { margin-bottom: 20px; }
