@@ -1130,6 +1130,18 @@
 </div>
 
 <!-- 削除確認モーダル -->
+<!-- カスタム確認モーダル（confirm()の代替） -->
+<div id="custom-confirm-modal" class="modal hidden">
+  <div class="modal-overlay" id="custom-confirm-overlay"></div>
+  <div class="modal-card modal-small" style="max-width:400px;text-align:left">
+    <p id="custom-confirm-msg" style="white-space:pre-wrap;font-size:14px;line-height:1.6;margin-bottom:20px"></p>
+    <div class="form-actions" style="justify-content:flex-end">
+      <button class="btn-secondary" id="custom-confirm-cancel">キャンセル</button>
+      <button class="btn-primary" id="custom-confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="delete-modal" class="modal hidden">
   <div class="modal-overlay" id="delete-overlay"></div>
   <div class="modal-card modal-small">
@@ -1158,7 +1170,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=98"></script>
-<script src="assignment.js?v=75"></script>
+<script src="main.js?v=99"></script>
+<script src="assignment.js?v=76"></script>
 </body>
 </html>

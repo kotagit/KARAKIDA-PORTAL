@@ -1,4 +1,28 @@
 
+// ── カスタム確認ダイアログ（confirm()の代替） ──
+function customConfirm(msg) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('custom-confirm-modal');
+    document.getElementById('custom-confirm-msg').textContent = msg;
+    modal.classList.remove('hidden');
+    const ok = document.getElementById('custom-confirm-ok');
+    const cancel = document.getElementById('custom-confirm-cancel');
+    const overlay = document.getElementById('custom-confirm-overlay');
+    function cleanup(result) {
+      modal.classList.add('hidden');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onCancel);
+  });
+}
+
 // ── Firebase 初期化 ────────────────────────────
 firebase.initializeApp({
   apiKey: "AIzaSyCJ2EyLF-63hMs5PHLKCnGhO36bXv4zo7Q",
@@ -1059,7 +1083,7 @@ function initAreaInfoForm() {
       (reject ? `\n拒否理由: ${reject}` : '') +
       (memo ? `\nメモ: ${memo}` : '') +
       `\n\n送信しますか？`;
-    if (!confirm(msg)) return;
+    if (!(await customConfirm(msg))) return;
 
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
@@ -1379,7 +1403,7 @@ async function initServiceReportForm() {
     msg += '聖書研究: ' + (bible || '0') + '\n';
     if (remarks) msg += '備考: ' + remarks + '\n';
     msg += '\n送信しますか？';
-    if (!confirm(msg)) return;
+    if (!(await customConfirm(msg))) return;
 
     btn.disabled = true;
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
@@ -1602,7 +1626,7 @@ async function pwApplySubmit(items) {
     msg += item.place.replace(/駅/g, '') + ' / ' + pwApplySelected[key] + '\n\n';
   });
   msg += '送信しますか？';
-  if (!confirm(msg)) return;
+  if (!(await customConfirm(msg))) return;
 
   const btn = document.getElementById('pwa-submit-btn');
   btn.disabled = true;
@@ -2360,7 +2384,7 @@ async function s13RenderAssignPanel() {
         return;
       }
       const svName = s13SupervisorMap[groupName] || groupName;
-      if (!confirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`)) return;
+      if (!(await customConfirm(`区域No.${territory} を ${groupName}（${svName}）に割当てますか？\n開始: ${startDate}　終了: ${endDate}`))) return;
 
       try {
         await db.collection('GROUP_ASS_NO').add({
@@ -2714,7 +2738,7 @@ async function orgSaveRow(id) {
 }
 
 async function orgDeleteRow(id) {
-  if (!confirm('この行を削除しますか？')) return;
+  if (!(await customConfirm('この行を削除しますか？'))) return;
   try {
     await db.collection('ORG_CHART').doc(id).delete();
     orgData = orgData.filter(d => d.id !== id);
@@ -3559,7 +3583,7 @@ async function loadAdminReportApprove() {
 }
 
 async function approveReport(docId) {
-  if (!confirm('この報告を承認してPREACHING_REPORTに反映しますか？')) return;
+  if (!(await customConfirm('この報告を承認してPREACHING_REPORTに反映しますか？'))) return;
   try {
     const docRef = db.collection('PREACHING_REPORT_DRAFTS').doc(docId);
     const snap = await docRef.get();
@@ -3583,7 +3607,7 @@ async function approveReport(docId) {
 }
 
 async function rejectReport(docId) {
-  if (!confirm('この報告を却下して削除しますか？')) return;
+  if (!(await customConfirm('この報告を却下して削除しますか？'))) return;
   try {
     await db.collection('PREACHING_REPORT_DRAFTS').doc(docId).delete();
     const card = document.getElementById('approve-' + docId);
@@ -3742,7 +3766,7 @@ document.getElementById('fs-add-row')?.addEventListener('click', () => {
 
 // ── 週を生成 ──
 document.getElementById('fs-generate-week')?.addEventListener('click', async () => {
-  if (!confirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。')) return;
+  if (!(await customConfirm('この週のテンプレートを生成しますか？\n既存の取決めがある場合は上書きしません。'))) return;
   try {
     // ローテ設定を読み込み
     const rotSnap = await db.collection('FS_ROTATION').get();
@@ -3990,7 +4014,7 @@ async function editFsRow(docId) {
 }
 
 async function deleteFsRow(docId) {
-  if (!confirm('この取決めを削除しますか？')) return;
+  if (!(await customConfirm('この取決めを削除しますか？'))) return;
   try {
     await db.collection('FIELD_SERVICE').doc(docId).delete();
     loadAdminFieldService();
@@ -4156,7 +4180,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   confirmMsg += '出席人数: ' + count + '名\n';
   if (remarks) confirmMsg += '備考: ' + remarks + '\n';
   confirmMsg += '\n送信しますか？';
-  if (!confirm(confirmMsg)) return;
+  if (!(await customConfirm(confirmMsg))) return;
 
   const data = {
     date,
@@ -4177,7 +4201,7 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
       const ref = db.collection('MEETING_ATTENDANCE').doc(docId);
       const existing = await ref.get();
       if (existing.exists) {
-        if (!confirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？')) return;
+        if (!(await customConfirm('同じ日付・会場・集会種別の報告が既にあります。上書きしますか？'))) return;
       }
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await ref.set(data, { merge: true });
@@ -4193,8 +4217,8 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
   }
 });
 
-function openAttendanceDeleteModal(id) {
-  if (!confirm('この出席記録を削除しますか？')) return;
+async function openAttendanceDeleteModal(id) {
+  if (!(await customConfirm('この出席記録を削除しますか？'))) return;
   db.collection('MEETING_ATTENDANCE').doc(id).delete()
     .then(() => loadAdminAttendance())
     .catch(err => alert('削除エラー: ' + err.message));

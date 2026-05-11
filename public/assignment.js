@@ -179,7 +179,7 @@ function awGenerateAll() {
 }
 
 async function awConfirmAll() {
-  if (!confirm('表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
+  if (!(await customConfirm('表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。'))) return;
   let confirmed = 0;
   const targetWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   try {
@@ -1468,7 +1468,7 @@ async function awReplaceHistory(thuDate, slotsObj) {
 
 async function awConfirmAssignment() {
   if (!awCurrentWeekId) return;
-  if (!confirm('割当を確定しますか？\nassignmentHistoryに記録されます。')) return;
+  if (!(await customConfirm('割当を確定しますか？\nassignmentHistoryに記録されます。'))) return;
 
   try {
     const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
@@ -1644,7 +1644,7 @@ function awCloseMemberModal() {
 }
 
 async function awDeactivateMember(id) {
-  if (!confirm('このメンバーを無効化しますか？')) return;
+  if (!(await customConfirm('このメンバーを無効化しますか？'))) return;
   try {
     await db.collection('mwbMembers').doc(id).update({ active: false });
     await awLoadMembers();
@@ -1657,7 +1657,7 @@ async function awDeactivateMember(id) {
 async function awDeleteMember(id) {
   const member = awMembers.find(mb => mb.docId === id);
   const name = member ? member.name : id;
-  if (!confirm(`「${name}」を完全に削除しますか？\nこの操作は取り消せません。`)) return;
+  if (!(await customConfirm(`「${name}」を完全に削除しますか？\nこの操作は取り消せません。`))) return;
   try {
     await db.collection('mwbMembers').doc(id).delete();
     await awLoadMembers();
@@ -1787,8 +1787,8 @@ function awRenderEditorList() {
     row.querySelector('.aw-down').onclick = () => {
       if (idx < awEditorItems.length-1) { [awEditorItems[idx], awEditorItems[idx+1]] = [awEditorItems[idx+1], awEditorItems[idx]]; awRenderEditorList(); }
     };
-    row.querySelector('.aw-del').onclick = () => {
-      if (confirm('この行を削除しますか？')) { awEditorItems.splice(idx, 1); awRenderEditorList(); }
+    row.querySelector('.aw-del').onclick = async () => {
+      if (await customConfirm('この行を削除しますか？')) { awEditorItems.splice(idx, 1); awRenderEditorList(); }
     };
 
     list.appendChild(row);
@@ -2452,7 +2452,7 @@ function awApplyCircuitVisit(section, on) {
 }
 
 async function awConfirmAllPrograms() {
-  if (!confirm('表示中の全週のプログラムを確定しますか？')) return;
+  if (!(await customConfirm('表示中の全週のプログラムを確定しますか？'))) return;
   let count = 0;
   const targetWeeks = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
   try {
