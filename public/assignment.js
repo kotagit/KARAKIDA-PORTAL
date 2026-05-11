@@ -210,8 +210,102 @@ function s89CollectSlips(weeks, selectedMonth) {
   return slips;
 }
 
+// Canvas 2D APIで直接カードを描画（ブラウザのフォントエンジン使用＝日本語確実）
+function s89DrawCard(canvas, slip) {
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const s = 2; // scale factor
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, W, H);
+
+  const font = n => `${n * s}px "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif`;
+  const fontB = n => `bold ${n * s}px "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif`;
+  const px = 20 * s, topY = 16 * s;
+  let cy = topY;
+
+  // タイトル
+  ctx.font = fontB(11);
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.fillText('クリスチャンとしての生活と', W / 2, cy);
+  cy += 16 * s;
+  ctx.fillText('奉仕の集会　生徒の方へ', W / 2, cy);
+  cy += 24 * s;
+  ctx.textAlign = 'left';
+
+  // フィールド
+  const fields = [
+    ['氏名：', slip.name || ''],
+    ['相手：', slip.partner || ''],
+    ['日付：', slip.date || ''],
+    ['担当部分：', slip.part || ''],
+  ];
+  fields.forEach(([label, value]) => {
+    ctx.font = fontB(10);
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, px, cy);
+    const lw = ctx.measureText(label).width;
+    ctx.font = font(10);
+    ctx.fillStyle = '#1565c0';
+    ctx.fillText(value, px + lw + 2 * s, cy);
+    const vw = ctx.measureText(value).width;
+    ctx.strokeStyle = '#1565c0';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(px + lw + 2 * s, cy + 3 * s);
+    ctx.lineTo(px + lw + 2 * s + Math.max(vw, 60 * s), cy + 3 * s);
+    ctx.stroke();
+    ctx.strokeStyle = '#ccc';
+    cy += 18 * s;
+  });
+
+  // 会場
+  cy += 6 * s;
+  ctx.font = fontB(10);
+  ctx.fillStyle = '#000';
+  ctx.fillText('会場：', px, cy);
+  cy += 14 * s;
+  ctx.font = font(9);
+  ctx.fillText('☑ 本会場', px + 12 * s, cy);
+  cy += 12 * s;
+  ctx.fillText('☐ 第2会場', px + 12 * s, cy);
+  cy += 12 * s;
+  ctx.fillText('☐ 第3会場', px + 12 * s, cy);
+
+  // フッター区切り線
+  const footerY = H - 50 * s;
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(px, footerY);
+  ctx.lineTo(W - px, footerY);
+  ctx.stroke();
+
+  // 注記
+  ctx.font = font(6.5);
+  ctx.fillStyle = '#555';
+  const noteText = '注記：資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。';
+  const maxNoteW = W - px * 2;
+  let line = '', noteY = footerY + 12 * s;
+  for (const ch of noteText) {
+    if (ctx.measureText(line + ch).width > maxNoteW) {
+      ctx.fillText(line, px, noteY);
+      noteY += 9 * s;
+      line = ch;
+    } else { line += ch; }
+  }
+  if (line) ctx.fillText(line, px, noteY);
+
+  // フォームID
+  ctx.font = font(7);
+  ctx.fillStyle = '#999';
+  ctx.fillText('S-89-J　11/23', px, H - 10 * s);
+}
+
 async function s89DownloadPdf(slips, selectedMonth) {
-  if (typeof html2canvas === 'undefined') throw new Error('html2canvas が読み込まれていません');
   if (!window.jspdf) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -227,37 +321,21 @@ async function s89DownloadPdf(slips, selectedMonth) {
   const margin = 8;
   const slipW = (pageW - margin * 3) / 2;
   const slipH = (pageH - margin * 3) / 2;
+  // Canvas解像度（mm → px, 高解像度）
+  const cW = Math.round(slipW * 4);
+  const cH = Math.round(slipH * 4);
 
-  // カードを画面上に一時生成（html2canvasはビューポート内の要素が必要）
-  const tmpContainer = document.createElement('div');
-  tmpContainer.style.cssText = 'position:fixed;top:0;left:0;width:360px;z-index:99999;background:#fff;overflow:auto;max-height:100vh;';
-  document.body.appendChild(tmpContainer);
-  slips.forEach(slip => tmpContainer.appendChild(s89BuildVisualCard(slip)));
-  // DOMレンダリング待ち
-  await new Promise(r => setTimeout(r, 300));
-
-  const cards = [...tmpContainer.querySelectorAll('.s89-card')];
-  try {
-    for (let i = 0; i < cards.length; i += 4) {
-      if (i > 0) pdf.addPage();
-      const batch = cards.slice(i, i + 4);
-      for (let j = 0; j < batch.length; j++) {
-        // カードをビューポートにスクロール
-        cards[i + j].scrollIntoView({ block: 'start' });
-        await new Promise(r => setTimeout(r, 50));
-        const canvas = await html2canvas(batch[j], {
-          scale: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          logging: false,
-        });
-        const imgData = canvas.toDataURL('image/png');
-        const col = j % 2, row = Math.floor(j / 2);
-        pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
-      }
+  for (let i = 0; i < slips.length; i += 4) {
+    if (i > 0) pdf.addPage();
+    const batch = slips.slice(i, i + 4);
+    for (let j = 0; j < batch.length; j++) {
+      const cvs = document.createElement('canvas');
+      cvs.width = cW; cvs.height = cH;
+      s89DrawCard(cvs, batch[j]);
+      const imgData = cvs.toDataURL('image/png');
+      const col = j % 2, row = Math.floor(j / 2);
+      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
     }
-  } finally {
-    document.body.removeChild(tmpContainer);
   }
 
   pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
@@ -1915,6 +1993,8 @@ function skShowMonthSchedule() {
 function skRenderMidweekCard({ week, slots, topics }, container) {
   const thuLabel = awGetThursdayLabel(week);
   const items = week.items || [];
+  const convention = week.conventionType || '';
+  const isCircuitVisit = !!week.circuitVisit;
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
@@ -1923,7 +2003,7 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
   hdr.className = 'aw-inline-header';
   const chairName = slots['A'] || '';
   hdr.innerHTML = `
-    <div>
+    <div class="aw-header-left">
       <div class="aw-inline-title">${esc(thuLabel)}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
@@ -1932,6 +2012,23 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
     </div>
   `;
   section.appendChild(hdr);
+
+  // 大会の場合はグレーアウト+ラベル、プログラム非表示
+  if (convention) {
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'aw-program-body aw-conv-greyed';
+    const overlay = document.createElement('div');
+    overlay.className = 'aw-conv-overlay';
+    overlay.textContent = convention;
+    bodyWrap.style.minHeight = '120px';
+    bodyWrap.appendChild(overlay);
+    section.appendChild(bodyWrap);
+    container.appendChild(section);
+    return;
+  }
+
+  // 巡回訪問
+  if (isCircuitVisit) awApplyCircuitVisit(section, true);
 
   const tableDiv = document.createElement('div');
   tableDiv.className = 'aw-week-table';
