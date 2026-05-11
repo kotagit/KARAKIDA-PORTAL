@@ -256,7 +256,7 @@ body {
 @media (max-width: 640px) { .s89-card-grid { grid-template-columns: 1fr; } }
 .s89-card {
   background: #fff; border: 1px solid #ccc; border-radius: 4px;
-  padding: 20px 22px; position: relative; min-height: 320px;
+  padding: 20px 22px;
   font-family: 'Hiragino Kaku Gothic ProN','Meiryo','Yu Gothic',sans-serif;
 }
 .s89-card-title { text-align: center; font-size: 14px; font-weight: bold; line-height: 1.6; margin-bottom: 16px; }
@@ -268,7 +268,7 @@ body {
 }
 .s89-venue-section { margin-top: 16px; }
 .s89-venue-list { padding-left: 16px; font-size: 13px; line-height: 2; margin-top: 4px; }
-.s89-footer { position: absolute; bottom: 14px; left: 22px; right: 22px; }
+.s89-footer { margin-top: 20px; }
 .s89-note { font-size: 10px; color: #555; line-height: 1.5; }
 .s89-form-id { font-size: 10px; color: #888; margin-top: 4px; }
 .am-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
