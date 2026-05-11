@@ -2168,10 +2168,20 @@ function skRenderPublicTalkCard(pt, container) {
 
 async function initProgramPage() {
   const list = document.getElementById('program-list');
-  if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
+  const monthEl = document.getElementById('program-month-selector');
+  if (list) list.innerHTML = '';
+  if (monthEl) monthEl.innerHTML = '';
   try {
     await Promise.all([awLoadCodes(), awLoadWeeks()]);
-    awRenderProgramList();
+    // データはあるが自動表示しない — 月タイルだけ出す
+    if (awWeeks.length > 0) {
+      const months = awExtractMonths(awWeeks);
+      awProgramSelectedMonth = null;
+      awRenderMonthTiles('program-month-selector', months, null, (y, m) => {
+        awProgramSelectedMonth = { year: y, month: m };
+        awRenderProgramList();
+      });
+    }
   } catch(e) {
     if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
