@@ -4493,15 +4493,27 @@ async function loadAccessLog() {
       view.innerHTML = '<div class="empty-state">ログがありません</div>';
       return;
     }
-    let html = '<table class="report-table"><thead><tr><th>日時</th><th>名前</th><th>Email</th><th>UA</th></tr></thead><tbody>';
+    let html = '<div class="access-log-list">';
+    let prevDateKey = '';
     snap.forEach(doc => {
       const d = doc.data();
       const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      const dateStr = dt ? `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
-      const ua = (d.userAgent || '').length > 60 ? d.userAgent.substring(0, 60) + '…' : (d.userAgent || '');
-      html += `<tr><td style="white-space:nowrap">${esc(dateStr)}</td><td>${esc(d.name || '')}</td><td style="font-size:12px">${esc(d.email || '')}</td><td style="font-size:11px;color:#888">${esc(ua)}</td></tr>`;
+      const dateKey = dt ? `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}` : '';
+      const timeStr = dt ? `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
+      if (dateKey && dateKey !== prevDateKey) {
+        html += `<div class="access-log-date">${esc(dateKey)}</div>`;
+        prevDateKey = dateKey;
+      }
+      const uaRaw = d.userAgent || '';
+      let device = 'その他';
+      if (/iPhone/.test(uaRaw)) device = 'iPhone';
+      else if (/Android/.test(uaRaw)) device = 'Android';
+      else if (/iPad/.test(uaRaw)) device = 'iPad';
+      else if (/Mac/.test(uaRaw)) device = 'Mac';
+      else if (/Windows/.test(uaRaw)) device = 'Windows';
+      html += `<div class="access-log-card"><div class="access-log-main"><span class="material-icons access-log-icon">person</span><div class="access-log-info"><div class="access-log-name">${esc(d.name || '不明')}</div><div class="access-log-email">${esc(d.email || '')}</div></div><div class="access-log-meta"><div class="access-log-time">${esc(timeStr)}</div><div class="access-log-device">${esc(device)}</div></div></div></div>`;
     });
-    html += '</tbody></table>';
+    html += '</div>';
     view.innerHTML = html;
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
