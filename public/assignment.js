@@ -562,6 +562,19 @@ function awGetMeetingDate(week) {
 // 後方互換
 function awGetThursdayDate(week) { return awGetMeetingDate(week); }
 
+// 週の月曜日（dateRangeの開始日）を返す — 月分類用
+function awGetWeekMonday(week) {
+  if (!week.dateRange) return null;
+  const m = week.dateRange.match(/^(\d+)月(\d+)/);
+  if (!m) return null;
+  const issueYear  = parseInt(week.id.substring(0, 4));
+  const issueMonth = parseInt(week.id.substring(4, 6));
+  const startMonth = parseInt(m[1]);
+  const startDay   = parseInt(m[2]);
+  const startYear  = (issueMonth === 12 && startMonth === 1) ? issueYear + 1 : issueYear;
+  return new Date(startYear, startMonth - 1, startDay);
+}
+
 function awGetMeetingLabel(week) {
   const d = awGetMeetingDate(week);
   if (!d) return week.dateRange || week.id;
@@ -1789,10 +1802,11 @@ async function loadAssignmentWeekDisplay() {
       skPublicTalks = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) { skPublicTalks = []; }
 
-    // 利用可能な月を抽出
+    // 利用可能な月を抽出（月曜日基準）
     const monthSet = new Set();
     skConfirmedWeeks.forEach(cw => {
-      monthSet.add(cw.meetDate.getFullYear() + '-' + cw.meetDate.getMonth());
+      const mon = awGetWeekMonday(cw.week) || cw.meetDate;
+      monthSet.add(mon.getFullYear() + '-' + mon.getMonth());
     });
     skPublicTalks.forEach(pt => {
       const d = skParsePtDate(pt.date);
@@ -1854,10 +1868,11 @@ function skShowMonthSchedule() {
 
   const { year, month } = skSelectedMonth;
 
-  // 該当月の週中集会
-  const monthWeeks = skConfirmedWeeks.filter(cw =>
-    cw.meetDate.getFullYear() === year && cw.meetDate.getMonth() === month
-  );
+  // 該当月の週中集会（月曜日基準）
+  const monthWeeks = skConfirmedWeeks.filter(cw => {
+    const mon = awGetWeekMonday(cw.week) || cw.meetDate;
+    return mon.getFullYear() === year && mon.getMonth() === month;
+  });
 
   // 該当月の公開講演
   const monthPts = skPublicTalks.filter(pt => {
@@ -2059,7 +2074,7 @@ let awAssignSelectedMonth = null;
 function awExtractMonths(weeks) {
   const monthSet = new Set();
   weeks.forEach(w => {
-    const d = awGetMeetingDate(w);
+    const d = awGetWeekMonday(w) || awGetMeetingDate(w);
     if (d) monthSet.add(d.getFullYear() + '-' + d.getMonth());
   });
   return [...monthSet].sort().map(k => {
@@ -2087,7 +2102,7 @@ function awRenderMonthTiles(selectorId, months, selected, onSelect) {
 function awFilterWeeksByMonth(weeks, selected) {
   if (!selected) return weeks;
   return weeks.filter(w => {
-    const d = awGetMeetingDate(w);
+    const d = awGetWeekMonday(w) || awGetMeetingDate(w);
     return d && d.getFullYear() === selected.year && d.getMonth() === selected.month;
   });
 }
