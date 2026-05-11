@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=116">
+  <link rel="stylesheet" href="style.css?v=117">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -336,13 +336,9 @@
       </div>
       <div class="page-content">
         <!-- 表示切替 -->
-        <div class="ann-view-toggle">
-          <button class="ann-view-btn active" id="ann-toggle-week">
-            <span class="material-icons">calendar_today</span>週選択
-          </button>
-          <button class="ann-view-btn" id="ann-toggle-all">
-            <span class="material-icons">list</span>全表示
-          </button>
+        <div class="org-tab-bar">
+          <button class="org-tab active" id="ann-toggle-week">週選択</button>
+          <button class="org-tab" id="ann-toggle-all">全表示</button>
         </div>
 
         <!-- 週ビュー -->
