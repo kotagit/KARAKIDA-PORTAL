@@ -2624,6 +2624,53 @@ async function loadOrgView() {
     }
 
     html += '</tbody></table></div></div>';
+
+    // グループ成員表
+    const userSnap = await db.collection('USER_LIST').get();
+    const users = [];
+    userSnap.docs.forEach(d => {
+      const data = d.data();
+      const name = String(data.name || '').trim();
+      if (!name) return;
+      const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
+      const statuses = statusFields.map(f => String(data[f] || '').trim());
+      let roleLabel = '伝道者';
+      if (statuses.some(v => v === 'EL')) roleLabel = '長老';
+      else if (statuses.some(v => v === 'MS')) roleLabel = '援助奉仕者';
+      const pioneer = String(data.pioneer || '').trim();
+      if (pioneer === 'RP' || pioneer === '正規開拓者') roleLabel += ' / 開拓者';
+      else if (pioneer.includes('開拓')) roleLabel += ' / ' + pioneer;
+      users.push({
+        name,
+        group: String(data.group || '').trim(),
+        gender: String(data.gender || '').trim(),
+        roleLabel,
+      });
+    });
+    users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
+
+    const groupMap = {};
+    users.forEach(u => {
+      if (!u.group) return;
+      if (!groupMap[u.group]) groupMap[u.group] = [];
+      groupMap[u.group].push(u);
+    });
+
+    html += '<div class="group-member-section">';
+    html += '<h3 class="org-xl-title">グループ成員表</h3>';
+    Object.keys(groupMap).sort().forEach(gName => {
+      const members = groupMap[gName];
+      html += '<div class="group-member-card">';
+      html += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
+      html += '<div class="group-member-list">';
+      members.forEach(m => {
+        const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
+        html += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+
     view.innerHTML = html;
   } catch (e) {
     console.error('loadOrgView error:', e);

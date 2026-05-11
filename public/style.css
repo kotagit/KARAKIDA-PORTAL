@@ -1508,6 +1508,31 @@ body {
 .atm-type-weekend { background: #fff3e0; color: #e65100; }
 .atm-type-special { background: #f3e5f5; color: #6a1b9a; }
 
+/* ── グループ成員表 ── */
+.group-member-section { margin-top: 32px; }
+.group-member-card {
+  background: white; border-radius: 12px; box-shadow: var(--shadow);
+  margin-bottom: 16px; overflow: hidden;
+}
+.group-member-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; font-size: 15px; font-weight: 700; color: white;
+  background: var(--primary);
+}
+.group-member-count {
+  font-size: 12px; font-weight: 500; background: rgba(255,255,255,0.25);
+  padding: 2px 10px; border-radius: 10px;
+}
+.group-member-list { padding: 0; }
+.group-member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
+}
+.group-member-row:last-child { border-bottom: none; }
+.group-member-icon { font-size: 22px; color: #bbb; flex-shrink: 0; }
+.group-member-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.group-member-role { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+
 /* ── アクセスログ ── */
 .access-log-list { display: flex; flex-direction: column; gap: 0; }
 .access-log-date {
