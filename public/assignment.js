@@ -51,7 +51,7 @@ async function awLoadCodes() {
 async function awLoadMembers() {
   const snap = await db.collection('mwbMembers').where('active','==',true).get();
   awMembers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-  awMembers.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'ja'));
+  awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
 }
 
 async function awLoadHistory() {
@@ -1296,7 +1296,8 @@ function awOpenMemberModal(id) {
   if (id) {
     const member = awMembers.find(mb => mb.docId === id);
     if (!member) return;
-    document.getElementById('mf-name').value     = member.name || '';
+    document.getElementById('mf-name').value      = member.name || '';
+    document.getElementById('mf-furigana').value = member.furigana || '';
     document.getElementById('mf-gender').value   = member.gender || '男';
     document.getElementById('mf-position').value = member.position || '生徒男';
     document.getElementById('mf-family').value   = member.familyGroup || '';
@@ -1342,14 +1343,16 @@ async function awDeleteMember(id) {
 async function awSaveMember(e) {
   e.preventDefault();
   const name        = document.getElementById('mf-name').value.trim();
+  const furigana    = document.getElementById('mf-furigana').value.trim();
   const gender      = document.getElementById('mf-gender').value;
   const position    = document.getElementById('mf-position').value;
   const familyGroup = document.getElementById('mf-family').value.trim();
   const eligibleCodes = [...document.querySelectorAll('#mf-codes-grid input:checked')].map(cb => cb.value);
 
   if (!name) { alert('名前を入力してください'); return; }
+  if (!furigana) { alert('フリガナを入力してください'); return; }
 
-  const data = { name, gender, position, familyGroup, eligibleCodes, active: true };
+  const data = { name, furigana, gender, position, familyGroup, eligibleCodes, active: true };
 
   try {
     if (awEditingMemberId) {
