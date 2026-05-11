@@ -1682,8 +1682,9 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
           const base = awGetBase(code);
           if (PAIR_PARTNER_SET.has(base)) return;
           const partnerBase = PAIR_OF[base];
-          const name = slots[base] || '';
-          const partnerName = partnerBase ? (slots[partnerBase] || '') : '';
+          const partnerCode = code.includes('_') ? code.replace(base, partnerBase) : partnerBase;
+          const name = slots[code] || slots[base] || '';
+          const partnerName = slots[partnerCode] || slots[partnerBase] || '';
           if (partnerName) parts.push(`${name} / ${partnerName}`);
           else if (name) parts.push(name);
         });
