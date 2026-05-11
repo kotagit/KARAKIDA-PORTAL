@@ -2393,19 +2393,22 @@ function awApplyConventionState(section, convType) {
 }
 
 function awApplyCircuitVisit(section, on) {
-  const hdrLeft = section.querySelector('.aw-header-left');
-  if (!hdrLeft) return;
-  const oldLabel = hdrLeft.querySelector('.aw-cv-label');
+  const hdr = section.querySelector('.aw-inline-header');
+  if (!hdr) return;
+  const hdrLeft = section.querySelector('.aw-header-left') || hdr.querySelector('div');
+  const oldLabel = hdrLeft ? hdrLeft.querySelector('.aw-cv-label') : null;
   if (oldLabel) oldLabel.remove();
 
   if (on) {
-    hdrLeft.classList.add('aw-cv-highlight');
-    const lbl = document.createElement('div');
-    lbl.className = 'aw-cv-label';
-    lbl.textContent = '巡回訪問';
-    hdrLeft.appendChild(lbl);
+    hdr.classList.add('aw-cv-highlight');
+    if (hdrLeft) {
+      const lbl = document.createElement('div');
+      lbl.className = 'aw-cv-label';
+      lbl.textContent = '巡回訪問';
+      hdrLeft.appendChild(lbl);
+    }
   } else {
-    hdrLeft.classList.remove('aw-cv-highlight');
+    hdr.classList.remove('aw-cv-highlight');
   }
 }
 

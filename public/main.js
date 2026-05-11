@@ -4084,6 +4084,20 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
     alert('出席人数は0以上の数値を入力してください');
     return;
   }
+
+  // 送信前確認
+  const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
+  const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
+  const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
+  let confirmMsg = '【送信内容の確認】\n';
+  confirmMsg += '日付: ' + date + '\n';
+  confirmMsg += '会場: ' + venueLabel + '\n';
+  confirmMsg += '集会: ' + typeLabel + detailStr + '\n';
+  confirmMsg += '出席人数: ' + count + '名\n';
+  if (remarks) confirmMsg += '備考: ' + remarks + '\n';
+  confirmMsg += '\n送信しますか？';
+  if (!confirm(confirmMsg)) return;
+
   const data = {
     date,
     venue,
@@ -4109,10 +4123,6 @@ document.getElementById('attendance-form')?.addEventListener('submit', async (e)
       await ref.set(data, { merge: true });
     }
     closeAttendanceModal();
-    // 結果表示
-    const typeLabel = {'midweek':'週中の集会','weekend':'週末の集会','memorial':'記念式','special':'特別な集会'}[type] || type;
-    const detailStr = type === 'special' && specialDetail ? `（${specialDetail}）` : '';
-    const venueLabel = {'kingdom_hall':'王国会館','zoom':'Zoom'}[venue] || venue;
     alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
     // 出席ページが開いていれば更新
     if (document.getElementById('page-admin-attendance') && !document.getElementById('page-admin-attendance').classList.contains('hidden')) {
