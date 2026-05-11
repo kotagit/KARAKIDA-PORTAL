@@ -4534,6 +4534,18 @@ function renderAttendanceMonthly(docs) {
 }
 
 // ── アクセスログ ────────────────────────────────
+function alFormatDt(dt) {
+  return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+function alDevice(ua) {
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/Android/.test(ua)) return 'Android';
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/Mac/.test(ua)) return 'Mac';
+  if (/Windows/.test(ua)) return 'Windows';
+  return 'その他';
+}
+
 async function loadAccessLog() {
   const view = document.getElementById('access-log-view');
   if (!view) return;
@@ -4541,31 +4553,45 @@ async function loadAccessLog() {
   try {
     const snap = await db.collection('LOGIN_LOG')
       .orderBy('loginAt', 'desc')
-      .limit(200)
+      .limit(500)
       .get();
     if (snap.empty) {
       view.innerHTML = '<div class="empty-state">ログがありません</div>';
       return;
     }
-    let html = '<div class="access-log-list">';
-    let prevDateKey = '';
+    const userMap = {};
     snap.forEach(doc => {
       const d = doc.data();
+      const key = d.email || d.name || 'unknown';
+      if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
       const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      const dateKey = dt ? `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}` : '';
-      const timeStr = dt ? `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : '';
-      if (dateKey && dateKey !== prevDateKey) {
-        html += `<div class="access-log-date">${esc(dateKey)}</div>`;
-        prevDateKey = dateKey;
-      }
-      const uaRaw = d.userAgent || '';
-      let device = 'その他';
-      if (/iPhone/.test(uaRaw)) device = 'iPhone';
-      else if (/Android/.test(uaRaw)) device = 'Android';
-      else if (/iPad/.test(uaRaw)) device = 'iPad';
-      else if (/Mac/.test(uaRaw)) device = 'Mac';
-      else if (/Windows/.test(uaRaw)) device = 'Windows';
-      html += `<div class="access-log-card"><div class="access-log-main"><span class="material-icons access-log-icon">person</span><div class="access-log-info"><div class="access-log-name">${esc(d.name || '不明')}</div><div class="access-log-email">${esc(d.email || '')}</div></div><div class="access-log-meta"><div class="access-log-time">${esc(timeStr)}</div><div class="access-log-device">${esc(device)}</div></div></div></div>`;
+      userMap[key].logs.push({ dt, ua: d.userAgent || '' });
+    });
+    const users = Object.values(userMap).sort((a, b) => {
+      const ta = a.logs[0]?.dt?.getTime() || 0;
+      const tb = b.logs[0]?.dt?.getTime() || 0;
+      return tb - ta;
+    });
+
+    let html = '<div class="access-log-list">';
+    users.forEach((u, idx) => {
+      const latest = u.logs[0];
+      const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
+      const device = alDevice(latest.ua);
+      html += `<div class="access-log-card" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
+      html += `<div class="access-log-main">`;
+      html += `<span class="material-icons access-log-icon">person</span>`;
+      html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
+      html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
+      html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
+      html += `</div>`;
+      html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
+      u.logs.forEach(log => {
+        const dtStr = log.dt ? alFormatDt(log.dt) : '';
+        const dev = alDevice(log.ua);
+        html += `<div class="al-detail-row"><span class="al-detail-time">${esc(dtStr)}</span><span class="al-detail-device">${esc(dev)}</span></div>`;
+      });
+      html += `</div></div>`;
     });
     html += '</div>';
     view.innerHTML = html;
