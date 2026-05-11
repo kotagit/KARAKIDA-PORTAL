@@ -277,16 +277,9 @@ function s89DownloadPdf(slips, selectedMonth) {
   setTimeout(() => w.print(), 400);
 }
 
-// 担当者策定ページからの呼び出し
-async function awGenerateS89() {
-  const btn = document.getElementById('aw-s89-btn');
-  if (btn) { btn.disabled = true; btn.querySelector('span:last-child').textContent = '生成中...'; }
-  try {
-    const slips = s89CollectSlips(awWeeks, awAssignSelectedMonth);
-    if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
-    await s89DownloadPdf(slips, awAssignSelectedMonth);
-  } catch(e) { console.error(e); alert('S-89生成に失敗しました: ' + (e.message || e)); }
-  finally { if (btn) { btn.disabled = false; btn.querySelector('span:last-child').textContent = 'S-89'; } }
+// 担当者策定ページからS-89プレビューへ遷移
+function awGenerateS89() {
+  navigate('admin-s89');
 }
 
 // S-89専用ページ
