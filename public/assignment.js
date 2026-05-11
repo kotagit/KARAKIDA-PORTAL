@@ -60,13 +60,14 @@ async function awLoadHistory() {
   snap.docs.forEach(d => {
     const { memberName, code, date } = d.data();
     if (!memberName || !code) return;
+    const base = awGetBase(code);
     if (!awHistory[memberName]) awHistory[memberName] = {};
-    if (!awHistory[memberName][code]) awHistory[memberName][code] = { lastDate: null, count: 0 };
-    awHistory[memberName][code].count++;
+    if (!awHistory[memberName][base]) awHistory[memberName][base] = { lastDate: null, count: 0 };
+    awHistory[memberName][base].count++;
     let dt = null;
     if (date) dt = date.toDate ? date.toDate() : new Date(date);
-    if (dt && (!awHistory[memberName][code].lastDate || dt > awHistory[memberName][code].lastDate)) {
-      awHistory[memberName][code].lastDate = dt;
+    if (dt && (!awHistory[memberName][base].lastDate || dt > awHistory[memberName][base].lastDate)) {
+      awHistory[memberName][base].lastDate = dt;
     }
   });
 }
@@ -189,7 +190,7 @@ function awRenderElderList() {
   // 長老・援助奉仕者コードのみ、日付ごとに集約
   const elderWeeks = awHistoryWeeks.map(({ date, records }) => ({
     date,
-    records: records.filter(r => AW_ELDER_MS_CODES.has(r.code)),
+    records: records.filter(r => AW_ELDER_MS_CODES.has(awGetBase(r.code))),
   })).filter(w => w.records.length > 0);
 
   if (elderWeeks.length === 0) {
@@ -205,7 +206,7 @@ function awRenderElderList() {
   elderWeeks.forEach(({ date, records }) => {
     records.forEach(({ code, memberName }) => {
       if (!cell[date]) cell[date] = {};
-      cell[date][code] = memberName;
+      cell[date][awGetBase(code)] = memberName;
     });
   });
 
@@ -853,9 +854,10 @@ function awOpenHistoryDetail(date, records) {
     const sortedCodes = Object.keys(byCode).sort();
     let prevSection = '';
     sortedCodes.forEach(code => {
-      if (PARTNER_CODES.has(code)) return; // 相手コードは担当行でまとめて表示
+      const base = awGetBase(code);
+      if (PARTNER_CODES.has(base)) return; // 相手コードは担当行でまとめて表示
 
-      const section = sectionOf[code] || '';
+      const section = sectionOf[base] || '';
       if (section && section !== prevSection) {
         const hdr = document.createElement('div');
         hdr.className = 'aw-section-header';
@@ -865,14 +867,12 @@ function awOpenHistoryDetail(date, records) {
         prevSection = section;
       }
 
-      const partnerCode = PARTNER_OF[code];
-      let label = awCodes[code] || code;
+      const partnerBase = PARTNER_OF[base];
+      const partnerCode = code.includes('_') ? code.replace(base, partnerBase) : partnerBase;
+      let label = awCodes[base] || code;
       let nameStr;
-      if (partnerCode && byCode[partnerCode]) {
-        // ペアの場合「担当 / 相手」ラベルと「担当名 / 相手名」
-        const leadLabel    = awCodes[code]        || code;
-        const partnerLabel = awCodes[partnerCode] || partnerCode;
-        label   = leadLabel.replace(/ ?— ?(担当|相手)/, '').replace(/（(司会|朗読者)）/, '');
+      if (partnerBase && byCode[partnerCode]) {
+        label   = (awCodes[base] || code).replace(/ ?— ?(担当|相手)/, '').replace(/（(司会|朗読者)）/, '');
         nameStr = `${esc(byCode[code][0])} / ${esc(byCode[partnerCode][0])}`;
       } else {
         nameStr = esc((byCode[code] || []).join(' / '));
@@ -1145,13 +1145,13 @@ async function awReplaceHistory(thuDate, slotsObj) {
     await delBatch.commit();
   }
 
-  // 新データを書き込み（UTC正午で統一）
+  // 新データを書き込み（UTC正午で統一、サフィックス付きコードを保持）
   const ts = awNoonUtcTimestamp(thuDate);
   const batch = db.batch();
   Object.entries(slotsObj).forEach(([code, name]) => {
     if (!name || name === '（該当者なし）') return;
     batch.set(db.collection('assignmentHistory').doc(), {
-      memberName: name, code: awGetBase(code), date: ts,
+      memberName: name, code: code, date: ts,
     });
   });
   await batch.commit();
