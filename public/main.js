@@ -327,8 +327,8 @@ document.getElementById('admin-manage-attendance-monthly')?.addEventListener('cl
   navigate('admin-attendance-monthly');
 });
 
-// メニューグリッドのクリック（data-page属性があるもののみ）
-document.querySelectorAll('.menu-item[data-page]').forEach(item => {
+// メニューのクリック（data-page属性があるもののみ）
+document.querySelectorAll('[data-page]').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
