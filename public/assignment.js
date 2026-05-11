@@ -128,6 +128,7 @@ async function initAssignmentPage() {
 function awGenerateAll() {
   if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
   awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth).forEach(week => {
+    if (week.conventionType) return;
     const slots = awLiveSlots[week.id];
     if (!slots) return;
     const items = week.items || [];
@@ -151,6 +152,7 @@ async function awConfirmAll() {
   const targetWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   try {
     for (const week of targetWeeks) {
+      if (week.conventionType) continue;
       const slots  = awLiveSlots[week.id]  || {};
       if (Object.keys(slots).length === 0) continue;
 
@@ -209,7 +211,6 @@ function s89CollectSlips(weeks, selectedMonth) {
 }
 
 async function s89DownloadPdf(slips, selectedMonth) {
-  if (typeof html2canvas === 'undefined') throw new Error('html2canvas が読み込まれていません');
   if (!window.jspdf) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -226,36 +227,86 @@ async function s89DownloadPdf(slips, selectedMonth) {
   const slipW = (pageW - margin * 3) / 2;
   const slipH = (pageH - margin * 3) / 2;
 
-  // 画面上のプレビューカードがあればそれを使う、なければ一時生成
-  let cardArray = [...document.querySelectorAll('#s89-preview-list .s89-card')];
-  const area = document.getElementById('s89-render-area');
-  let usedArea = false;
+  function drawSlip(slip, x, y, w, h) {
+    pdf.setDrawColor(180);
+    pdf.rect(x, y, w, h);
+    const cx = x + w / 2;
+    let cy = y + 8;
 
-  if (cardArray.length === 0) {
-    // 担当者策定ページから呼ばれた場合: 一時的にカードを生成
-    area.style.cssText = 'position:fixed;left:0;top:0;z-index:9999;background:#fff;opacity:0;pointer-events:none;';
-    area.innerHTML = '';
-    const grid = document.createElement('div');
-    grid.className = 's89-card-grid';
-    slips.forEach(slip => grid.appendChild(s89BuildVisualCard(slip)));
-    area.appendChild(grid);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    cardArray = [...area.querySelectorAll('.s89-card')];
-    usedArea = true;
+    // タイトル
+    pdf.setFontSize(10);
+    pdf.setFont(undefined, 'bold');
+    pdf.text('クリスチャンとしての生活と', cx, cy, { align: 'center' });
+    cy += 5;
+    pdf.text('奉仕の集会　生徒の方へ', cx, cy, { align: 'center' });
+    cy += 10;
+
+    // フィールド
+    const lx = x + 8;
+    pdf.setFontSize(9);
+    const fields = [
+      ['氏名：', slip.name],
+      ['相手：', slip.partner],
+      ['日付：', slip.date],
+      ['担当部分：', slip.part],
+    ];
+    fields.forEach(([label, value]) => {
+      pdf.setFont(undefined, 'bold');
+      pdf.text(label, lx, cy);
+      const labelW = pdf.getTextWidth(label);
+      pdf.setFont(undefined, 'normal');
+      pdf.setTextColor(21, 101, 192);
+      pdf.text(value || '', lx + labelW + 1, cy);
+      const valW = pdf.getTextWidth(value || '');
+      pdf.setDrawColor(21, 101, 192);
+      pdf.setLineWidth(0.2);
+      pdf.line(lx + labelW + 1, cy + 1, lx + labelW + 1 + Math.max(valW, 30), cy + 1);
+      pdf.setTextColor(0);
+      pdf.setDrawColor(180);
+      cy += 7;
+    });
+
+    // 会場
+    cy += 2;
+    pdf.setFont(undefined, 'bold');
+    pdf.text('会場：', lx, cy);
+    cy += 5;
+    pdf.setFont(undefined, 'normal');
+    pdf.setFontSize(8);
+    pdf.text('☑ 本会場', lx + 6, cy);
+    cy += 4;
+    pdf.text('☐ 第2会場', lx + 6, cy);
+    cy += 4;
+    pdf.text('☐ 第3会場', lx + 6, cy);
+
+    // フッター
+    cy = y + h - 16;
+    pdf.setDrawColor(220);
+    pdf.line(lx, cy, x + w - 8, cy);
+    cy += 4;
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(100);
+    const noteLines = pdf.splitTextToSize(
+      '注記：資料と学習ポイントが「生活と奉仕　集会ワークブック」に載っています。「クリスチャンとしての生活と奉仕の集会　ガイドライン」（S-38）にある担当部分の内容を読んで確認してください。',
+      w - 16
+    );
+    pdf.text(noteLines, lx, cy);
+    cy += noteLines.length * 3 + 2;
+    pdf.setFontSize(7);
+    pdf.setTextColor(150);
+    pdf.text('S-89-J　11/23', lx, cy);
+    pdf.setTextColor(0);
   }
 
-  for (let i = 0; i < cardArray.length; i += 4) {
+  for (let i = 0; i < slips.length; i += 4) {
     if (i > 0) pdf.addPage();
-    const batch = cardArray.slice(i, i + 4);
+    const batch = slips.slice(i, i + 4);
     for (let j = 0; j < batch.length; j++) {
-      const canvas = await html2canvas(batch[j], { scale: 2, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
       const col = j % 2, row = Math.floor(j / 2);
-      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
+      drawSlip(batch[j], margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
     }
   }
 
-  if (usedArea) { area.innerHTML = ''; area.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;'; }
   pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
 }
 
