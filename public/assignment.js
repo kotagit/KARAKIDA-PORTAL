@@ -153,7 +153,7 @@ function awGenerateAll() {
     if (allCodes.length === 0) return;
 
     const meetDate = awGetMeetingDate(week) || new Date();
-    const result = awRunGeneration(allCodes, awMembers, tempHistory);
+    const result = awRunGeneration(allCodes, awMembers, tempHistory, meetDate);
 
     // 生成結果を仮履歴に反映（次週で同じ人が選ばれにくくする）
     Object.entries(result).forEach(([code, name]) => {
@@ -1310,7 +1310,9 @@ function awGenerateAssignments() {
 
   if (allCodes.length === 0) { alert('割当コードがありません'); return; }
 
-  const result = awRunGeneration(allCodes, awMembers, awHistory);
+  const curWeek = awWeeks.find(w => w.id === awCurrentWeekId);
+  const curMeetDate = curWeek ? awGetMeetingDate(curWeek) : new Date();
+  const result = awRunGeneration(allCodes, awMembers, awHistory, curMeetDate);
 
   // 結果をslotとUIに反映
   awCurrentSlots = {};
@@ -1326,7 +1328,7 @@ function awGenerateAssignments() {
 
 const AW_FIELD_MINISTRY_CODES = new Set(['F','G','H','I','J','K','L','M','N','O','P','Q']);
 
-function awRunGeneration(allCodes, members, history) {
+function awRunGeneration(allCodes, members, history, meetDate) {
   const eligibility = {};
   const genderMap   = {};
   const familyMap   = {};
@@ -1340,7 +1342,7 @@ function awRunGeneration(allCodes, members, history) {
 
   const assignedPersons = new Set();
   const result = {};
-  const today  = new Date();
+  const refDate = meetDate || new Date();
 
   function countEligible(code) {
     const base = awGetBase(code);
@@ -1376,7 +1378,7 @@ function awRunGeneration(allCodes, members, history) {
       }
 
       const h        = (history[name] || {})[base] || { lastDate: null, count: 0 };
-      const daysSince = h.lastDate ? Math.floor((today - h.lastDate) / 86400000) : 9999;
+      const daysSince = h.lastDate ? Math.floor((refDate - h.lastDate) / 86400000) : 9999;
       const score     = daysSince * 10 - (h.count || 0);
       candidates.push([score, name]);
     }
