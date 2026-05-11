@@ -1129,9 +1129,8 @@ function awNoonUtcTimestamp(d) {
   return firebase.firestore.Timestamp.fromDate(noon);
 }
 
-// 指定日付の既存assignmentHistoryを削除してから新データを書き込む
+// 指定日付のassignmentHistoryを差分更新（変更分のみ保存）
 async function awReplaceHistory(thuDate, slotsObj) {
-  // 同日の既存履歴を検索・削除（前日18:00 UTC 〜 翌日18:00 UTC で広めに検索）
   const searchStart = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() - 1, 0, 0, 0));
   const searchEnd   = new Date(Date.UTC(thuDate.getFullYear(), thuDate.getMonth(), thuDate.getDate() + 1, 0, 0, 0));
   const existing = await db.collection('assignmentHistory')
@@ -1139,24 +1138,41 @@ async function awReplaceHistory(thuDate, slotsObj) {
     .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
     .get();
 
-  // 既存を削除
-  if (!existing.empty) {
-    const delBatch = db.batch();
-    existing.docs.forEach(d => delBatch.delete(d.ref));
-    await delBatch.commit();
-  }
+  // 既存データをマップ化: code → {docRef, memberName}
+  const existingMap = {};
+  existing.docs.forEach(d => {
+    const data = d.data();
+    existingMap[data.code] = { ref: d.ref, memberName: data.memberName };
+  });
 
-  // 新データを書き込み（UTC正午で統一、サフィックス付きコードを保持）
+  // 新データを整理（空・該当者なしを除外）
+  const newSlots = {};
+  Object.entries(slotsObj).forEach(([code, name]) => {
+    if (name && name !== '（該当者なし）') newSlots[code] = name;
+  });
+
   const ts = awNoonUtcTimestamp(thuDate);
   const now = firebase.firestore.Timestamp.now();
   const batch = db.batch();
-  Object.entries(slotsObj).forEach(([code, name]) => {
-    if (!name || name === '（該当者なし）') return;
+  let changes = 0;
+
+  // 変更・追加: 新データにあって既存と異なるもの
+  Object.entries(newSlots).forEach(([code, name]) => {
+    const ex = existingMap[code];
+    if (ex && ex.memberName === name) return; // 変更なし → スキップ
+    if (ex) batch.delete(ex.ref); // 既存を削除
     batch.set(db.collection('assignmentHistory').doc(), {
       memberName: name, code: code, date: ts, confirmedAt: now,
     });
+    changes++;
   });
-  await batch.commit();
+
+  // 削除: 既存にあって新データにないもの
+  Object.entries(existingMap).forEach(([code, ex]) => {
+    if (!newSlots[code]) { batch.delete(ex.ref); changes++; }
+  });
+
+  if (changes > 0) await batch.commit();
 }
 
 async function awConfirmAssignment() {
