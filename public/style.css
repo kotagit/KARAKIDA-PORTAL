@@ -121,6 +121,15 @@ body {
 #page-home {
   max-width: 680px;
   margin: 0 auto;
+  overflow: visible;
+}
+
+/* ── ヒーロー画像は#page-homeの制約を突き破って全幅表示 ── */
+.home-hero {
+  width: 100vw !important;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* ── ホームヒーロー ── */
