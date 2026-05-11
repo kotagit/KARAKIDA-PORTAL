@@ -1377,7 +1377,22 @@ function awRunGeneration(allCodes, members, history, meetDate) {
         }
       }
 
-      const h        = (history[name] || {})[base] || { lastDate: null, count: 0 };
+      // 野外奉仕コードは全FM横断で最新割当日を見る（同じ人が連続週に出ないように）
+      let h;
+      if (AW_FIELD_MINISTRY_CODES.has(base)) {
+        const ph = history[name] || {};
+        let latestDate = null, totalCount = 0;
+        for (const fmBase of AW_FIELD_MINISTRY_CODES) {
+          const fh = ph[fmBase];
+          if (fh) {
+            if (fh.lastDate && (!latestDate || fh.lastDate > latestDate)) latestDate = fh.lastDate;
+            totalCount += (fh.count || 0);
+          }
+        }
+        h = { lastDate: latestDate, count: totalCount };
+      } else {
+        h = (history[name] || {})[base] || { lastDate: null, count: 0 };
+      }
       const daysSince = h.lastDate ? Math.floor((refDate - h.lastDate) / 86400000) : 9999;
       const score     = daysSince * 10 - (h.count || 0);
       candidates.push([score, name]);
