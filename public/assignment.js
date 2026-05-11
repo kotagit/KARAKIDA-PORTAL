@@ -1466,20 +1466,20 @@ async function awSaveEditorItems() {
 // 集会ページ — カレンダー＋予定表表示
 // ══════════════════════════════════════════════
 
-let skCalYear, skCalMonth;
+let skSelectedMonth = null; // {year, month}
 let skConfirmedWeeks = [];
 let skPublicTalks = [];
-let skSelectedDate = null;
+let skAvailableMonths = []; // [{year,month}]
 
 async function loadAssignmentWeekDisplay() {
-  const calEl = document.getElementById('shukai-calendar');
+  const monthEl = document.getElementById('shukai-month-selector');
   const container = document.getElementById('assignment-week-display');
-  if (!calEl || !container) return;
-  calEl.innerHTML = '<div class="loading">読み込み中...</div>';
+  if (!monthEl || !container) return;
+  monthEl.innerHTML = '<div class="loading">読み込み中...</div>';
   container.innerHTML = '';
 
   try {
-    const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(16).get();
+    const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(26).get();
     const weeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     skConfirmedWeeks = [];
@@ -1487,7 +1487,6 @@ async function loadAssignmentWeekDisplay() {
       const meetDate = awGetThursdayDate(week);
       if (!meetDate) continue;
 
-      // assignmentHistoryから該当日のレコードを取得
       const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
       const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
       const hSnap = await db.collection('assignmentHistory')
@@ -1495,16 +1494,15 @@ async function loadAssignmentWeekDisplay() {
         .where('date', '<', firebase.firestore.Timestamp.fromDate(searchEnd))
         .get();
 
-      if (hSnap.size > 0) {
-        const slots = {};
-        hSnap.docs.forEach(d => {
-          const { code, memberName } = d.data();
-          if (code && memberName) slots[code] = memberName;
-        });
-        const topics = week.topics || {};
-        skConfirmedWeeks.push({ week, slots, topics, meetDate });
-      }
+      const slots = {};
+      hSnap.docs.forEach(d => {
+        const { code, memberName } = d.data();
+        if (code && memberName) slots[code] = memberName;
+      });
+      const topics = week.topics || {};
+      skConfirmedWeeks.push({ week, slots, topics, meetDate, hasSlots: hSnap.size > 0 });
     }
+    skConfirmedWeeks.sort((a,b) => a.meetDate - b.meetDate);
 
     // 公開講演データ取得
     try {
@@ -1512,36 +1510,34 @@ async function loadAssignmentWeekDisplay() {
       skPublicTalks = ptSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) { skPublicTalks = []; }
 
-    // 今日に最も近い集会日を自動選択
-    const today = new Date(); today.setHours(0,0,0,0);
-    skCalYear = today.getFullYear();
-    skCalMonth = today.getMonth();
-
-    let closest = null, closestDiff = Infinity;
+    // 利用可能な月を抽出
+    const monthSet = new Set();
     skConfirmedWeeks.forEach(cw => {
-      if (!cw.meetDate) return;
-      const diff = Math.abs(cw.meetDate - today);
-      if (diff < closestDiff) { closestDiff = diff; closest = cw.meetDate; }
+      monthSet.add(cw.meetDate.getFullYear() + '-' + cw.meetDate.getMonth());
     });
-    // 公開講演の日も候補
     skPublicTalks.forEach(pt => {
       const d = skParsePtDate(pt.date);
-      if (!d) return;
-      const diff = Math.abs(d - today);
-      if (diff < closestDiff) { closestDiff = diff; closest = d; }
+      if (d) monthSet.add(d.getFullYear() + '-' + d.getMonth());
+    });
+    skAvailableMonths = [...monthSet].sort().map(k => {
+      const [y,m] = k.split('-');
+      return { year: parseInt(y), month: parseInt(m) };
     });
 
-    if (closest) {
-      skSelectedDate = closest;
-      skCalYear = closest.getFullYear();
-      skCalMonth = closest.getMonth();
+    // 今月を自動選択（なければ最も近い月）
+    const today = new Date();
+    const curKey = today.getFullYear() + '-' + today.getMonth();
+    if (monthSet.has(curKey)) {
+      skSelectedMonth = { year: today.getFullYear(), month: today.getMonth() };
+    } else if (skAvailableMonths.length > 0) {
+      skSelectedMonth = skAvailableMonths[skAvailableMonths.length - 1];
     }
 
-    skRenderCalendar();
-    skShowSelectedSchedule();
+    skRenderMonthSelector();
+    skShowMonthSchedule();
 
   } catch(e) {
-    calEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+    monthEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
 }
 
@@ -1553,111 +1549,58 @@ function skParsePtDate(dateStr) {
   return d;
 }
 
-function skRenderCalendar() {
-  const calEl = document.getElementById('shukai-calendar');
-  if (!calEl) return;
-
-  const year = skCalYear, month = skCalMonth;
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const startDow = firstDay.getDay(); // 0=日
-  const daysInMonth = lastDay.getDate();
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  // イベント日をセット
-  const eventDates = new Map(); // dateKey -> 'midweek'|'weekend'
-  skConfirmedWeeks.forEach(cw => {
-    if (!cw.meetDate) return;
-    const k = cw.meetDate.getFullYear() + '-' + cw.meetDate.getMonth() + '-' + cw.meetDate.getDate();
-    eventDates.set(k, 'midweek');
-  });
-  skPublicTalks.forEach(pt => {
-    const d = skParsePtDate(pt.date);
-    if (!d) return;
-    const k = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
-    eventDates.set(k, 'weekend');
-  });
-
+function skRenderMonthSelector() {
+  const el = document.getElementById('shukai-month-selector');
+  if (!el) return;
   const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  let html = '<div class="sk-cal">';
-  html += '<div class="sk-cal-nav">';
-  html += '<button onclick="skNavMonth(-1)"><span class="material-icons">chevron_left</span></button>';
-  html += `<span class="sk-cal-month">${year}年${monthNames[month]}</span>`;
-  html += '<button onclick="skNavMonth(1)"><span class="material-icons">chevron_right</span></button>';
+  let html = '<div class="sk-month-tiles">';
+  skAvailableMonths.forEach(({ year, month }) => {
+    const isSelected = skSelectedMonth && skSelectedMonth.year === year && skSelectedMonth.month === month;
+    html += `<button class="sk-month-tile${isSelected ? ' selected' : ''}" onclick="skSelectMonth(${year},${month})">${year}年${monthNames[month]}</button>`;
+  });
   html += '</div>';
-
-  html += '<div class="sk-cal-grid">';
-  const dows = ['日','月','火','水','木','金','土'];
-  dows.forEach(d => { html += `<div class="sk-cal-dow">${d}</div>`; });
-
-  // 空セル
-  for (let i = 0; i < startDow; i++) html += '<div class="sk-cal-cell empty"></div>';
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(year, month, day);
-    const dow = d.getDay();
-    const dateKey = year + '-' + month + '-' + day;
-    const hasEvent = eventDates.get(dateKey);
-    const isToday = d.getTime() === today.getTime();
-    const isSelected = skSelectedDate && d.getTime() === skSelectedDate.getTime();
-
-    let cls = 'sk-cal-cell';
-    if (dow === 0) cls += ' sun';
-    if (dow === 6) cls += ' sat';
-    if (hasEvent === 'midweek') cls += ' has-event';
-    else if (hasEvent === 'weekend') cls += ' has-event weekend-event';
-    if (isSelected) cls += ' selected';
-    if (isToday) cls += ' today';
-
-    const onclick = hasEvent ? ` onclick="skSelectDate(${year},${month},${day})"` : '';
-    html += `<div class="${cls}"${onclick}>${day}</div>`;
-  }
-
-  html += '</div>';
-  html += '<div class="sk-cal-legend"><span class="leg-mid">週中集会</span><span class="leg-wknd">週末集会</span></div>';
-  html += '</div>';
-
-  calEl.innerHTML = html;
+  el.innerHTML = html;
 }
 
-function skNavMonth(delta) {
-  skCalMonth += delta;
-  if (skCalMonth < 0) { skCalMonth = 11; skCalYear--; }
-  if (skCalMonth > 11) { skCalMonth = 0; skCalYear++; }
-  skRenderCalendar();
+function skSelectMonth(y, m) {
+  skSelectedMonth = { year: y, month: m };
+  skRenderMonthSelector();
+  skShowMonthSchedule();
 }
 
-function skSelectDate(y, m, d) {
-  skSelectedDate = new Date(y, m, d);
-  skRenderCalendar();
-  skShowSelectedSchedule();
-}
-
-function skShowSelectedSchedule() {
+function skShowMonthSchedule() {
   const container = document.getElementById('assignment-week-display');
-  if (!container || !skSelectedDate) { if (container) container.innerHTML = ''; return; }
+  if (!container || !skSelectedMonth) { if (container) container.innerHTML = ''; return; }
   container.innerHTML = '';
 
-  const selTime = skSelectedDate.getTime();
+  const { year, month } = skSelectedMonth;
 
-  // 週中集会
-  const matched = skConfirmedWeeks.find(cw => cw.meetDate && cw.meetDate.getTime() === selTime);
-  if (matched) {
-    skRenderMidweekCard(matched, container);
-  }
+  // 該当月の週中集会
+  const monthWeeks = skConfirmedWeeks.filter(cw =>
+    cw.meetDate.getFullYear() === year && cw.meetDate.getMonth() === month
+  );
 
-  // 公開講演
-  const ptMatch = skPublicTalks.find(pt => {
+  // 該当月の公開講演
+  const monthPts = skPublicTalks.filter(pt => {
     const d = skParsePtDate(pt.date);
-    return d && d.getTime() === selTime;
+    return d && d.getFullYear() === year && d.getMonth() === month;
   });
-  if (ptMatch) {
-    skRenderPublicTalkCard(ptMatch, container);
+
+  if (monthWeeks.length === 0 && monthPts.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:16px">この月の予定表はありません</div>';
+    return;
   }
 
-  if (!matched && !ptMatch) {
-    container.innerHTML = '<div class="empty-state" style="padding:16px">この日の予定表はありません</div>';
-  }
+  // 日付順にまとめて表示
+  const events = [];
+  monthWeeks.forEach(cw => events.push({ type: 'midweek', date: cw.meetDate, data: cw }));
+  monthPts.forEach(pt => { const d = skParsePtDate(pt.date); if (d) events.push({ type: 'weekend', date: d, data: pt }); });
+  events.sort((a,b) => a.date - b.date);
+
+  events.forEach(ev => {
+    if (ev.type === 'midweek') skRenderMidweekCard(ev.data, container);
+    else skRenderPublicTalkCard(ev.data, container);
+  });
 }
 
 function skRenderMidweekCard({ week, slots, topics }, container) {
