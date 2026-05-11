@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=73">
+  <link rel="stylesheet" href="style.css?v=74">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -828,6 +828,13 @@
             <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 追加
           </button>
         </div>
+        <div id="am-filter-bar" class="am-filter-bar">
+          <button class="am-filter-chip active" data-filter="all">全員</button>
+          <button class="am-filter-chip" data-filter="長老">長老</button>
+          <button class="am-filter-chip" data-filter="援助奉仕者">援助奉仕者</button>
+          <button class="am-filter-chip" data-filter="男">男性</button>
+          <button class="am-filter-chip" data-filter="女">女性</button>
+        </div>
         <div id="members-list" class="admin-list">
           <div class="loading">読み込み中...</div>
         </div>
@@ -1080,6 +1087,6 @@
 </div>
 
 <script src="main.js?v=86"></script>
-<script src="assignment.js?v=48"></script>
+<script src="assignment.js?v=49"></script>
 </body>
 </html>

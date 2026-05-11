@@ -1213,6 +1213,8 @@ async function initMembersPage() {
   }
 }
 
+let awMemberFilter = 'all';
+
 function awRenderMemberList() {
   const list = document.getElementById('members-list');
   if (!list) return;
@@ -1220,14 +1222,27 @@ function awRenderMemberList() {
     list.innerHTML = '<div class="empty-state">メンバーが登録されていません</div>';
     return;
   }
+  const filtered = awMemberFilter === 'all' ? awMembers : awMembers.filter(mb => {
+    if (awMemberFilter === '長老') return mb.position === '長老';
+    if (awMemberFilter === '援助奉仕者') return mb.position === '援助奉仕者';
+    if (awMemberFilter === '男') return mb.gender === '男';
+    if (awMemberFilter === '女') return mb.gender === '女';
+    return true;
+  });
   list.innerHTML = '';
-  awMembers.forEach((member, idx) => {
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">該当するメンバーがいません</div>';
+    return;
+  }
+  filtered.forEach((member, idx) => {
     const item = document.createElement('div');
     item.className = 'admin-list-item';
+    const posLabel = member.position === '長老' ? '長老' : member.position === '援助奉仕者' ? '援助' : '';
     item.innerHTML = `
       <div class="am-num">${idx + 1}</div>
       <div class="admin-list-info">
         <div class="admin-list-title">${esc(member.name)}</div>
+        ${posLabel ? `<div class="admin-list-sub" style="font-size:12px;color:#888">${esc(posLabel)}</div>` : ''}
       </div>
       <div class="admin-list-actions">
         <button class="icon-btn am-edit" data-id="${esc(member.docId)}" style="color:var(--primary)" title="編集">
@@ -1978,6 +1993,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
   document.getElementById('aw-confirm-btn') ?.addEventListener('click', awConfirmAssignment);
+
+  // メンバーフィルター
+  document.querySelectorAll('.am-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.am-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      awMemberFilter = chip.dataset.filter;
+      awRenderMemberList();
+    });
+  });
 
   // メンバーモーダル
   document.getElementById('am-add-btn')         ?.addEventListener('click', () => awOpenMemberModal(null));
