@@ -169,9 +169,10 @@ async function awConfirmAll() {
 }
 
 // ── S-89 生成 ──────────────────────────────
-// 生徒用コード: 聖書朗読(E) と 野外奉仕に励む の生徒割当(H-O, Q)
 const S89_LEAD_CODES = new Set(['E','H','J','L','N','Q']);
 const S89_PARTNER_MAP = { H:'I', J:'K', L:'M', N:'O' };
+let s89SelectedMonth = null;
+let s89Weeks = [];
 
 function awGetS89PartnerCode(leadCode) {
   const base = awGetBase(leadCode);
@@ -181,85 +182,143 @@ function awGetS89PartnerCode(leadCode) {
   return suffix ? `${partnerBase}_${suffix}` : partnerBase;
 }
 
+function s89CollectSlips(weeks, selectedMonth) {
+  const monthWeeks = awFilterWeeksByMonth(weeks, selectedMonth);
+  const slips = [];
+  monthWeeks.forEach(week => {
+    if (week.conventionType) return;
+    const meetDate = awGetMeetingDate(week);
+    if (!meetDate) return;
+    const dateStr = `${meetDate.getFullYear()}年${meetDate.getMonth()+1}月${meetDate.getDate()}日`;
+    const slots = awLiveSlots[week.id] || week.slots || {};
+    const items = week.items || [];
+    items.forEach(item => {
+      const codes = item.codes || [];
+      codes.forEach(code => {
+        const base = awGetBase(code);
+        if (!S89_LEAD_CODES.has(base)) return;
+        const name = slots[code] || slots[base] || '';
+        if (!name) return;
+        const partnerCode = awGetS89PartnerCode(code);
+        const partner = partnerCode ? (slots[partnerCode] || slots[awGetBase(partnerCode)] || '') : '';
+        slips.push({ name, partner, date: dateStr, part: item.title });
+      });
+    });
+  });
+  return slips;
+}
+
+async function s89DownloadPdf(slips, selectedMonth) {
+  const area = document.getElementById('s89-render-area');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 8;
+  const slipW = (pageW - margin * 3) / 2;
+  const slipH = (pageH - margin * 3) / 2;
+  const pxW = Math.round(slipW * 3.78);
+  const pxH = Math.round(slipH * 3.78);
+
+  for (let i = 0; i < slips.length; i += 4) {
+    if (i > 0) pdf.addPage();
+    const batch = slips.slice(i, i + 4);
+    area.innerHTML = '';
+    area.style.width = (pxW * 2 + 20) + 'px';
+    const cards = batch.map(slip => awBuildS89Card(slip, pxW, pxH));
+    cards.forEach(c => area.appendChild(c));
+    for (let j = 0; j < cards.length; j++) {
+      const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff', width: pxW, height: pxH });
+      const imgData = canvas.toDataURL('image/png');
+      const col = j % 2, row = Math.floor(j / 2);
+      pdf.addImage(imgData, 'PNG', margin + col * (slipW + margin), margin + row * (slipH + margin), slipW, slipH);
+    }
+  }
+  area.innerHTML = '';
+  pdf.save(`S-89_${selectedMonth.year}年${selectedMonth.month + 1}月.pdf`);
+}
+
+// 担当者策定ページからの呼び出し
 async function awGenerateS89() {
   const btn = document.getElementById('aw-s89-btn');
   if (btn) { btn.disabled = true; btn.querySelector('span:last-child').textContent = '生成中...'; }
-
   try {
-    const monthWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
-    if (monthWeeks.length === 0) { alert('表示中の月にデータがありません'); return; }
-
-    // 各週から生徒割当スリップデータを収集
-    const slips = [];
-    monthWeeks.forEach(week => {
-      if (week.conventionType) return; // 大会週はスキップ
-      const meetDate = awGetMeetingDate(week);
-      if (!meetDate) return;
-      const dateStr = `${meetDate.getFullYear()}年${meetDate.getMonth()+1}月${meetDate.getDate()}日`;
-      const slots = awLiveSlots[week.id] || week.slots || {};
-      const items = week.items || [];
-
-      items.forEach(item => {
-        const codes = item.codes || [];
-        codes.forEach(code => {
-          const base = awGetBase(code);
-          if (!S89_LEAD_CODES.has(base)) return;
-          const name = slots[code] || slots[base] || '';
-          if (!name) return;
-          const partnerCode = awGetS89PartnerCode(code);
-          const partner = partnerCode ? (slots[partnerCode] || slots[awGetBase(partnerCode)] || '') : '';
-          slips.push({ name, partner, date: dateStr, part: item.title });
-        });
-      });
-    });
-
+    const slips = s89CollectSlips(awWeeks, awAssignSelectedMonth);
     if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
+    await s89DownloadPdf(slips, awAssignSelectedMonth);
+  } catch(e) { alert('S-89生成に失敗しました: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.querySelector('span:last-child').textContent = 'S-89'; } }
+}
 
-    // S-89スリップをhtml2canvasでPDF化（4枚/ページ）
-    const area = document.getElementById('s89-render-area');
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();   // 210
-    const pageH = pdf.internal.pageSize.getHeight();   // 297
-    const margin = 8;
-    const slipW = (pageW - margin * 3) / 2;           // ～97mm
-    const slipH = (pageH - margin * 3) / 2;           // ～140mm
-    const pxW = Math.round(slipW * 3.78);             // mm→px (96dpi)
-    const pxH = Math.round(slipH * 3.78);
-
-    for (let i = 0; i < slips.length; i += 4) {
-      if (i > 0) pdf.addPage();
-      const batch = slips.slice(i, i + 4);
-
-      // 4枚分のHTMLを一度にレンダリング
-      area.innerHTML = '';
-      area.style.width = (pxW * 2 + 20) + 'px';
-      const cards = batch.map(slip => awBuildS89Card(slip, pxW, pxH));
-      cards.forEach(c => area.appendChild(c));
-
-      // 各カードをcanvas化してPDFに配置
-      for (let j = 0; j < cards.length; j++) {
-        const canvas = await html2canvas(cards[j], { scale: 2, backgroundColor: '#ffffff', width: pxW, height: pxH });
-        const imgData = canvas.toDataURL('image/png');
-        const col = j % 2;
-        const row = Math.floor(j / 2);
-        const x = margin + col * (slipW + margin);
-        const y = margin + row * (slipH + margin);
-        pdf.addImage(imgData, 'PNG', x, y, slipW, slipH);
-      }
+// S-89専用ページ
+async function initS89Page() {
+  const preview = document.getElementById('s89-preview-list');
+  const monthEl = document.getElementById('s89-month-selector');
+  if (preview) preview.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    await Promise.all([awLoadCodes(), awLoadWeeks()]);
+    // 割当確定済みの週のみ
+    s89Weeks = awWeeks.filter(w => w.programStatus === 'confirmed' && w.hasAssignmentHistory);
+    const months = awExtractMonths(s89Weeks);
+    if (months.length === 0) {
+      if (monthEl) monthEl.innerHTML = '';
+      if (preview) preview.innerHTML = '<div class="empty-state">割当確定済みのデータがありません</div>';
+      return;
     }
-
-    area.innerHTML = '';
-    const m = awAssignSelectedMonth;
-    const fname = `S-89_${m.year}年${m.month + 1}月.pdf`;
-    pdf.save(fname);
-
+    if (!s89SelectedMonth) s89SelectedMonth = awAutoSelectMonth(months);
+    awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, (y, m) => {
+      s89SelectedMonth = { year: y, month: m };
+      s89RenderPreview();
+      awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, arguments.callee);
+    });
+    // 月タイル再描画のためクロージャ修正
+    const renderTiles = () => {
+      awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, (y, m) => {
+        s89SelectedMonth = { year: y, month: m };
+        s89RenderPreview();
+        renderTiles();
+      });
+    };
+    renderTiles();
+    s89RenderPreview();
   } catch(e) {
-    console.error('S-89 generation error:', e);
-    alert('S-89生成に失敗しました: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.querySelector('span:last-child').textContent = 'S-89'; }
+    if (preview) preview.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
+  document.getElementById('s89-download-btn')?.addEventListener('click', s89DownloadFromPage);
+}
+
+function s89RenderPreview() {
+  const preview = document.getElementById('s89-preview-list');
+  if (!preview) return;
+  const slips = s89CollectSlips(s89Weeks, s89SelectedMonth);
+  if (slips.length === 0) {
+    preview.innerHTML = '<div class="empty-state">この月のS-89対象の割当がありません</div>';
+    return;
+  }
+  preview.innerHTML = '';
+  slips.forEach((slip, i) => {
+    const card = document.createElement('div');
+    card.className = 's89-preview-card';
+    card.innerHTML = `
+      <div class="s89-pv-num">${i + 1}</div>
+      <div class="s89-pv-body">
+        <div class="s89-pv-name">${esc(slip.name)}${slip.partner ? ` <span style="color:#888;font-weight:normal">/ ${esc(slip.partner)}</span>` : ''}</div>
+        <div class="s89-pv-detail">${esc(slip.date)}　${esc(slip.part)}</div>
+      </div>
+    `;
+    preview.appendChild(card);
+  });
+}
+
+async function s89DownloadFromPage() {
+  const btn = document.getElementById('s89-download-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">hourglass_top</span> 生成中...'; }
+  try {
+    const slips = s89CollectSlips(s89Weeks, s89SelectedMonth);
+    if (slips.length === 0) { alert('S-89対象の割当がありません'); return; }
+    await s89DownloadPdf(slips, s89SelectedMonth);
+  } catch(e) { alert('S-89生成に失敗しました: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">picture_as_pdf</span> PDFダウンロード'; } }
 }
 
 function awBuildS89Card(slip, w, h) {
@@ -2278,6 +2337,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', () => navigate('admin-assignment'));
   document.getElementById('admin-manage-members')
     ?.addEventListener('click', () => navigate('admin-members'));
+  document.getElementById('admin-manage-s89')
+    ?.addEventListener('click', () => navigate('admin-s89'));
 
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);

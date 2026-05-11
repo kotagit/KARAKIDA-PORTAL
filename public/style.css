@@ -251,6 +251,20 @@ body {
 /* 巡回訪問 */
 .aw-header-left.aw-cv-highlight { background: #fce4ec; border-radius: 8px; padding: 4px 10px; }
 .aw-cv-label { font-size: 13px; font-weight: 600; color: #c62828; margin-top: 2px; }
+/* S-89 プレビュー */
+.s89-preview-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: #fff; border-bottom: 1px solid var(--border);
+}
+.s89-preview-card:first-child { border-radius: 12px 12px 0 0; }
+.s89-preview-card:last-child { border-radius: 0 0 12px 12px; border-bottom: none; }
+.s89-preview-card:only-child { border-radius: 12px; }
+.s89-pv-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--primary);
+  color: #fff; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.s89-pv-name { font-weight: 600; font-size: 15px; }
+.s89-pv-detail { font-size: 13px; color: #666; margin-top: 2px; }
 .am-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .am-filter-chip {
   padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border);
