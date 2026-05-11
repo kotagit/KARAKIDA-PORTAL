@@ -1920,6 +1920,7 @@ function awBuildProgramSection(week, container) {
   const topics = Object.assign({}, week.topics || {});
   awProgramTopics[week.id] = topics;
   const items = week.items || [];
+  const convention = week.conventionType || '';
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
@@ -1933,7 +1934,9 @@ function awBuildProgramSection(week, container) {
       <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label class="aw-conv-check"><input type="checkbox" name="conv" value="巡回大会" ${convention === '巡回大会' ? 'checked' : ''}> 巡回大会</label>
+      <label class="aw-conv-check"><input type="checkbox" name="conv" value="地区大会" ${convention === '地区大会' ? 'checked' : ''}> 地区大会</label>
       <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
         <span class="material-icons">edit_calendar</span>
         <span>編集</span>
@@ -1942,6 +1945,25 @@ function awBuildProgramSection(week, container) {
     </div>
   `;
   hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
+
+  // 大会チェックボックスのイベント
+  const convChecks = hdr.querySelectorAll('input[name="conv"]');
+  convChecks.forEach(cb => {
+    cb.addEventListener('change', async () => {
+      // 排他: 片方チェックしたらもう片方OFF
+      convChecks.forEach(other => { if (other !== cb) other.checked = false; });
+      const val = cb.checked ? cb.value : '';
+      week.conventionType = val;
+      try {
+        if (val) {
+          await db.collection('mwbWeeks').doc(week.id).set({ conventionType: val }, { merge: true });
+        } else {
+          await db.collection('mwbWeeks').doc(week.id).update({ conventionType: firebase.firestore.FieldValue.delete() });
+        }
+      } catch(err) { alert('保存エラー: ' + err.message); }
+      awApplyConventionState(section, val);
+    });
+  });
   section.appendChild(hdr);
 
   // 日付編集行
@@ -1963,12 +1985,15 @@ function awBuildProgramSection(week, container) {
         delete week.customMeetDate;
         await db.collection('mwbWeeks').doc(week.id).update({ customMeetDate: firebase.firestore.FieldValue.delete() });
       }
-      // タイトル更新
       const titleEl = section.querySelector('.aw-inline-title');
       if (titleEl) titleEl.textContent = awGetThursdayLabel(week);
     } catch(err) { alert('日付保存エラー: ' + err.message); }
   });
   section.appendChild(dateRow);
+
+  // プログラム本体ラッパー（大会時にグレーアウト＋ラベル重ねる用）
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'aw-program-body';
 
   // プログラム内容（読み取り専用 + 主題入力）
   const tableDiv = document.createElement('div');
@@ -2025,8 +2050,31 @@ function awBuildProgramSection(week, container) {
     minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
   });
 
-  section.appendChild(tableDiv);
+  bodyWrap.appendChild(tableDiv);
+  section.appendChild(bodyWrap);
+
+  // 初期状態で大会ならグレーアウト適用
+  if (convention) awApplyConventionState(section, convention);
+
   container.appendChild(section);
+}
+
+function awApplyConventionState(section, convType) {
+  const body = section.querySelector('.aw-program-body');
+  if (!body) return;
+  // 既存のオーバーレイ削除
+  const old = body.querySelector('.aw-conv-overlay');
+  if (old) old.remove();
+
+  if (convType) {
+    body.classList.add('aw-conv-greyed');
+    const overlay = document.createElement('div');
+    overlay.className = 'aw-conv-overlay';
+    overlay.textContent = convType;
+    body.appendChild(overlay);
+  } else {
+    body.classList.remove('aw-conv-greyed');
+  }
 }
 
 async function awConfirmAllPrograms() {

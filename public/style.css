@@ -238,6 +238,16 @@ body {
 
 /* ── 管理用リスト ── */
 .admin-actions-bar { margin-bottom: 20px; display: flex; justify-content: flex-end; }
+/* 大会チェックボックス */
+.aw-conv-check { font-size: 13px; color: #555; display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+.aw-conv-check input { margin: 0; }
+.aw-program-body { position: relative; }
+.aw-program-body.aw-conv-greyed > .aw-week-table { opacity: 0.15; pointer-events: none; }
+.aw-conv-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; color: var(--primary); letter-spacing: 4px;
+  pointer-events: none; z-index: 2;
+}
 .am-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .am-filter-chip {
   padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border);
