@@ -4248,13 +4248,13 @@ async function loadSenkyoPublic() {
         slot.places.forEach(p => allPlaces.push(p));
       });
 
-      const colW = 110;
       const body = document.createElement('div');
       body.className = 'pw-grid-wrap';
 
       const grid = document.createElement('div');
       grid.className = 'pw-grid';
-      grid.style.width = (allPlaces.length * colW) + 'px';
+      const pct = (allPlaces.length / 4 * 100);
+      grid.style.width = pct + '%';
 
       // 場所ヘッダー行
       let hdrRow = '<div class="pw-grid-row pw-grid-header">';
