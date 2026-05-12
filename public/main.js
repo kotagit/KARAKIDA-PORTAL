@@ -504,7 +504,7 @@ function renderAnnWeekList() {
         </div>
         <div class="ann-item-body">
           <div class="ann-item-title">
-            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
+            ${item.type && item.type !== 'general' ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','accounting':'会計報告','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>` : ''}
             ${esc(item.title || '（タイトルなし）')}
           </div>
           ${preview ? `<div class="ann-item-preview">${esc(preview.length > 60 ? preview.slice(0,60)+'…' : preview)}</div>` : ''}
@@ -602,7 +602,7 @@ async function loadAnnAllList() {
         .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
         .forEach(item => {
           const typeBadge = item.type && item.type !== 'general'
-            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
+            ? `<span class="af-type-badge af-type-${esc(item.type)}">${esc({'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項','pioneer':'補助開拓','accounting':'会計報告','circuit':'巡回監督','circuit-assembly':'巡回大会','district-convention':'地区大会'}[item.type]||item.type)}</span>`
             : '';
           const publishBadge = item.publishNow ? `<span class="ann-publish-now-badge"><span class="material-icons">flash_on</span>即時</span>` : '';
           html += `<div class="ann-item-card" data-id="${esc(item.id)}">
@@ -679,7 +679,7 @@ function renderAnnouncements(docs) {
 
   const TYPE_LABEL_MAP = {
     'ann-notice':'発表と確認事項','announcement':'発表と確認事項','notice':'確認事項',
-    'pioneer':'補助開拓','circuit':'巡回監督訪問',
+    'pioneer':'補助開拓','accounting':'会計報告','circuit':'巡回監督訪問',
     'circuit-assembly':'巡回大会','district-convention':'地区大会'
   };
 
@@ -783,12 +783,23 @@ document.getElementById('af-pm-venue')?.addEventListener('change', function() {
 });
 
 // ── 種別切替 ────────────────────────────────────
-const GENERAL_TYPES = ['general', 'announcement', 'notice', 'ann-notice'];
+const GENERAL_TYPES = ['general', 'announcement', 'notice', 'ann-notice', 'accounting'];
+const MONTH_TYPES = new Set(['ann-notice', 'accounting']);
 
 function _afTypeChanged(type) {
   const isConvention = type === 'circuit-assembly' || type === 'district-convention';
   const isDistrict   = type === 'district-convention';
+  const isMonthType  = MONTH_TYPES.has(type);
   document.getElementById('af-section-general').classList.toggle('hidden', !GENERAL_TYPES.includes(type));
+  const monthRow = document.getElementById('af-month-row');
+  if (monthRow) {
+    monthRow.classList.toggle('hidden', !isMonthType);
+    const monthSel = document.getElementById('af-month');
+    if (isMonthType && monthSel && !monthSel.dataset.built) {
+      monthSel.innerHTML = _buildMonthOptions('');
+      monthSel.dataset.built = '1';
+    }
+  }
   document.getElementById('af-section-member-pick').classList.toggle('hidden', type !== 'pioneer');
   document.getElementById('af-section-circuit').classList.toggle('hidden', type !== 'circuit');
   document.getElementById('af-section-convention').classList.toggle('hidden', !isConvention);
@@ -990,6 +1001,8 @@ function openAnnounceModal(id) {
     document.getElementById('af-pioneer-meeting-fields').classList.add('hidden');
     document.getElementById('af-pm-venue').value = '';
     document.getElementById('af-pm-other-row').classList.add('hidden');
+    const monthSel = document.getElementById('af-month');
+    if (monthSel) { monthSel.innerHTML = _buildMonthOptions(''); monthSel.dataset.built = '1'; }
     _afTypeChanged('general');
     addLinkInput('', '');
   } else {
@@ -1001,6 +1014,7 @@ function openAnnounceModal(id) {
       const titleTypeMap = {
         '巡回監督訪問': 'circuit',
         '補助開拓奉仕者': 'pioneer',
+        '会計報告': 'accounting',
         '巡回大会': 'circuit-assembly',
         '地区大会': 'district-convention',
       };
@@ -1017,6 +1031,12 @@ function openAnnounceModal(id) {
       document.getElementById('af-date').value = date.toISOString().split('T')[0];
       const pnEl = document.getElementById('af-publish-now');
       if (pnEl) pnEl.checked = !!d.publishNow;
+
+      // 月選択の復元
+      if (MONTH_TYPES.has(type) && r.month) {
+        const monthSel = document.getElementById('af-month');
+        if (monthSel) { monthSel.innerHTML = _buildMonthOptions(r.month); monthSel.dataset.built = '1'; }
+      }
 
       // 種別ごと
       if (GENERAL_TYPES.includes(type)) {
@@ -1129,15 +1149,25 @@ announceForm.addEventListener('submit', async (e) => {
   const raw = { type }; // 編集時の復元用生データ
 
   if (GENERAL_TYPES.includes(type)) {
-    // 一般発表 / 発表 / 確認事項
+    // 一般発表 / 発表 / 確認事項 / 会計報告
+    const selectedMonth = MONTH_TYPES.has(type) ? (document.getElementById('af-month')?.value || '') : '';
+    if (MONTH_TYPES.has(type) && !selectedMonth) {
+      alert('対象月を選択してください。');
+      return;
+    }
     finalTitle = document.getElementById('af-title').value.trim();
-    if (!finalTitle) {
+    if (!finalTitle && !MONTH_TYPES.has(type)) {
       document.getElementById('af-title').focus();
       alert('タイトルを入力してください。');
       return;
     }
+    if (MONTH_TYPES.has(type)) {
+      const typeLabel = type === 'accounting' ? '会計報告' : '発表と確認事項';
+      finalTitle = finalTitle ? `${typeLabel} ${selectedMonth} ${finalTitle}` : `${typeLabel} ${selectedMonth}`;
+      raw.month = selectedMonth;
+    }
     finalBody  = document.getElementById('af-body').value.trim();
-    raw.title = finalTitle; raw.body = finalBody;
+    raw.title = document.getElementById('af-title').value.trim(); raw.body = finalBody;
 
   } else if (type === 'pioneer') {
     // 補助開拓奉仕者

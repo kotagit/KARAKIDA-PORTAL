@@ -382,6 +382,7 @@ body {
 .announce-group.atype-announcement .announce-group-date { background: #283593; }
 .announce-group.atype-notice       .announce-group-date { background: #f57f17; }
 .announce-group.atype-pioneer      .announce-group-date { background: #1565c0; }
+.announce-group.atype-accounting   .announce-group-date { background: #00695c; }
 .announce-group.atype-circuit      .announce-group-date { background: #bf360c; }
 .announce-group.atype-circuit-assembly    .announce-group-date { background: #1b5e20; }
 .announce-group.atype-district-convention .announce-group-date { background: #6a1040; }
@@ -1684,6 +1685,7 @@ body {
 .af-type-announcement       { background: #e8eaf6; color: #283593; }
 .af-type-notice             { background: #fff8e1; color: #f57f17; }
 .af-type-pioneer            { background: #e3f2fd; color: #1565c0; }
+.af-type-accounting         { background: #e0f2f1; color: #00695c; }
 .af-type-circuit            { background: #fff3e0; color: #e65100; }
 .af-type-circuit-assembly   { background: #e8f5e9; color: #2e7d32; }
 .af-type-district-convention{ background: #fce4ec; color: #880e4f; }
