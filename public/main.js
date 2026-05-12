@@ -4205,74 +4205,86 @@ async function loadSenkyoPublic() {
     }
 
     container.innerHTML = '';
-    let prevDay = '';
-    let isFirst = true;
 
+    // 日付＋時間でグループ化
+    const groups = [];
+    let lastKey = '';
     options.forEach(opt => {
       const day = (opt.day || '').toString();
       const weekday = (opt.dayofweek || '').toString();
       const time = (opt.starttime || '').toString();
       const place = (opt.place || '').toString();
-      const placeBase = place.replace('駅', '');
-      const places = getPlaces(weekday, time, place);
-      const isWeekend = weekday === '土' || weekday === '日';
+      const key = `${day}_${time}`;
+      if (key !== lastKey) {
+        groups.push({ day, weekday, time, slots: [] });
+        lastKey = key;
+      }
+      groups[groups.length - 1].slots.push({ place, places: getPlaces(weekday, time, place) });
+    });
 
-      // ヘッダー
+    groups.forEach(group => {
+      const section = document.createElement('div');
+      section.className = 'aw-inline-section';
+
+      const isWeekend = group.weekday === '土' || group.weekday === '日';
       const hdr = document.createElement('div');
-      hdr.className = 'pw-slot-header';
-      if (!isFirst) hdr.style.marginTop = '24px';
-      isFirst = false;
-      let hdrHtml = '';
-      const showDate = day !== prevDay;
-      if (showDate) {
-        hdrHtml += `<span class="pw-date${isWeekend ? ' pw-weekend' : ''}">${esc(day)}(${esc(weekday)})</span>`;
-        prevDay = day;
-      }
-      hdrHtml += `<span class="material-icons" style="font-size:18px;color:var(--primary)">access_time</span>
-        <span class="pw-time">${esc(time)}</span>
-        <span class="material-icons" style="font-size:18px;color:#808080">location_on</span>
-        <span class="pw-place">${esc(placeBase)}</span>`;
-      hdr.innerHTML = hdrHtml;
-      container.appendChild(hdr);
+      hdr.className = 'aw-inline-header';
+      hdr.style.background = '#00796b';
+      hdr.innerHTML = `
+        <div class="aw-header-left">
+          <div class="aw-inline-title${isWeekend ? ' pw-weekend' : ''}">${esc(group.day)}（${esc(group.weekday)}）</div>
+          <div class="aw-inline-sub">${esc(group.time)}</div>
+        </div>
+        <div style="text-align:right;color:white;font-size:13px">
+          <span class="material-icons" style="font-size:18px;vertical-align:middle">location_on</span>
+          ${group.slots.map(s => esc(s.place.replace('駅',''))).join(' / ')}
+        </div>
+      `;
+      section.appendChild(hdr);
 
-      // テーブル（列数×110px）
-      const table = document.createElement('div');
-      table.className = 'pw-table';
-      table.style.width = (places.length * 110) + 'px';
+      const body = document.createElement('div');
+      body.style.padding = '8px 12px 16px';
 
-      // 場所ヘッダー行
-      let placeRow = '<div class="pw-row pw-row-place">';
-      places.forEach(p => {
-        const short = p.replace('堀之内', '').replace('唐木田', '');
-        placeRow += `<div class="pw-cell pw-cell-place">${esc(short)}</div>`;
-      });
-      placeRow += '</div>';
-      table.innerHTML = placeRow;
-
-      // 司会者行
-      let cRow = '<div class="pw-row pw-row-conductor">';
-      places.forEach(p => {
-        const docId = `${day}_${time}_${p}`;
-        const ass = (assMap[docId] || {}).assignments || {};
-        cRow += `<div class="pw-cell">${esc(ass['司会者'] || '')}</div>`;
-      });
-      cRow += '</div>';
-      table.innerHTML += cRow;
-
-      // 参加者行（5行）
-      for (let i = 0; i < 5; i++) {
-        let row = '<div class="pw-row">';
-        places.forEach(p => {
-          const docId = `${day}_${time}_${p}`;
+      group.slots.forEach(slot => {
+        slot.places.forEach(p => {
+          const docId = `${group.day}_${group.time}_${p}`;
           const ass = (assMap[docId] || {}).assignments || {};
-          const participants = ass['参加者'] || [];
-          row += `<div class="pw-cell">${esc(participants[i] || '')}</div>`;
-        });
-        row += '</div>';
-        table.innerHTML += row;
-      }
+          const short = p.replace('堀之内', '').replace('唐木田', '');
 
-      container.appendChild(table);
+          const locDiv = document.createElement('div');
+          locDiv.className = 'pw-loc-section';
+          locDiv.innerHTML = `<div class="pw-loc-label">${esc(short || p)}</div>`;
+
+          const conductor = ass['司会者'] || '';
+          if (conductor) {
+            const row = document.createElement('div');
+            row.className = 'pw-member-row pw-conductor-row';
+            row.innerHTML = `<span class="pw-member-role">司会者</span><span class="pw-member-name">${esc(conductor)}</span>`;
+            locDiv.appendChild(row);
+          }
+
+          const participants = ass['参加者'] || [];
+          participants.forEach((name, i) => {
+            if (!name) return;
+            const row = document.createElement('div');
+            row.className = 'pw-member-row';
+            row.innerHTML = `<span class="pw-member-role">参加者${i + 1}</span><span class="pw-member-name">${esc(name)}</span>`;
+            locDiv.appendChild(row);
+          });
+
+          if (!conductor && participants.every(n => !n)) {
+            const row = document.createElement('div');
+            row.className = 'pw-member-row';
+            row.innerHTML = '<span style="color:#999;font-size:13px">未割当</span>';
+            locDiv.appendChild(row);
+          }
+
+          body.appendChild(locDiv);
+        });
+      });
+
+      section.appendChild(body);
+      container.appendChild(section);
     });
   } catch (e) {
     container.innerHTML = '<div class="empty-state">エラー: ' + esc(e.message) + '</div>';

@@ -1050,32 +1050,29 @@ body {
 }
 
 /* 公共伝道 */
-.pw-slot-header {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  padding: 8px 12px;
-}
-.pw-slot-header + .pw-slot-header { margin-top: 24px; }
-.pw-date { font-size: 15px; font-weight: 700; color: #212121; margin-right: 12px; }
+/* ── 公共エリア取決め表（集会予定と統一デザイン） ── */
 .pw-weekend { color: #c41c3b; }
-.pw-time { font-size: 15px; font-weight: 700; color: var(--primary); margin-right: 12px; }
-.pw-place { font-size: 15px; font-weight: 700; color: #212121; }
-.pw-table {
-  border: 1px solid #000; border-radius: 8px;
-  overflow: hidden; margin: 4px 0 0 0;
+.pw-loc-section {
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
-.pw-row { display: flex; border-bottom: 0.5px solid #000; }
-.pw-row:last-child { border-bottom: none; }
-.pw-row-place { background: #fafafa; border-bottom: 1px solid #000; }
-.pw-row-conductor { border-bottom: 1px solid #000; }
-.pw-cell {
-  flex: 1; text-align: center; font-size: 13px;
-  border-right: 1px solid #000; height: 36px; box-sizing: border-box;
-  display: flex; align-items: center; justify-content: center;
-  background: #fff; padding: 0 2px;
+.pw-loc-section:last-child { border-bottom: none; margin-bottom: 0; }
+.pw-loc-label {
+  font-size: 12px; font-weight: 700; color: #00796b;
+  padding: 4px 8px; margin-bottom: 4px;
+  background: #e0f2f1; border-radius: 4px; display: inline-block;
 }
-.pw-cell:last-child { border-right: none; }
-.pw-cell-place { font-weight: 700; font-size: 12px; background: #fafafa; }
-.pw-row-conductor .pw-cell { font-weight: 700; color: var(--primary); }
+.pw-member-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 4px; border-bottom: 1px solid #f0f0f0;
+}
+.pw-member-row:last-child { border-bottom: none; }
+.pw-member-role {
+  font-size: 12px; color: var(--text-light); min-width: 50px; flex-shrink: 0;
+}
+.pw-member-name { font-size: 14px; color: var(--text); }
+.pw-conductor-row .pw-member-role { color: var(--primary); font-weight: 700; }
+.pw-conductor-row .pw-member-name { color: var(--primary); font-weight: 700; }
 
 /* ── 組織表 閲覧（Excel再現） ── */
 .org-xl-wrap { margin: 0 auto; }
