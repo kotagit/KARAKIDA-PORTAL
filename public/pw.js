@@ -1,12 +1,138 @@
 // ── 公共エリア伝道策定 ──────────────────────────────────────────
 
+// ── 取決表（スケジュール）編集 ──
+let pwsEditingId = null;
+
+document.getElementById('admin-manage-pw-schedule')?.addEventListener('click', () => {
+  navigate('admin-pw-schedule');
+  loadPWSchedule();
+});
+
+async function loadPWSchedule() {
+  const list = document.getElementById('pw-schedule-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('PUBLIC_WITNESSING_OPTIONS').get();
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    items.sort((a, b) => {
+      const oa = typeof a.order === 'number' ? a.order : 9999;
+      const ob = typeof b.order === 'number' ? b.order : 9999;
+      if (oa !== ob) return oa - ob;
+      return String(a.day || '').localeCompare(String(b.day || ''));
+    });
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty-state">スロットがありません</div>';
+      return;
+    }
+    let html = '';
+    let lastDate = '';
+    items.forEach(item => {
+      const dateLabel = `${item.day || ''}(${item.dayofweek || ''})`;
+      if (dateLabel !== lastDate) {
+        if (lastDate) html += '</div>';
+        html += `<div class="pw-date-group"><div class="pw-date-tag">${esc(dateLabel)}</div>`;
+        lastDate = dateLabel;
+      }
+      const placeColor = (item.place || '').includes('唐木田') ? 'pw-place-karakida'
+                       : (item.place || '').includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
+      html += `<div class="pw-slot-card" style="position:relative">
+        <span class="material-icons pw-slot-icon">access_time</span>
+        <span class="pw-slot-time">${esc(item.starttime || '')}〜${esc(item.endtime || '')}</span>
+        <span class="pw-place-badge ${placeColor}">${esc(item.place || '')}</span>
+        <span class="pw-slot-order" style="font-size:11px;color:#999">順: ${item.order ?? '-'}</span>
+        <button class="icon-btn" onclick="event.stopPropagation();openPWSlotModal('${item.id}')" title="編集">
+          <span class="material-icons" style="font-size:18px;color:var(--primary)">edit</span>
+        </button>
+        <button class="icon-btn" onclick="event.stopPropagation();deletePWSlot('${item.id}')" title="削除">
+          <span class="material-icons" style="font-size:18px;color:#d32f2f">delete</span>
+        </button>
+      </div>`;
+    });
+    if (lastDate) html += '</div>';
+    list.innerHTML = html;
+    list._pwScheduleItems = items;
+  } catch (e) {
+    list.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+  }
+}
+
+function openPWSlotModal(id) {
+  pwsEditingId = id || null;
+  const modal = document.getElementById('pw-slot-modal');
+  const form = document.getElementById('pw-slot-form');
+  form.reset();
+  document.getElementById('pw-slot-modal-title').textContent = id ? 'スロットを編集' : 'スロットを追加';
+  if (id) {
+    const list = document.getElementById('pw-schedule-list');
+    const items = list._pwScheduleItems || [];
+    const item = items.find(i => i.id === id);
+    if (item) {
+      document.getElementById('pws-day').value = item.day || '';
+      document.getElementById('pws-dow').value = item.dayofweek || '月';
+      document.getElementById('pws-start').value = item.starttime || '';
+      document.getElementById('pws-end').value = item.endtime || '';
+      document.getElementById('pws-place').value = item.place || '';
+      document.getElementById('pws-order').value = item.order ?? '';
+    }
+  }
+  modal.classList.remove('hidden');
+}
+
+function closePWSlotModal() {
+  document.getElementById('pw-slot-modal').classList.add('hidden');
+  pwsEditingId = null;
+}
+
+document.getElementById('pw-schedule-add-btn')?.addEventListener('click', () => openPWSlotModal(null));
+document.getElementById('pw-slot-modal-close')?.addEventListener('click', closePWSlotModal);
+document.getElementById('pw-slot-overlay')?.addEventListener('click', closePWSlotModal);
+document.getElementById('pws-cancel')?.addEventListener('click', closePWSlotModal);
+
+document.getElementById('pw-slot-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = {
+    day: document.getElementById('pws-day').value.trim(),
+    dayofweek: document.getElementById('pws-dow').value,
+    starttime: document.getElementById('pws-start').value.trim(),
+    endtime: document.getElementById('pws-end').value.trim(),
+    place: document.getElementById('pws-place').value.trim(),
+    order: parseInt(document.getElementById('pws-order').value) || 0,
+  };
+  if (!data.day || !data.starttime || !data.endtime || !data.place) {
+    alert('必須項目を入力してください');
+    return;
+  }
+  try {
+    if (pwsEditingId) {
+      await db.collection('PUBLIC_WITNESSING_OPTIONS').doc(pwsEditingId).set(data, { merge: true });
+    } else {
+      await db.collection('PUBLIC_WITNESSING_OPTIONS').add(data);
+    }
+    closePWSlotModal();
+    loadPWSchedule();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  }
+});
+
+async function deletePWSlot(id) {
+  if (!(await customConfirm('このスロットを削除しますか？'))) return;
+  try {
+    await db.collection('PUBLIC_WITNESSING_OPTIONS').doc(id).delete();
+    loadPWSchedule();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
 // 現在策定中のスロットデータ
 let pwCurrentSlot = null;
 // slotKey -> { subLocation -> { '司会者': name|null, '参加者': [name|null, ...] } }
 let pwAssignmentsMap = {};
 
 // ── ページタイトル登録（main.js の PAGE_TITLES に追記）
-PAGE_TITLES['admin-pw']            = '公共エリア伝道取決表策定';
+PAGE_TITLES['admin-pw-schedule']   = '公共エリア伝道取決表策定';
+PAGE_TITLES['admin-pw']            = '公共エリア伝道参加者策定';
 PAGE_TITLES['admin-pw-assignment'] = '策定';
 
 // ── ナビゲーション
