@@ -1067,8 +1067,10 @@ body {
 }
 .pw-grid-cell {
   flex: 1; min-width: 80px; text-align: center;
-  font-size: 13px; padding: 6px 4px;
+  font-size: 13px; padding: 0 4px;
   border-right: 1px solid #e0e0e0;
+  height: 32px; line-height: 32px;
+  overflow: hidden; white-space: nowrap;
 }
 .pw-grid-cell:last-child { border-right: none; }
 .pw-grid-place {
