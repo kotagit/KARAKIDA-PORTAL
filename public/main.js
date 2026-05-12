@@ -4223,6 +4223,12 @@ async function loadSenkyoPublic() {
     });
 
     groups.forEach(group => {
+      // 全サブ場所をフラット化
+      const allPlaces = [];
+      group.slots.forEach(slot => {
+        slot.places.forEach(p => allPlaces.push(p));
+      });
+
       const pct = (allPlaces.length / 4 * 100);
 
       const section = document.createElement('div');
@@ -4237,12 +4243,6 @@ async function loadSenkyoPublic() {
         <div class="pw-card-time">${esc(group.time)}</div>
       `;
       section.appendChild(hdr);
-
-      // 全サブ場所をフラット化
-      const allPlaces = [];
-      group.slots.forEach(slot => {
-        slot.places.forEach(p => allPlaces.push(p));
-      });
 
       const body = document.createElement('div');
       body.className = 'pw-grid-wrap';
