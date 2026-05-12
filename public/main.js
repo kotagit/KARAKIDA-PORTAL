@@ -4440,58 +4440,50 @@ function renderFsTable(rows, viewId, isAdmin) {
     return;
   }
 
-  let html = '<div style="overflow-x:auto"><table class="fs-table"><thead><tr>';
-  html += '<th>日時</th><th>時間</th><th>種別</th><th>司会者</th>';
-  if (isAdmin) html += '<th></th>';
-  html += '</tr></thead><tbody>';
-
   const grouped = {};
   rows.forEach(r => {
     if (!grouped[r.date]) grouped[r.date] = [];
     grouped[r.date].push(r);
   });
 
-  let dayIdx = 0;
+  let html = '';
   Object.keys(grouped).sort().forEach(date => {
     const dayRows = grouped[date];
-    const bgClass = dayIdx % 2 === 0 ? 'fs-day-block-even' : 'fs-day-block-odd';
     const dow = getDow(date);
-    const dateClass = dow === '土' ? 'fs-date-sat' : dow === '日' ? 'fs-date-sun' : '';
+    const isWeekend = dow === '土' || dow === '日';
 
-    let firstOfDay = true;
-    const dayRowCount = dayRows.length;
+    html += '<div class="aw-inline-section">';
+    html += `<div class="aw-inline-header" style="background:#2e7d32">
+      <div class="aw-header-left">
+        <div class="aw-inline-title${isWeekend ? ' fs-hdr-weekend' : ''}">${fmtDateShort(date)}（${dow}）</div>
+      </div>
+    </div>`;
+    html += '<div style="padding:4px 12px 12px">';
 
     dayRows.forEach(r => {
-      html += '<tr class="' + bgClass + '">';
-
-      if (firstOfDay) {
-        html += '<td class="fs-date-cell ' + dateClass + '" rowspan="' + dayRowCount + '">';
-        html += fmtDateShort(date) + '<br>' + dow;
-        html += '</td>';
-        firstOfDay = false;
-      }
-
-      html += '<td class="fs-time-cell">' + esc(r.time || '') + (r.place ? '<br>' + esc(r.place) : '') + '</td>';
-      html += '<td class="fs-type-cell">' + esc(r.type || '') + '</td>';
-
-      let condHtml = esc(r.conductor || '');
-      if (r.conductorSub) condHtml += '<br>' + esc(r.conductorSub);
-      html += '<td class="fs-conductor-cell">' + condHtml + '</td>';
-
+      html += '<div class="fs-card-row">';
+      html += '<div class="fs-card-left">';
+      html += `<div class="fs-card-time">${esc(r.time || '')}</div>`;
+      if (r.place) html += `<div class="fs-card-place">${esc(r.place)}</div>`;
+      html += '</div>';
+      html += '<div class="fs-card-center">';
+      if (r.type) html += `<span class="fs-card-type">${esc(r.type)}</span>`;
+      html += `<div class="fs-card-conductor">${esc(r.conductor || '')}`;
+      if (r.conductorSub) html += `<br><span style="font-size:12px;color:var(--text-light)">${esc(r.conductorSub)}</span>`;
+      html += '</div>';
+      html += '</div>';
       if (isAdmin) {
-        html += '<td class="fs-actions">';
-        html += '<button onclick="editFsRow(\'' + r.id + '\')" title="編集"><span class="material-icons" style="font-size:16px">edit</span></button>';
-        html += '<button onclick="deleteFsRow(\'' + r.id + '\')" title="削除"><span class="material-icons" style="font-size:16px">delete</span></button>';
-        html += '</td>';
+        html += '<div class="fs-card-actions">';
+        html += `<button onclick="editFsRow('${r.id}')" title="編集"><span class="material-icons" style="font-size:16px">edit</span></button>`;
+        html += `<button onclick="deleteFsRow('${r.id}')" title="削除"><span class="material-icons" style="font-size:16px;color:#c62828">delete</span></button>`;
+        html += '</div>';
       }
-
-      html += '</tr>';
+      html += '</div>';
     });
 
-    dayIdx++;
+    html += '</div></div>';
   });
 
-  html += '</tbody></table></div>';
   view.innerHTML = html;
 }
 
