@@ -235,7 +235,8 @@ function s89CollectSlips(weeks, selectedMonth) {
         if (!name) return;
         const partnerCode = awGetS89PartnerCode(code);
         const partner = partnerCode ? (slots[partnerCode] || slots[awGetBase(partnerCode)] || '') : '';
-        slips.push({ name, partner, date: dateStr, part: item.title });
+        const partLabel = item.number ? `${item.number}. ${item.title}` : item.title;
+        slips.push({ name, partner, date: dateStr, part: partLabel });
       });
     });
   });
