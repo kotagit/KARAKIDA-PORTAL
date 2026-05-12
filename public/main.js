@@ -4248,14 +4248,19 @@ async function loadSenkyoPublic() {
         slot.places.forEach(p => allPlaces.push(p));
       });
 
+      const colW = 110;
       const body = document.createElement('div');
       body.className = 'pw-grid-wrap';
+
+      const grid = document.createElement('div');
+      grid.className = 'pw-grid';
+      grid.style.width = (allPlaces.length * colW) + 'px';
 
       // 場所ヘッダー行
       let hdrRow = '<div class="pw-grid-row pw-grid-header">';
       allPlaces.forEach(p => {
-        const short = p.replace('堀之内', '').replace('唐木田', '');
-        hdrRow += `<div class="pw-grid-cell pw-grid-place">${esc(short || p)}</div>`;
+        const label = p === '唐木田構内' ? '唐木田駅構内' : p;
+        hdrRow += `<div class="pw-grid-cell pw-grid-place">${esc(label)}</div>`;
       });
       hdrRow += '</div>';
 
@@ -4281,7 +4286,8 @@ async function loadSenkyoPublic() {
         pRows += '</div>';
       }
 
-      body.innerHTML = hdrRow + cRow + pRows;
+      grid.innerHTML = hdrRow + cRow + pRows;
+      body.appendChild(grid);
       section.appendChild(body);
       container.appendChild(section);
     });
