@@ -1062,6 +1062,15 @@ body {
   font-size: 14px; font-weight: 600; color: var(--primary);
 }
 .pw-weekend { color: #c41c3b; }
+.pw-cols-1 { max-width: 200px; }
+.pw-cols-2 { max-width: 50%; }
+.pw-cols-3 { max-width: 75%; }
+.pw-cols-4 { max-width: 100%; }
+@media (max-width: 640px) {
+  .pw-cols-1 { max-width: 50%; }
+  .pw-cols-2 { max-width: 70%; }
+  .pw-cols-3 { max-width: 100%; }
+}
 .pw-grid-wrap {
   overflow-x: auto; padding: 0 8px 12px;
 }

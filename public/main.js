@@ -4229,11 +4229,8 @@ async function loadSenkyoPublic() {
         slot.places.forEach(p => allPlaces.push(p));
       });
 
-      const pct = (allPlaces.length / 4 * 100);
-
       const section = document.createElement('div');
-      section.className = 'aw-inline-section';
-      section.style.width = pct + '%';
+      section.className = 'aw-inline-section pw-cols-' + allPlaces.length;
 
       const isWeekend = group.weekday === '土' || group.weekday === '日';
       const hdr = document.createElement('div');
