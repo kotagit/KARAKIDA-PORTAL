@@ -4217,8 +4217,11 @@ async function loadSenkyoPublic() {
     });
 
     groups.forEach(group => {
+      const pct = (allPlaces.length / 4 * 100);
+
       const section = document.createElement('div');
       section.className = 'aw-inline-section';
+      section.style.width = pct + '%';
 
       const isWeekend = group.weekday === '土' || group.weekday === '日';
       const hdr = document.createElement('div');
@@ -4240,8 +4243,6 @@ async function loadSenkyoPublic() {
 
       const grid = document.createElement('div');
       grid.className = 'pw-grid';
-      const pct = (allPlaces.length / 4 * 100);
-      grid.style.width = pct + '%';
 
       // 場所ヘッダー行
       let hdrRow = '<div class="pw-grid-row pw-grid-header">';
