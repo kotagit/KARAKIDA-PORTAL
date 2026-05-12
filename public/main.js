@@ -4242,47 +4242,46 @@ async function loadSenkyoPublic() {
       `;
       section.appendChild(hdr);
 
-      const body = document.createElement('div');
-      body.style.padding = '8px 12px 16px';
-
+      // 全サブ場所をフラット化
+      const allPlaces = [];
       group.slots.forEach(slot => {
-        slot.places.forEach(p => {
-          const docId = `${group.day}_${group.time}_${p}`;
-          const ass = (assMap[docId] || {}).assignments || {};
-          const short = p.replace('堀之内', '').replace('唐木田', '');
-
-          const locDiv = document.createElement('div');
-          locDiv.className = 'pw-loc-section';
-          locDiv.innerHTML = `<div class="pw-loc-label">${esc(short || p)}</div>`;
-
-          const conductor = ass['司会者'] || '';
-          if (conductor) {
-            const row = document.createElement('div');
-            row.className = 'pw-member-row pw-conductor-row';
-            row.innerHTML = `<span class="pw-member-role">司会者</span><span class="pw-member-name">${esc(conductor)}</span>`;
-            locDiv.appendChild(row);
-          }
-
-          const participants = ass['参加者'] || [];
-          participants.forEach((name, i) => {
-            if (!name) return;
-            const row = document.createElement('div');
-            row.className = 'pw-member-row';
-            row.innerHTML = `<span class="pw-member-role">参加者${i + 1}</span><span class="pw-member-name">${esc(name)}</span>`;
-            locDiv.appendChild(row);
-          });
-
-          if (!conductor && participants.every(n => !n)) {
-            const row = document.createElement('div');
-            row.className = 'pw-member-row';
-            row.innerHTML = '<span style="color:#999;font-size:13px">未割当</span>';
-            locDiv.appendChild(row);
-          }
-
-          body.appendChild(locDiv);
-        });
+        slot.places.forEach(p => allPlaces.push(p));
       });
 
+      const body = document.createElement('div');
+      body.className = 'pw-grid-wrap';
+
+      // 場所ヘッダー行
+      let hdrRow = '<div class="pw-grid-row pw-grid-header">';
+      allPlaces.forEach(p => {
+        const short = p.replace('堀之内', '').replace('唐木田', '');
+        hdrRow += `<div class="pw-grid-cell pw-grid-place">${esc(short || p)}</div>`;
+      });
+      hdrRow += '</div>';
+
+      // 司会者行
+      let cRow = '<div class="pw-grid-row pw-grid-conductor">';
+      allPlaces.forEach(p => {
+        const docId = `${group.day}_${group.time}_${p}`;
+        const ass = (assMap[docId] || {}).assignments || {};
+        cRow += `<div class="pw-grid-cell">${esc(ass['司会者'] || '')}</div>`;
+      });
+      cRow += '</div>';
+
+      // 参加者行（5行）
+      let pRows = '';
+      for (let i = 0; i < 5; i++) {
+        pRows += '<div class="pw-grid-row">';
+        allPlaces.forEach(p => {
+          const docId = `${group.day}_${group.time}_${p}`;
+          const ass = (assMap[docId] || {}).assignments || {};
+          const parts = ass['参加者'] || [];
+          pRows += `<div class="pw-grid-cell">${esc(parts[i] || '')}</div>`;
+        });
+        pRows += '</div>';
+      }
+
+      body.innerHTML = hdrRow + cRow + pRows;
       section.appendChild(body);
       container.appendChild(section);
     });

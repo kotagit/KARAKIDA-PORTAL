@@ -1052,27 +1052,31 @@ body {
 /* 公共伝道 */
 /* ── 公共エリア取決め表（集会予定と統一デザイン） ── */
 .pw-weekend { color: #c41c3b; }
-.pw-loc-section {
-  margin-bottom: 12px; padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+.pw-grid-wrap {
+  overflow-x: auto; padding: 0 8px 12px;
 }
-.pw-loc-section:last-child { border-bottom: none; margin-bottom: 0; }
-.pw-loc-label {
-  font-size: 12px; font-weight: 700; color: #00796b;
-  padding: 4px 8px; margin-bottom: 4px;
-  background: #e0f2f1; border-radius: 4px; display: inline-block;
+.pw-grid-row {
+  display: flex; border-bottom: 1px solid #e0e0e0;
 }
-.pw-member-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 5px 4px; border-bottom: 1px solid #f0f0f0;
+.pw-grid-row:last-child { border-bottom: none; }
+.pw-grid-header {
+  background: #e0f2f1; border-bottom: 2px solid #00796b;
 }
-.pw-member-row:last-child { border-bottom: none; }
-.pw-member-role {
-  font-size: 12px; color: var(--text-light); min-width: 50px; flex-shrink: 0;
+.pw-grid-conductor {
+  border-bottom: 2px solid #e0e0e0;
 }
-.pw-member-name { font-size: 14px; color: var(--text); }
-.pw-conductor-row .pw-member-role { color: var(--primary); font-weight: 700; }
-.pw-conductor-row .pw-member-name { color: var(--primary); font-weight: 700; }
+.pw-grid-cell {
+  flex: 1; min-width: 80px; text-align: center;
+  font-size: 13px; padding: 6px 4px;
+  border-right: 1px solid #e0e0e0;
+}
+.pw-grid-cell:last-child { border-right: none; }
+.pw-grid-place {
+  font-size: 12px; font-weight: 700; color: #00695c;
+}
+.pw-grid-conductor .pw-grid-cell {
+  font-weight: 700; color: var(--primary); font-size: 13px;
+}
 
 /* ── 組織表 閲覧（Excel再現） ── */
 .org-xl-wrap { margin: 0 auto; }
