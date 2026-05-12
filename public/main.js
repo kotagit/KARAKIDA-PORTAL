@@ -4228,17 +4228,10 @@ async function loadSenkyoPublic() {
 
       const isWeekend = group.weekday === '土' || group.weekday === '日';
       const hdr = document.createElement('div');
-      hdr.className = 'aw-inline-header';
-      hdr.style.background = '#00796b';
+      hdr.className = 'pw-card-header';
       hdr.innerHTML = `
-        <div class="aw-header-left">
-          <div class="aw-inline-title${isWeekend ? ' pw-weekend' : ''}">${esc(group.day)}（${esc(group.weekday)}）</div>
-          <div class="aw-inline-sub">${esc(group.time)}</div>
-        </div>
-        <div style="text-align:right;color:white;font-size:13px">
-          <span class="material-icons" style="font-size:18px;vertical-align:middle">location_on</span>
-          ${group.slots.map(s => esc(s.place.replace('駅',''))).join(' / ')}
-        </div>
+        <div class="pw-card-date${isWeekend ? ' pw-weekend' : ''}">${esc(group.day)}（${esc(group.weekday)}）</div>
+        <div class="pw-card-time">${esc(group.time)}</div>
       `;
       section.appendChild(hdr);
 

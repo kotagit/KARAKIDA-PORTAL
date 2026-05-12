@@ -1050,7 +1050,17 @@ body {
 }
 
 /* 公共伝道 */
-/* ── 公共エリア取決め表（集会予定と統一デザイン） ── */
+/* ── 公共エリア取決め表 ── */
+.pw-card-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 12px 14px 6px;
+}
+.pw-card-date {
+  font-size: 16px; font-weight: 700; color: #212121;
+}
+.pw-card-time {
+  font-size: 14px; font-weight: 600; color: var(--primary);
+}
 .pw-weekend { color: #c41c3b; }
 .pw-grid-wrap {
   overflow-x: auto; padding: 0 8px 12px;
