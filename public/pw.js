@@ -61,6 +61,8 @@ function openPWSlotModal(id) {
   const modal = document.getElementById('pw-slot-modal');
   const form = document.getElementById('pw-slot-form');
   form.reset();
+  pwsStartCustom.classList.add('hidden');
+  pwsStartCustom.value = '';
   document.getElementById('pw-slot-modal-title').textContent = id ? 'スロットを編集' : 'スロットを追加';
   if (id) {
     const list = document.getElementById('pw-schedule-list');
@@ -79,7 +81,7 @@ function openPWSlotModal(id) {
         }
       }
       document.getElementById('pws-dow').value = item.dayofweek || '月';
-      document.getElementById('pws-start').value = item.starttime || '';
+      pwsSetStartValue(item.starttime || '');
       document.getElementById('pws-end').value = item.endtime || '';
       document.getElementById('pws-place').value = item.place || '';
       document.getElementById('pws-order').value = item.order ?? '';
@@ -92,6 +94,55 @@ function closePWSlotModal() {
   document.getElementById('pw-slot-modal').classList.add('hidden');
   pwsEditingId = null;
 }
+
+// 開始時刻プルダウン制御
+const pwsStartSel = document.getElementById('pws-start-sel');
+const pwsStartCustom = document.getElementById('pws-start-custom');
+const pwsEnd = document.getElementById('pws-end');
+const pwsPresetTimes = ['7:00','9:00','10:00','11:00','11:30','12:00','15:00','18:00'];
+
+function pwsCalcEndTime(startStr) {
+  const m = startStr.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return '';
+  let h = parseInt(m[1]), min = parseInt(m[2]);
+  min += 90;
+  h += Math.floor(min / 60);
+  min = min % 60;
+  return `${h}:${String(min).padStart(2,'0')}`;
+}
+
+function pwsSetStartValue(val) {
+  if (pwsPresetTimes.includes(val)) {
+    pwsStartSel.value = val;
+    pwsStartCustom.classList.add('hidden');
+    pwsStartCustom.value = '';
+  } else {
+    pwsStartSel.value = 'other';
+    pwsStartCustom.classList.remove('hidden');
+    pwsStartCustom.value = val;
+  }
+}
+
+function pwsGetStartValue() {
+  return pwsStartSel.value === 'other' ? pwsStartCustom.value.trim() : pwsStartSel.value;
+}
+
+pwsStartSel?.addEventListener('change', function() {
+  if (this.value === 'other') {
+    pwsStartCustom.classList.remove('hidden');
+    pwsStartCustom.focus();
+    pwsEnd.value = '';
+  } else {
+    pwsStartCustom.classList.add('hidden');
+    pwsStartCustom.value = '';
+    pwsEnd.value = pwsCalcEndTime(this.value);
+  }
+});
+
+pwsStartCustom?.addEventListener('input', function() {
+  const v = this.value.trim();
+  if (/^\d{1,2}:\d{2}$/.test(v)) pwsEnd.value = pwsCalcEndTime(v);
+});
 
 document.getElementById('pws-day')?.addEventListener('change', function() {
   if (this.value) {
@@ -110,15 +161,16 @@ document.getElementById('pw-slot-form')?.addEventListener('submit', async (e) =>
   const rawDate = document.getElementById('pws-day').value;
   const dtParts = rawDate.split('-');
   const dayStr = dtParts.length === 3 ? `${parseInt(dtParts[1])}/${parseInt(dtParts[2])}` : rawDate;
+  const startVal = pwsGetStartValue();
   const data = {
     day: dayStr,
     dayofweek: document.getElementById('pws-dow').value,
-    starttime: document.getElementById('pws-start').value.trim(),
+    starttime: startVal,
     endtime: document.getElementById('pws-end').value.trim(),
     place: document.getElementById('pws-place').value.trim(),
     order: parseInt(document.getElementById('pws-order').value) || 0,
   };
-  if (!data.day || !data.starttime || !data.endtime || !data.place) {
+  if (!data.day || !startVal || !data.endtime || !data.place) {
     alert('必須項目を入力してください');
     return;
   }

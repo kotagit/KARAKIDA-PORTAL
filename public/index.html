@@ -1473,7 +1473,18 @@
       </div>
       <div class="form-group">
         <label>開始時刻 <span style="color:#d32f2f">*</span></label>
-        <input type="text" id="pws-start" required placeholder="例: 18:00">
+        <select id="pws-start-sel">
+          <option value="7:00">7:00</option>
+          <option value="9:00">9:00</option>
+          <option value="10:00">10:00</option>
+          <option value="11:00">11:00</option>
+          <option value="11:30">11:30</option>
+          <option value="12:00">12:00</option>
+          <option value="15:00">15:00</option>
+          <option value="18:00">18:00</option>
+          <option value="other">その他</option>
+        </select>
+        <input type="text" id="pws-start-custom" class="hidden" placeholder="例: 8:30" style="margin-top:6px">
       </div>
       <div class="form-group">
         <label>終了時刻 <span style="color:#d32f2f">*</span></label>
@@ -1538,6 +1549,6 @@
 
 <script src="main.js?v=127"></script>
 <script src="assignment.js?v=76"></script>
-<script src="pw.js?v=5"></script>
+<script src="pw.js?v=6"></script>
 </body>
 </html>
