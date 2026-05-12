@@ -288,6 +288,13 @@ async function loadPWSlots() {
           d.place     === place
         );
 
+      // 申込者の希望場所マップ (name → preferredLocation)
+      const applicantLocMap = {};
+      applicantsForSlot.forEach(d => {
+        const n = String(d.name || '');
+        if (n) applicantLocMap[n] = String(d.preferredLocation || '');
+      });
+
       const conductorApplicants = [...new Set(
         applicantsForSlot
           .filter(d => String(d.role || '').includes('司会者'))
@@ -318,7 +325,7 @@ async function loadPWSlots() {
       });
       pwAssignmentsMap[slotKey] = subMap;
 
-      slots.push({ dateStr, weekday, dateLabel, time, place, slotKey, fullPlaces, conductorApplicants, allApplicants });
+      slots.push({ dateStr, weekday, dateLabel, time, place, slotKey, fullPlaces, conductorApplicants, allApplicants, applicantLocMap });
     });
 
     // 日付ごとにグループ化して描画
@@ -397,15 +404,20 @@ function renderPWAssignment(slot) {
 // ── 割当て行を構築
 function buildPWRow(label, fp, key, currentVal, applicants) {
   const allAssigned = pwGetAllAssigned(pwCurrentSlot.slotKey);
+  const locMap = pwCurrentSlot.applicantLocMap || {};
   const filtered = applicants.filter(n => n === currentVal || !allAssigned.has(n));
 
   let options = '<option value="">未選択</option>';
   if (currentVal && !filtered.includes(currentVal)) {
-    options += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`;
+    const loc = locMap[currentVal];
+    const locSuffix = loc ? `【${loc}】` : '';
+    options += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}${esc(locSuffix)}</option>`;
   }
   filtered.forEach(n => {
     const sel = n === currentVal ? ' selected' : '';
-    options += `<option value="${esc(n)}"${sel}>${esc(n)}</option>`;
+    const loc = locMap[n];
+    const locSuffix = loc ? `【${loc}】` : '';
+    options += `<option value="${esc(n)}"${sel}>${esc(n)}${esc(locSuffix)}</option>`;
   });
 
   const safeKey = key.replace(/\s/g, '_');
