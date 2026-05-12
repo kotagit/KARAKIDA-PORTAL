@@ -67,7 +67,17 @@ function openPWSlotModal(id) {
     const items = list._pwScheduleItems || [];
     const item = items.find(i => i.id === id);
     if (item) {
-      document.getElementById('pws-day').value = item.day || '';
+      // "5/15" → "2026-05-15" 形式に変換
+      const rawDay = item.day || '';
+      if (rawDay) {
+        const parts = rawDay.split('/');
+        if (parts.length === 2) {
+          const m = parts[0].padStart(2, '0');
+          const d = parts[1].padStart(2, '0');
+          const yr = new Date().getFullYear();
+          document.getElementById('pws-day').value = `${yr}-${m}-${d}`;
+        }
+      }
       document.getElementById('pws-dow').value = item.dayofweek || '月';
       document.getElementById('pws-start').value = item.starttime || '';
       document.getElementById('pws-end').value = item.endtime || '';
@@ -83,6 +93,12 @@ function closePWSlotModal() {
   pwsEditingId = null;
 }
 
+document.getElementById('pws-day')?.addEventListener('change', function() {
+  if (this.value) {
+    const dow = ['日','月','火','水','木','金','土'][new Date(this.value + 'T00:00:00').getDay()];
+    document.getElementById('pws-dow').value = dow;
+  }
+});
 document.getElementById('pw-schedule-add-btn')?.addEventListener('click', () => openPWSlotModal(null));
 document.getElementById('pw-slot-modal-close')?.addEventListener('click', closePWSlotModal);
 document.getElementById('pw-slot-overlay')?.addEventListener('click', closePWSlotModal);
@@ -90,8 +106,12 @@ document.getElementById('pws-cancel')?.addEventListener('click', closePWSlotModa
 
 document.getElementById('pw-slot-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  // "2026-05-15" → "5/15" 形式に変換
+  const rawDate = document.getElementById('pws-day').value;
+  const dtParts = rawDate.split('-');
+  const dayStr = dtParts.length === 3 ? `${parseInt(dtParts[1])}/${parseInt(dtParts[2])}` : rawDate;
   const data = {
-    day: document.getElementById('pws-day').value.trim(),
+    day: dayStr,
     dayofweek: document.getElementById('pws-dow').value,
     starttime: document.getElementById('pws-start').value.trim(),
     endtime: document.getElementById('pws-end').value.trim(),
