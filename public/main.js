@@ -185,6 +185,17 @@ async function initApp() {
           ref.delete();
         } catch (e2) { console.warn('Server time sync failed:', e2); }
 
+        // ログイン履歴を記録
+        try {
+          await db.collection('LOGIN_LOG').add({
+            email: user.email || '',
+            name: memberUserName || user.displayName || '',
+            uid: user.uid,
+            loginAt: firebase.firestore.FieldValue.serverTimestamp(),
+            userAgent: navigator.userAgent || ''
+          });
+        } catch (e3) { console.warn('Login log failed:', e3); }
+
       } catch (e) {
         console.error('Auth Check Error:', e);
       }
@@ -2111,7 +2122,8 @@ async function loadSrGroupList() {
 
 // ── 公共エリア伝道申込み ────────────────────────
 const PW_ROLES = ['参加者', '司会者（カート有）', 'カート運搬車', '司会者（カート無）'];
-let pwApplySelected = {};  // key → role
+const PW_LOCATIONS = ['唐木田駅', '堀之内駅', '唐木田駅＞堀之内駅', '堀之内駅＞唐木田駅'];
+let pwApplySelected = {};  // key → { role, location }
 
 async function loadPwApply() {
   const container = document.getElementById('pw-apply-view');
@@ -2177,20 +2189,31 @@ async function loadPwApply() {
           <span class="pwa-col">${esc(item.startTime)}</span>
           <span class="pwa-col ${placeClass}">${esc(placeDisplay)}</span>
         </div>
-        <div class="pwa-roles hidden"></div>
+        <div class="pwa-options hidden">
+          <div class="pwa-section">
+            <div class="pwa-section-label">参加立場</div>
+            <div class="pwa-roles-list"></div>
+          </div>
+          <div class="pwa-section">
+            <div class="pwa-section-label">参加希望場所</div>
+            <div class="pwa-locations-list"></div>
+          </div>
+        </div>
       `;
 
       const mainRow = card.querySelector('.pwa-row-main');
-      const rolesDiv = card.querySelector('.pwa-roles');
+      const optionsDiv = card.querySelector('.pwa-options');
+      const rolesDiv = card.querySelector('.pwa-roles-list');
+      const locsDiv = card.querySelector('.pwa-locations-list');
 
-      // 役割ラジオボタン
       PW_ROLES.forEach(role => {
         const label = document.createElement('label');
         label.className = 'pwa-role-label';
         label.innerHTML = `<span class="material-icons pwa-radio">radio_button_unchecked</span><span>${esc(role)}</span>`;
         label.addEventListener('click', (e) => {
           e.stopPropagation();
-          pwApplySelected[item.key] = role;
+          if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
+          pwApplySelected[item.key].role = role;
           rolesDiv.querySelectorAll('.pwa-radio').forEach(ic => {
             ic.textContent = 'radio_button_unchecked';
             ic.style.color = '#999';
@@ -2201,21 +2224,39 @@ async function loadPwApply() {
         rolesDiv.appendChild(label);
       });
 
+      PW_LOCATIONS.forEach(loc => {
+        const label = document.createElement('label');
+        label.className = 'pwa-role-label';
+        label.innerHTML = `<span class="material-icons pwa-radio">radio_button_unchecked</span><span>${esc(loc)}</span>`;
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
+          pwApplySelected[item.key].location = loc;
+          locsDiv.querySelectorAll('.pwa-radio').forEach(ic => {
+            ic.textContent = 'radio_button_unchecked';
+            ic.style.color = '#999';
+          });
+          label.querySelector('.pwa-radio').textContent = 'radio_button_checked';
+          label.querySelector('.pwa-radio').style.color = 'var(--primary)';
+        });
+        locsDiv.appendChild(label);
+      });
+
       mainRow.addEventListener('click', () => {
         const isSelected = card.classList.contains('pwa-selected');
         if (isSelected) {
           card.classList.remove('pwa-selected');
-          rolesDiv.classList.add('hidden');
+          optionsDiv.classList.add('hidden');
           card.querySelector('.pwa-check .material-icons').textContent = 'check_circle_outline';
           card.querySelector('.pwa-check .material-icons').style.color = '#999';
           delete pwApplySelected[item.key];
-          rolesDiv.querySelectorAll('.pwa-radio').forEach(ic => {
+          optionsDiv.querySelectorAll('.pwa-radio').forEach(ic => {
             ic.textContent = 'radio_button_unchecked';
             ic.style.color = '#999';
           });
         } else {
           card.classList.add('pwa-selected');
-          rolesDiv.classList.remove('hidden');
+          optionsDiv.classList.remove('hidden');
           card.querySelector('.pwa-check .material-icons').textContent = 'check_circle';
           card.querySelector('.pwa-check .material-icons').style.color = 'var(--primary)';
         }
@@ -2243,12 +2284,17 @@ async function pwApplySubmit(items) {
   const keys = Object.keys(pwApplySelected);
   if (keys.length === 0) { alert('申込む項目を選択してください'); return; }
 
-  // 全選択カードに役割があるかチェック
+  // 全選択カードに役割と場所があるかチェック
   const allCards = document.querySelectorAll('.pwa-card.pwa-selected');
   for (const card of allCards) {
     const key = card.dataset.key;
-    if (!pwApplySelected[key]) {
-      alert('すべての項目で役割を選択してください');
+    const sel = pwApplySelected[key];
+    if (!sel || !sel.role) {
+      alert('すべての項目で参加立場を選択してください');
+      return;
+    }
+    if (!sel.location) {
+      alert('すべての項目で参加希望場所を選択してください');
       return;
     }
   }
@@ -2258,8 +2304,9 @@ async function pwApplySubmit(items) {
   keys.forEach(key => {
     const item = items.find(i => i.key === key);
     if (!item) return;
+    const sel = pwApplySelected[key];
     msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '〜' + item.endTime + '\n';
-    msg += item.place.replace(/駅/g, '') + ' / ' + pwApplySelected[key] + '\n\n';
+    msg += item.place.replace(/駅/g, '') + ' / ' + sel.role + ' / ' + sel.location + '\n\n';
   });
   msg += '送信しますか？';
   if (!(await customConfirm(msg))) return;
@@ -2272,6 +2319,7 @@ async function pwApplySubmit(items) {
     for (const key of keys) {
       const item = items.find(i => i.key === key);
       if (!item) continue;
+      const sel = pwApplySelected[key];
       await db.collection('PUBLIC_WITNESSING').add({
         name: memberUserName || '不明',
         day: item.date,
@@ -2279,7 +2327,8 @@ async function pwApplySubmit(items) {
         starttime: item.startTime,
         endtime: item.endTime,
         place: item.place,
-        role: pwApplySelected[key],
+        role: sel.role,
+        preferredLocation: sel.location,
         timestamp: firebase.firestore.Timestamp.now(),
       });
     }
