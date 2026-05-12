@@ -264,8 +264,8 @@ function s89DownloadPdf(slips, selectedMonth) {
   }
 
   let pages = '';
-  for (let i = 0; i < slips.length; i += 12) {
-    const batch = slips.slice(i, i + 12);
+  for (let i = 0; i < slips.length; i += 4) {
+    const batch = slips.slice(i, i + 4);
     pages += `<div class="page">${batch.map(s => cardHtml(s)).join('')}</div>`;
   }
 
@@ -274,23 +274,23 @@ function s89DownloadPdf(slips, selectedMonth) {
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: "Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif; }
-  @page { size: A4 portrait; margin: 5mm; }
-  .page { width:100%; height:100vh; display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:repeat(4,1fr); gap:3mm; page-break-after:always; }
+  @page { size: A4 portrait; margin: 8mm; }
+  .page { width:100%; height:100vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:4mm; page-break-after:always; }
   .page:last-child { page-break-after:auto; }
-  .card { border:1px solid #aaa; border-radius:2px; padding:8px 10px; display:flex; flex-direction:column; overflow:hidden; }
-  .title { text-align:center; font-size:8px; font-weight:bold; line-height:1.6; margin-bottom:6px; }
-  .field { margin-bottom:4px; font-size:8px; }
-  .field b { font-size:8px; }
+  .card { border:1px solid #aaa; border-radius:3px; padding:14px 18px; display:flex; flex-direction:column; overflow:hidden; }
+  .title { text-align:center; font-size:12px; font-weight:bold; line-height:1.6; margin-bottom:12px; }
+  .field { margin-bottom:8px; font-size:11px; }
+  .field b { font-size:11px; }
   .val { color:#1565c0; border-bottom:1px dotted #1565c0; padding-bottom:0; }
-  .venue { margin-top:4px; font-size:8px; }
-  .venue b { font-size:8px; }
-  .venue-list { padding-left:10px; font-size:7px; line-height:1.7; margin-top:2px; }
-  .footer { margin-top:auto; padding-top:4px; border-top:1px solid #ddd; }
-  .note { font-size:5.5px; color:#555; line-height:1.4; }
-  .formid { font-size:5.5px; color:#999; margin-top:2px; }
+  .venue { margin-top:8px; font-size:11px; }
+  .venue b { font-size:11px; }
+  .venue-list { padding-left:14px; font-size:10px; line-height:1.8; margin-top:4px; }
+  .footer { margin-top:auto; padding-top:8px; border-top:1px solid #ddd; }
+  .note { font-size:7.5px; color:#555; line-height:1.5; }
+  .formid { font-size:7.5px; color:#999; margin-top:3px; }
   @media screen {
     body { background:#eee; display:flex; flex-direction:column; align-items:center; gap:20px; padding:20px; }
-    .page { width:210mm; height:297mm; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); padding:5mm; }
+    .page { width:210mm; height:297mm; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.2); padding:8mm; }
   }
 </style></head><body>${pages}
 <script>window.onafterprint=function(){window.close();};</script>
