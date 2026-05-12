@@ -1315,9 +1315,6 @@ async function loadLinks(section) {
         { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
-      if (isAnnaigakari || isAdmin) {
-        formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
-      }
       formItems.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
@@ -1352,9 +1349,6 @@ async function loadLinks(section) {
         { icon: 'location_on', label: '区域情報登録', page: 'area-info' },
         { icon: 'contact_phone', label: '成員情報登録', page: 'member-info' },
       ];
-      if (isAnnaigakari || isAdmin) {
-        formItems2.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
-      }
       formItems2.forEach(fi => {
         const el = document.createElement('div');
         el.className = 'admin-list-row';
