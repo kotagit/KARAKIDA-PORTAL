@@ -134,31 +134,33 @@ async function initApp() {
     if (user) {
       currentUser = user;
       isAdmin = false;
-      // 読み込み中はGoogleの表示名を出しておく
-      userNameEl.textContent = user.displayName || 'ユーザー';
-      loginScreen.classList.add('hidden');
-      app.classList.remove('hidden');
-      navigate('home');
+      // ログインチェック中はアプリを隠したまま
+      app.classList.add('hidden');
+      if (loginError) loginError.textContent = 'ユーザー確認中...';
 
       // 権限と名前のチェック（Firestoreから取得）
       try {
         const email = user.email.trim();
         console.log('Checking USER_LIST for:', email);
-        
+
         let snap = await db.collection('USER_LIST').where('mail', '==', email.toLowerCase()).limit(1).get();
         if (snap.empty) {
           snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
         }
-        
+
         if (snap.empty) {
           // USER_LISTに登録されていないアカウントはアクセス拒否
           console.warn('Access denied: not in USER_LIST', email);
-          loginScreen.classList.remove('hidden');
-          app.classList.add('hidden');
           if (loginError) loginError.textContent = 'アクセス権限がありません。管理者にお問い合わせください。';
           await auth.signOut();
           return;
         }
+
+        // 認証OK → アプリ表示
+        loginScreen.classList.add('hidden');
+        app.classList.remove('hidden');
+        if (loginError) loginError.textContent = '';
+        navigate('home');
 
         const userData = snap.docs[0].data();
         console.log('User data loaded:', userData.name);
