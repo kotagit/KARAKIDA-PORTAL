@@ -53,15 +53,15 @@ async function awLoadMembers() {
   awMembers = snap.docs
     .map(d => {
       const data = d.data();
-      const s1 = String(data.status1 || '');
+      const arr = Array.isArray(data.status) ? data.status : [];
       let position = '';
-      if (s1 === 'EL') position = '長老';
-      else if (s1 === 'MS') position = '援助奉仕者';
+      if (arr.includes('EL')) position = '長老';
+      else if (arr.includes('MS')) position = '援助奉仕者';
       else if (data.gender === '男') position = '生徒男';
       else if (data.gender === '女') position = '生徒女';
-      return { docId: d.id, ...data, position };
+      return { docId: d.id, ...data, position, _isInactive: arr.includes('inactive') };
     })
-    .filter(m => String(m.status8 || '') !== 'inactive' && m.name);
+    .filter(m => !m._isInactive && m.name);
   awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
 }
 
@@ -1521,8 +1521,8 @@ function awRenderMemberList() {
     return;
   }
   const filtered = awMemberFilter === 'all' ? awMembers : awMembers.filter(mb => {
-    if (awMemberFilter === '長老') return mb.status1 === 'EL';
-    if (awMemberFilter === '援助奉仕者') return mb.status1 === 'MS';
+    if (awMemberFilter === '長老') return (mb.status || []).includes('EL');
+    if (awMemberFilter === '援助奉仕者') return (mb.status || []).includes('MS');
     if (awMemberFilter === '男') return mb.gender === '男';
     if (awMemberFilter === '女') return mb.gender === '女';
     return true;
@@ -1658,7 +1658,9 @@ function awCloseMemberModal() {
 async function awDeactivateMember(id) {
   if (!(await customConfirm('このメンバーを無効化しますか？'))) return;
   try {
-    await db.collection('USER_LIST').doc(id).update({ status8: 'inactive' });
+    await db.collection('USER_LIST').doc(id).update({
+      status: firebase.firestore.FieldValue.arrayUnion('inactive')
+    });
     await awLoadMembers();
     awRenderMemberList();
   } catch(e) {
@@ -1693,18 +1695,20 @@ async function awSaveMember(e) {
   if (!name) { alert('名前を入力してください'); return; }
   if (!furigana) { alert('フリガナを入力してください'); return; }
 
-  // position select値 → status1にマッピング (生徒男/生徒女はstatus1空 + gender)
-  let status1 = '';
-  if (position === '長老') status1 = 'EL';
-  else if (position === '援助奉仕者') status1 = 'MS';
-
-  const data = { name, furigana, gender, familyGroup, eligibleCodes, status1, status8: '' };
-
   try {
     if (awEditingMemberId) {
-      await db.collection('USER_LIST').doc(awEditingMemberId).update(data);
+      // 既存メンバー: status配列を取得して長老/MSフラグだけ書き換え
+      const ref = db.collection('USER_LIST').doc(awEditingMemberId);
+      const cur = (await ref.get()).data() || {};
+      const curStatus = Array.isArray(cur.status) ? cur.status.filter(v => v !== 'EL' && v !== 'MS' && v !== 'inactive') : [];
+      if (position === '長老') curStatus.push('EL');
+      else if (position === '援助奉仕者') curStatus.push('MS');
+      await ref.update({ name, furigana, gender, familyGroup, eligibleCodes, status: curStatus });
     } else {
-      await db.collection('USER_LIST').add(data);
+      const status = [];
+      if (position === '長老') status.push('EL');
+      else if (position === '援助奉仕者') status.push('MS');
+      await db.collection('USER_LIST').add({ name, furigana, gender, familyGroup, eligibleCodes, status });
     }
     awCloseMemberModal();
     await awLoadMembers();

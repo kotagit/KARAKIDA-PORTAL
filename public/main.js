@@ -158,12 +158,12 @@ async function initApp() {
           memberUserName = userData.name || user.displayName || '';
           memberUserGroup = userData.group || '';
 
-          const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8','status9'];
-          const statusValues = statusFields.map(f => (userData[f] || '').toString().trim());
-          isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
-          isAnnaigakari = statusValues.some(v => v.toUpperCase() === 'AT');
-          isElder = statusValues.some(v => v.toUpperCase() === 'EL');
-          isPortalAdmin = statusValues.some(v => v.toUpperCase() === 'ADMIN');
+          const statusArr = Array.isArray(userData.status) ? userData.status : [];
+          const statusUp = statusArr.map(v => String(v || '').toUpperCase().trim());
+          isAdmin = statusUp.includes('WEB');
+          isAnnaigakari = statusUp.includes('AT');
+          isElder = statusUp.includes('EL');
+          isPortalAdmin = statusUp.includes('ADMIN');
 
           const adminMenu = document.getElementById('menu-admin');
           if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
@@ -1954,8 +1954,7 @@ async function loadJouhouCard() {
       gender: String(d.gender || '').trim(),
       birthDate: String(d.birthDate || '').trim(),
       baptismDate: String(d.baptismDate || '').trim(),
-      status1: String(d.status1 || '').trim(),
-      status7: String(d.status7 || '').trim(),
+      status: Array.isArray(d.status) ? d.status : [],
       hope: String(d.hope || '').trim(),
     };
 
@@ -2449,8 +2448,7 @@ async function loadAdminReports() {
         gender: String(data.gender || '').trim(),
         birthDate: String(data.birthDate || '').trim(),
         baptismDate: String(data.baptismDate || '').trim(),
-        status1: String(data.status1 || '').trim(),
-        status7: String(data.status7 || '').trim(),
+        status: Array.isArray(data.status) ? data.status : [],
         hope: String(data.hope || '').trim(),
       });
     });
@@ -2473,8 +2471,8 @@ function setRptFilter(f) {
 }
 
 function isPioneer(m) {
-  const s = String(m.status7 || '');
-  return s === 'RP' || s.includes('開拓');
+  const arr = Array.isArray(m.status) ? m.status : [];
+  return arr.some(v => { const s = String(v || ''); return s === 'RP' || s.includes('開拓'); });
 }
 
 function displayGender(g) {
@@ -2500,13 +2498,11 @@ function tsToStr(val) {
 }
 
 function displayRole(m) {
+  const arr = Array.isArray(m.status) ? m.status : [];
   const parts = [];
-  const s1 = m.status1 || '';
-  if (s1 === 'EL') parts.push('長老');
-  else if (s1 === 'MS') parts.push('援助奉仕者');
-  const s7 = String(m.status7 || '');
-  if (s7 === 'RP' || s7 === '正規開拓者') parts.push('開拓者');
-  else if (s7.includes('開拓')) parts.push(s7);
+  if (arr.includes('EL')) parts.push('長老');
+  else if (arr.includes('MS')) parts.push('援助奉仕者');
+  if (arr.includes('RP') || arr.includes('正規開拓者')) parts.push('開拓者');
   if (parts.length === 0) parts.push('伝道者');
   return parts.join(' / ');
 }
@@ -2959,7 +2955,7 @@ function s13GetGroupsForCity(city) {
 }
 
 async function s13LoadSupervisors() {
-  const svSnap = await db.collection('USER_LIST').where('status4', '==', 'SV').get();
+  const svSnap = await db.collection('USER_LIST').where('status', 'array-contains', 'SV').get();
   s13SupervisorMap = {};
   svSnap.docs.forEach(doc => {
     const d = doc.data();
@@ -3356,13 +3352,11 @@ async function loadOrgView() {
         const data = d.data();
         const name = String(data.name || '').trim();
         if (!name) return;
-        const s1 = String(data.status1 || '').trim();
+        const arr = Array.isArray(data.status) ? data.status : [];
         let roleLabel = '伝道者';
-        if (s1 === 'EL') roleLabel = '長老';
-        else if (s1 === 'MS') roleLabel = '援助奉仕者';
-        const s7 = String(data.status7 || '').trim();
-        if (s7 === 'RP' || s7 === '正規開拓者') roleLabel += ' / 開拓者';
-        else if (s7.includes('開拓')) roleLabel += ' / ' + s7;
+        if (arr.includes('EL')) roleLabel = '長老';
+        else if (arr.includes('MS')) roleLabel = '援助奉仕者';
+        if (arr.includes('RP') || arr.includes('正規開拓者')) roleLabel += ' / 開拓者';
         users.push({ name, group: String(data.group || '').trim(), gender: String(data.gender || '').trim(), roleLabel });
       });
       users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
@@ -5170,12 +5164,11 @@ async function loadGroupMembers() {
       const d = doc.data();
       const name  = String(d.name  || '').trim();
       const group = String(d.group || '（未所属）').trim() || '（未所属）';
-      const s1 = String(d.status1 || '').trim();
-      const s7 = String(d.status7 || '').trim();
+      const arr = Array.isArray(d.status) ? d.status : [];
       let role = '';
-      if (s1 === 'EL') role = '長老';
-      else if (s1 === 'MS') role = '援助奉仕者';
-      if (s7 === 'RP') role = role ? role + ' / 開拓者' : '開拓者';
+      if (arr.includes('EL')) role = '長老';
+      else if (arr.includes('MS')) role = '援助奉仕者';
+      if (arr.includes('RP')) role = role ? role + ' / 開拓者' : '開拓者';
       const gender = String(d.gender || '').trim();
       if (!name) return;
       if (!groupMap[group]) groupMap[group] = [];

@@ -24,7 +24,7 @@ const serviceAccount = require('./serviceAccount.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-const inputPath = process.argv[2] || path.join(__dirname, '..', 'USER_LIST_20260513.json');
+const inputPath = process.argv[2] || path.join(__dirname, '..', 'USER_LIST_20260513.csv');
 const purge = process.argv.includes('--purge');
 
 function parseCsv(text) {
@@ -62,6 +62,12 @@ function loadRecordsFromCsv(text) {
       catch(e) { obj.emergencyContacts = []; }
     } else {
       obj.emergencyContacts = [];
+    }
+    if (typeof obj.status === 'string' && obj.status) {
+      try { obj.status = JSON.parse(obj.status); }
+      catch(e) { obj.status = []; }
+    } else if (!Array.isArray(obj.status)) {
+      obj.status = [];
     }
     if (obj.dev === 'TRUE') obj.dev = true;
     else if (obj.dev === 'FALSE') obj.dev = false;
