@@ -161,7 +161,7 @@ async function initApp() {
           const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8','status9'];
           const statusValues = statusFields.map(f => (userData[f] || '').toString().trim());
           isAdmin = statusValues.some(v => v.toUpperCase() === 'WEB');
-          isAnnaigakari = statusValues.some(v => v === '案内係');
+          isAnnaigakari = statusValues.some(v => v.toUpperCase() === 'AT');
           isElder = statusValues.some(v => v.toUpperCase() === 'EL');
           isPortalAdmin = statusValues.some(v => v.toUpperCase() === 'ADMIN');
 
