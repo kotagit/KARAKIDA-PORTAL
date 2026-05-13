@@ -1993,8 +1993,10 @@ async function loadJouhouContact() {
     html += '<p class="form-description">あなたの会衆登録情報</p>';
 
     // 氏名・ふりがな は名刺風ヘッダーで表示
+    // ふりがなは「ひらがな・カタカナのみ」の場合に表示（漢字が混ざってる場合は非表示）
+    const isPhonetic = s => !!s && !/[一-鿿]/.test(s) && /[぀-ゟ゠-ヿ]/.test(s);
     html += '<div class="contact-name-card">';
-    if (d.furigana) html += '<div class="contact-furigana">' + esc(d.furigana) + '</div>';
+    if (isPhonetic(d.furigana)) html += '<div class="contact-furigana">' + esc(d.furigana) + '</div>';
     html += '<div class="contact-name">' + esc(d.name || '') + '</div>';
     html += '</div>';
 
@@ -2739,16 +2741,6 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
   html += '<tr><td class="s21-info-label">バプテスマ日</td><td class="s21-info-value" colspan="3">' + esc(member.baptismDate || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td><td class="s21-info-label">希望</td><td class="s21-info-value">' + esc(member.hope || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value" colspan="3">' + esc(member.group || '-') + '</td></tr>';
-  // 緊急連絡先（電話番号はテキスト表示、リンクなし）
-  const contacts = Array.isArray(member.emergencyContacts) ? member.emergencyContacts : [];
-  contacts.forEach((c, i) => {
-    if (!c || (!c.name && !c.phone)) return;
-    const parts = [];
-    if (c.name)  parts.push(esc(c.name));
-    if (c.phone) parts.push(esc(c.phone));
-    html += '<tr><td class="s21-info-label">緊急連絡先' + (contacts.length > 1 ? (i + 1) : '') +
-            '</td><td class="s21-info-value" colspan="3">' + parts.join('　') + '</td></tr>';
-  });
   html += '</table></div>';
 
   // 互換: 旧呼び出し（単年）対応
