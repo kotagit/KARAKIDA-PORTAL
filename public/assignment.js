@@ -49,17 +49,18 @@ async function awLoadCodes() {
 }
 
 async function awLoadMembers() {
-  const snap = await db.collection('USER_LIST').get();
-  awMembers = snap.docs
-    .map(d => {
-      const data = d.data();
+  const userList = window.getUserListCached
+    ? await window.getUserListCached()
+    : (await db.collection('USER_LIST').get()).docs.map(d => ({ docId: d.id, ...d.data() }));
+  awMembers = userList
+    .map(data => {
       const arr = (window._parseStatus ? window._parseStatus(data.status) : (Array.isArray(data.status) ? data.status : []));
       let position = '';
       if (arr.includes('EL')) position = '長老';
       else if (arr.includes('MS')) position = '援助奉仕者';
       else if (data.gender === '男') position = '生徒男';
       else if (data.gender === '女') position = '生徒女';
-      return { docId: d.id, ...data, status: arr, position, _isInactive: arr.includes('inactive') };
+      return { ...data, status: arr, position, _isInactive: arr.includes('inactive') };
     })
     .filter(m => !m._isInactive && m.name);
   awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
@@ -1661,6 +1662,8 @@ async function awDeactivateMember(id) {
     await db.collection('USER_LIST').doc(id).update({
       status: firebase.firestore.FieldValue.arrayUnion('inactive')
     });
+    // arrayUnionの結果が分からないのでキャッシュは破棄
+    if (window.invalidateUserListCache) window.invalidateUserListCache();
     await awLoadMembers();
     awRenderMemberList();
   } catch(e) {
@@ -1674,6 +1677,7 @@ async function awDeleteMember(id) {
   if (!(await customConfirm(`「${name}」を完全に削除しますか？\nこの操作は取り消せません。`))) return;
   try {
     await db.collection('USER_LIST').doc(id).delete();
+    if (window.removeUserListLocal) window.removeUserListLocal(id);
     await awLoadMembers();
     awRenderMemberList();
   } catch(e) {
@@ -1697,19 +1701,25 @@ async function awSaveMember(e) {
 
   try {
     if (awEditingMemberId) {
-      // 既存メンバー: status配列を取得して長老/MSフラグだけ書き換え
+      // 既存メンバー: status配列をキャッシュから取得して長老/MSフラグだけ書き換え
       const ref = db.collection('USER_LIST').doc(awEditingMemberId);
-      const cur = (await ref.get()).data() || {};
+      const cached = window.getUserListCached ? (await window.getUserListCached()) : null;
+      const curRec = cached ? cached.find(u => u.docId === awEditingMemberId) : null;
+      const cur = curRec || (await ref.get()).data() || {};
       const curArr = (window._parseStatus ? window._parseStatus(cur.status) : (Array.isArray(cur.status) ? cur.status : []));
       const curStatus = curArr.filter(v => v !== 'EL' && v !== 'MS' && v !== 'inactive');
       if (position === '長老') curStatus.push('EL');
       else if (position === '援助奉仕者') curStatus.push('MS');
-      await ref.update({ name, furigana, gender, familyGroup, eligibleCodes, status: curStatus });
+      const data = { name, furigana, gender, familyGroup, eligibleCodes, status: curStatus };
+      await ref.update(data);
+      if (window.applyUserListLocal) window.applyUserListLocal(awEditingMemberId, data);
     } else {
       const status = [];
       if (position === '長老') status.push('EL');
       else if (position === '援助奉仕者') status.push('MS');
-      await db.collection('USER_LIST').add({ name, furigana, gender, familyGroup, eligibleCodes, status });
+      const data = { name, furigana, gender, familyGroup, eligibleCodes, status };
+      const newRef = await db.collection('USER_LIST').add(data);
+      if (window.applyUserListLocal) window.applyUserListLocal(newRef.id, data);
     }
     awCloseMemberModal();
     await awLoadMembers();
