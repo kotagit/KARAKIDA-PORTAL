@@ -2020,6 +2020,43 @@ body {
 .me-gender-m { background: #e3f2fd; color: #1565c0; }
 .me-gender-f { background: #fce4ec; color: #c2185b; }
 
+/* リスト表示: タイトル行の左右レイアウト */
+.me-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.me-title-name { flex-shrink: 0; }
+.me-square-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.me-square-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #e0e0e0;
+  color: #333;
+  line-height: 1;
+}
+.me-square-badge.meb-go  { background: #2e7d32; color: #fff; }
+.me-square-badge.meb-ga  { background: #66bb6a; color: #fff; }
+.me-square-badge.meb-el  { background: #ef6c00; color: #fff; }
+.me-square-badge.meb-ms  { background: #1565c0; color: #fff; }
+.me-square-badge.meb-rp  { background: #6a1b9a; color: #fff; }
+.me-square-badge.meb-am  { background: #00838f; color: #fff; }
+.me-square-badge.meb-pa  { background: #ad1457; color: #fff; }
+.me-square-badge.meb-web { background: #f57f17; color: #fff; }
+.me-square-badge.meb-m   { background: #e3f2fd; color: #1565c0; }
+.me-square-badge.meb-f   { background: #fce4ec; color: #c2185b; }
+
 /* 成員編集モード切り替え */
 .me-top-bar {
   display: flex;
@@ -2119,11 +2156,11 @@ body {
   border-spacing: 0;
   font-size: 12px;
   width: 100%;
-  min-width: 100%;
+  table-layout: fixed;
 }
 /* モバイルではコンテンツ幅で横スクロール */
 @media (max-width: 768px) {
-  .me-bulk-table { width: max-content; }
+  .me-bulk-table { width: max-content; table-layout: auto; }
 }
 .meb-sortable { cursor: pointer; user-select: none; }
 .meb-sortable:hover { background: #eaeaea !important; }
@@ -2155,6 +2192,7 @@ body {
   font-size: 12px;
   background: white;
   min-width: 0;
+  box-sizing: border-box;
 }
 .me-bulk-table .meb-input:focus {
   outline: none;
@@ -2163,8 +2201,11 @@ body {
 }
 .me-bulk-table .meb-status-col {
   text-align: center;
-  min-width: 38px;
+  width: 32px;
+  min-width: 28px;
   white-space: nowrap;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 .me-bulk-table .meb-cell-wrap {
   display: flex;

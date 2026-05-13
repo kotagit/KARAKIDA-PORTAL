@@ -5408,9 +5408,25 @@ const ME_STATUS_OPTIONS = [
   { code: 'RP',       label: '正規開拓者' },
   { code: 'AP',       label: '補助開拓者' },
   { code: 'AT',       label: '案内係' },
+  { code: 'AM',       label: '区域係' },
+  { code: 'PA',       label: '公共エリア' },
   { code: 'WEB',      label: 'WEB管理者' },
   { code: 'ADMIN',    label: 'ADMIN' },
   { code: 'inactive', label: '無効化' },
+];
+
+// リスト表示用 正方形バッジ定義
+const ME_BADGE_DEFS = [
+  { kanji: '監', cls: 'meb-go',  test: m => m.status.includes('GO') },
+  { kanji: '補', cls: 'meb-ga',  test: m => m.status.includes('GA') },
+  { kanji: '長', cls: 'meb-el',  test: m => m.status.includes('EL') },
+  { kanji: '援', cls: 'meb-ms',  test: m => m.status.includes('MS') },
+  { kanji: '開', cls: 'meb-rp',  test: m => m.status.includes('RP') || m.status.includes('AP') },
+  { kanji: '区', cls: 'meb-am',  test: m => m.status.includes('AM') },
+  { kanji: '公', cls: 'meb-pa',  test: m => m.status.includes('PA') },
+  { kanji: '網', cls: 'meb-web', test: m => m.status.includes('WEB') },
+  { kanji: '男', cls: 'meb-m',   test: m => m.gender === '男' },
+  { kanji: '女', cls: 'meb-f',   test: m => m.gender === '女' },
 ];
 
 let meAllMembers = [];
@@ -5563,25 +5579,20 @@ function renderMemberEditList() {
 
     members.forEach(m => {
       const isInactive = m.status.includes('inactive');
-      const statusBadges = m.status
-        .filter(s => s !== 'inactive')
-        .map(s => `<span class="me-status-badge me-status-${esc(s)}">${esc(s)}</span>`)
+      const squareBadges = ME_BADGE_DEFS
+        .filter(def => def.test(m))
+        .map(def => `<span class="me-square-badge ${def.cls}">${def.kanji}</span>`)
         .join('');
-      const genderBadge = m.gender
-        ? `<span class="me-gender-badge me-gender-${m.gender === '男' ? 'm' : 'f'}">${esc(m.gender)}</span>`
-        : '';
 
       const item = document.createElement('div');
       item.className = 'admin-list-item';
       if (isInactive) item.style.opacity = '0.55';
       item.innerHTML = `
         <div class="admin-list-info">
-          <div class="admin-list-title">
-            ${genderBadge}
-            ${esc(m.name || '(名前なし)')}
-            ${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}
+          <div class="admin-list-title me-title-row">
+            <span class="me-title-name">${esc(m.name || '(名前なし)')}${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}</span>
+            <span class="me-square-row">${squareBadges}</span>
           </div>
-          ${statusBadges ? `<div class="me-status-row">${statusBadges}</div>` : ''}
         </div>
         <div class="admin-list-actions">
           <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
@@ -5682,11 +5693,11 @@ async function saveMemberEdit(e) {
 
 // ── 成員 一括編集 ────────────────────────────────
 const ME_BULK_TEXT_FIELDS = [
-  { key: 'name',     label: '氏名',       width: 140 },
-  { key: 'furigana', label: 'ふりがな',   width: 140 },
-  { key: 'group',    label: 'グループ',   width: 100, type: 'select-group' },
-  { key: 'gender',   label: '性別',       width: 60,  type: 'select', options: ['', '男', '女'] },
-  { key: 'mail',     label: 'メール',     width: 200 },
+  { key: 'name',     label: '氏名',       width: 110 },
+  { key: 'furigana', label: 'ふりがな',   width: 100 },
+  { key: 'group',    label: 'グループ',   width: 80,  type: 'select-group' },
+  { key: 'gender',   label: '性別',       width: 50,  type: 'select', options: ['', '男', '女'] },
+  { key: 'mail',     label: 'メール',     width: 140 },
 ];
 
 // docId -> { name?, furigana?, group?, gender?, mail?, status?: [] }
