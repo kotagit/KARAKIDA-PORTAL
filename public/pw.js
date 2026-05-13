@@ -279,14 +279,21 @@ async function loadPWSlots() {
       const slotKey  = `${dateStr}_${time}_${place}`;
 
       // 申込者を抽出
+      // - 同じ date/weekday/time のもの
+      // - preferredLocation に slot の place を含む人を表示
+      //   "A" 単独 → A の場所のプルダウンのみ
+      //   "A＞B"   → A と B 両方のプルダウンに表示
+      // - 旧データ（preferredLocation 未設定）は従来通り d.place === place で判定
       const applicantsForSlot = appSnap.docs
         .map(d => d.data())
-        .filter(d =>
-          d.day       === dateStr &&
-          d.dayofweek === weekday &&
-          d.starttime === time    &&
-          d.place     === place
-        );
+        .filter(d => {
+          if (d.day !== dateStr) return false;
+          if (d.dayofweek !== weekday) return false;
+          if (d.starttime !== time) return false;
+          const pref = String(d.preferredLocation || '').trim();
+          if (pref) return pref.includes(place);
+          return d.place === place;
+        });
 
       // 申込者の希望場所マップ (name → preferredLocation)
       const applicantLocMap = {};
