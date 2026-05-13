@@ -2085,6 +2085,13 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .group-member-icon { font-size: 22px; color: #bbb; flex-shrink: 0; }
 .group-member-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
 .group-member-role { font-size: 11px; color: var(--text-light); flex-shrink: 0; }
+.group-member-kana-tag {
+  padding: 4px 14px;
+  font-size: 12px; font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-bottom: 1px solid #f0f0f0;
+}
 
 /* ── アクセスログ ── */
 .access-log-list { display: flex; flex-direction: column; gap: 0; }
