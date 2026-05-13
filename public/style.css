@@ -2166,6 +2166,22 @@ body {
   min-width: 38px;
   white-space: nowrap;
 }
+.me-bulk-table .meb-cell-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.me-bulk-table .meb-rownum {
+  flex-shrink: 0;
+  display: inline-block;
+  min-width: 22px;
+  text-align: right;
+  color: #999;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.me-bulk-table .meb-cell-wrap .meb-input { flex: 1; min-width: 0; }
 .me-bulk-table .meb-status-col input { margin: 0; cursor: pointer; }
 
 /* スティッキー左端カラム（氏名） */

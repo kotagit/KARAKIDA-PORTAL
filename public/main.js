@@ -5816,23 +5816,24 @@ function renderBulkEditTable() {
   });
 
   let html = '';
-  sorted.forEach(m => {
+  sorted.forEach((m, rowIdx) => {
     html += `<tr data-id="${esc(m.docId)}">`;
     ME_BULK_TEXT_FIELDS.forEach((f, i) => {
       const sticky = i === 0 ? 'meb-sticky-col' : '';
       const val = meBulkCurrentValue(m, f.key);
+      const numPrefix = i === 0 ? `<span class="meb-rownum">${rowIdx + 1}</span>` : '';
       if (f.type === 'select' || f.type === 'select-group') {
         const options = f.type === 'select-group'
           ? ['', ...meAllGroups, ...(val && !meAllGroups.includes(val) ? [val] : [])]
           : f.options;
-        html += `<td class="${sticky}"><select class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}">`;
+        html += `<td class="${sticky}"><div class="meb-cell-wrap">${numPrefix}<select class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}">`;
         options.forEach(opt => {
           html += `<option value="${esc(opt)}" ${opt === val ? 'selected' : ''}>${opt === '' ? '-' : esc(opt)}</option>`;
         });
-        html += '</select></td>';
+        html += '</select></div></td>';
       } else {
         const type = f.key === 'mail' ? 'email' : 'text';
-        html += `<td class="${sticky}"><input type="${type}" class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}" value="${esc(val)}"></td>`;
+        html += `<td class="${sticky}"><div class="meb-cell-wrap">${numPrefix}<input type="${type}" class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}" value="${esc(val)}"></div></td>`;
       }
     });
     const curStatus = meBulkCurrentValue(m, 'status');
