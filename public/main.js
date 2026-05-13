@@ -1740,6 +1740,16 @@ function renderMemberInfoForm() {
       </div>
 
       <div class="form-group">
+        <label>生年月日</label>
+        <input type="text" id="mf-birth-date" value="${esc(data.birthDate || '')}" readonly style="background:#f5f5f5;">
+      </div>
+
+      <div class="form-group">
+        <label>バプテスマの日付</label>
+        <input type="text" id="mf-baptism-date" value="${esc(data.baptismDate || '')}" readonly style="background:#f5f5f5;">
+      </div>
+
+      <div class="form-group">
         <label>自宅電話</label>
         <input type="tel" id="mf-home-phone" value="${esc(data.homePhone || '')}" placeholder="例: 042-653-9740">
       </div>
@@ -1752,16 +1762,6 @@ function renderMemberInfoForm() {
       <div class="form-group">
         <label>住所</label>
         <textarea id="mf-address" rows="2" placeholder="例: 別所2-9 エミネンス長池1-307">${esc(data.address || '')}</textarea>
-      </div>
-
-      <div class="form-group">
-        <label>生年月日</label>
-        <input type="date" id="mf-birth-date" value="${esc(data.birthDate || '')}">
-      </div>
-
-      <div class="form-group">
-        <label>バプテスマの日付</label>
-        <input type="date" id="mf-baptism-date" value="${esc(data.baptismDate || '')}">
       </div>
 
       <div class="section-divider"></div>
@@ -1821,8 +1821,6 @@ async function submitMemberInfo() {
       homePhone: document.getElementById('mf-home-phone').value.trim(),
       phone: phone,
       address: document.getElementById('mf-address').value.trim(),
-      birthDate: document.getElementById('mf-birth-date').value || '',
-      baptismDate: document.getElementById('mf-baptism-date').value || '',
       emergencyContacts: contacts,
     };
 
