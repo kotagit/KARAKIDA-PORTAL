@@ -5220,6 +5220,28 @@ function renderAttendanceMonthly(docs) {
 }
 
 // ── グループ成員表 ────────────────────────────
+function _calcAge(birthDate) {
+  if (!birthDate) return '';
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(birthDate));
+  if (!m) return '';
+  const b = new Date(+m[1], +m[2]-1, +m[3]);
+  if (isNaN(b)) return '';
+  const today = new Date();
+  let age = today.getFullYear() - b.getFullYear();
+  const mDiff = today.getMonth() - b.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && today.getDate() < b.getDate())) age--;
+  return age;
+}
+
+function _gmMemberRank(arr, gender) {
+  if (arr.includes('GO')) return 0;
+  if (arr.includes('GA')) return 1;
+  const isPioneer = arr.includes('RP') || arr.includes('AP');
+  if (gender === '男') return isPioneer ? 2 : 3;
+  if (gender === '女') return isPioneer ? 4 : 5;
+  return 6;
+}
+
 async function loadGroupMembers() {
   const container = document.getElementById('group-members-list');
   if (!container) return;
@@ -5227,23 +5249,40 @@ async function loadGroupMembers() {
 
   try {
     const userList = await getUserListCached();
-    const sorted = userList.slice().sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '', 'ja'));
+
+    // 各メンバーのデータを整形（無効化は除外）
+    const members = userList
+      .map(d => {
+        const arr = _parseStatus(d.status);
+        return {
+          docId: d.docId,
+          name: String(d.name || '').trim(),
+          furigana: String(d.furigana || '').trim(),
+          group: String(d.group || '').trim() || '（未所属）',
+          gender: String(d.gender || '').trim(),
+          age: _calcAge(d.birthDate),
+          status: arr,
+          stability: String(d.stability || '').trim(),  // 高 / 低 / ''
+          hasCar: d.hasCar === true || d.hasCar === '○' || d.hasCar === '車',
+          _inactive: arr.includes('inactive'),
+          _rank: _gmMemberRank(arr, String(d.gender || '').trim()),
+        };
+      })
+      .filter(m => m.name && !m._inactive);
 
     // グループ別に振り分け
     const groupMap = {};
-    sorted.forEach(d => {
-      const name  = String(d.name  || '').trim();
-      const group = String(d.group || '（未所属）').trim() || '（未所属）';
-      const arr = _parseStatus(d.status);
-      let role = '';
-      if (arr.includes('EL')) role = '長老';
-      else if (arr.includes('MS')) role = '援助奉仕者';
-      if (arr.includes('RP')) role = role ? role + ' / 開拓者' : '開拓者';
-      const gender = String(d.gender || '').trim();
-      if (!name) return;
-      if (!groupMap[group]) groupMap[group] = [];
-      groupMap[group].push({ name, role, gender });
+    members.forEach(m => {
+      if (!groupMap[m.group]) groupMap[m.group] = [];
+      groupMap[m.group].push(m);
+    });
+
+    // グループ内ソート: ランク → ふりがな
+    Object.values(groupMap).forEach(arr => {
+      arr.sort((a, b) => {
+        if (a._rank !== b._rank) return a._rank - b._rank;
+        return (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja');
+      });
     });
 
     const sortedGroups = Object.keys(groupMap).sort((a, b) => {
@@ -5257,28 +5296,56 @@ async function loadGroupMembers() {
       return;
     }
 
-    let html = '';
+    // 全グループの最大行数（揃った行数で表示）
+    const maxRows = Math.max(...sortedGroups.map(g => groupMap[g].length));
+
+    let html = '<div class="gm-grid">';
     sortedGroups.forEach(group => {
-      const members = groupMap[group];
-      html += `
-        <div class="gm-group">
-          <div class="gm-group-header">
-            <span class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px">group</span>
-            ${esc(group)}
-            <span class="gm-count">${members.length}名</span>
-          </div>
-          <div class="admin-list">
-            ${members.map(m => `
-              <div class="admin-list-item">
-                <div class="admin-list-info">
-                  <div class="admin-list-title">${esc(m.name)}</div>
-                  ${m.role ? `<div class="admin-list-date">${esc(m.role)}</div>` : ''}
-                </div>
-                ${m.gender ? `<span class="gm-gender-badge gm-gender-${m.gender === '男' ? 'm' : 'f'}">${esc(m.gender)}</span>` : ''}
-              </div>`).join('')}
-          </div>
-        </div>`;
+      const list = groupMap[group];
+      html += `<div class="gm-group">
+        <div class="gm-group-header">${esc(group)} <span class="gm-count">${list.length}名</span></div>
+        <table class="gm-table">
+          <thead>
+            <tr>
+              <th class="gm-num">#</th>
+              <th class="gm-name">名前</th>
+              <th class="gm-age">年齢</th>
+              <th class="gm-gender">性別</th>
+              <th class="gm-role1">立場1</th>
+              <th class="gm-role2">立場2</th>
+              <th class="gm-stab">安定性</th>
+              <th class="gm-car">車</th>
+            </tr>
+          </thead>
+          <tbody>`;
+      for (let i = 0; i < maxRows; i++) {
+        const m = list[i];
+        if (!m) {
+          html += `<tr class="gm-row gm-row-empty"><td class="gm-num">${i+1}</td><td colspan="7"></td></tr>`;
+          continue;
+        }
+        const rowClass = m.status.includes('GO') ? 'gm-row-go'
+                       : m.status.includes('GA') ? 'gm-row-ga'
+                       : (m.gender === '男' ? 'gm-row-m' : m.gender === '女' ? 'gm-row-f' : '');
+        const role1 = m.status.includes('EL') ? '長' : m.status.includes('MS') ? '援' : '';
+        const role2 = (m.status.includes('RP') || m.status.includes('AP')) ? '開' : '';
+        const stab = m.stability;
+        const stabCls = stab === '高' ? 'gm-stab-high' : stab === '低' ? 'gm-stab-low' : '';
+        const rowExtra = stab === '低' ? ' gm-row-low' : '';
+        html += `<tr class="gm-row ${rowClass}${rowExtra}">
+          <td class="gm-num">${i+1}</td>
+          <td class="gm-name">${esc(m.name)}</td>
+          <td class="gm-age">${m.age !== '' ? m.age : ''}</td>
+          <td class="gm-gender ${m.gender === '女' ? 'gm-female' : ''}">${esc(m.gender)}</td>
+          <td class="gm-role1">${role1}</td>
+          <td class="gm-role2">${role2}</td>
+          <td class="gm-stab ${stabCls}">${esc(stab)}</td>
+          <td class="gm-car">${m.hasCar ? '車' : ''}</td>
+        </tr>`;
+      }
+      html += '</tbody></table></div>';
     });
+    html += '</div>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
@@ -5406,7 +5473,7 @@ async function loadAccessLog() {
       const key = d.email || d.name || 'unknown';
       if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
       const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      userMap[key].logs.push({ dt, ua: d.userAgent || '' });
+      userMap[key].logs.push({ docId: doc.id, dt, ua: d.userAgent || '' });
     });
     const users = Object.values(userMap).sort((a, b) => {
       const ta = a.logs[0]?.dt?.getTime() || 0;
@@ -5414,30 +5481,135 @@ async function loadAccessLog() {
       return tb - ta;
     });
 
-    let html = '<div class="access-log-list">';
+    // ツールバー（一括削除など）
+    let html = '';
+    if (isPortalAdmin) {
+      html += `<div class="al-toolbar">
+        <button class="btn-secondary al-tool-btn" id="al-delete-old-30">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">delete_sweep</span> 30日より前を削除
+        </button>
+        <button class="btn-secondary al-tool-btn" id="al-delete-old-90">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">delete_sweep</span> 90日より前を削除
+        </button>
+      </div>`;
+    }
+
+    html += '<div class="access-log-list">';
     users.forEach((u, idx) => {
       const latest = u.logs[0];
       const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
       const device = alDevice(latest.ua);
-      html += `<div class="access-log-card" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
-      html += `<div class="access-log-main">`;
+      html += `<div class="access-log-card">`;
+      html += `<div class="access-log-main" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
       html += `<span class="material-icons access-log-icon">person</span>`;
       html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
       html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
       html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
       html += `</div>`;
       html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
+      if (isPortalAdmin) {
+        const ids = u.logs.map(l => l.docId).join(',');
+        html += `<div class="al-detail-toolbar">
+          <button class="al-user-delete-btn" data-ids="${esc(ids)}" data-name="${esc(u.name)}">
+            <span class="material-icons" style="font-size:14px;vertical-align:middle">delete_sweep</span>
+            このユーザーのログを全削除 (${u.logs.length}件)
+          </button>
+        </div>`;
+      }
       u.logs.forEach(log => {
         const dtStr = log.dt ? alFormatDt(log.dt) : '';
         const dev = alDevice(log.ua);
-        html += `<div class="al-detail-row"><span class="al-detail-time">${esc(dtStr)}</span><span class="al-detail-device">${esc(dev)}</span></div>`;
+        html += `<div class="al-detail-row">
+          <span class="al-detail-time">${esc(dtStr)}</span>
+          <span class="al-detail-device">${esc(dev)}</span>`;
+        if (isPortalAdmin) {
+          html += `<button class="al-row-delete-btn icon-btn" data-id="${esc(log.docId)}" title="このログを削除">
+            <span class="material-icons" style="font-size:16px;color:#d32f2f">delete</span>
+          </button>`;
+        }
+        html += `</div>`;
       });
       html += `</div></div>`;
     });
     html += '</div>';
     view.innerHTML = html;
+
+    // 削除イベント
+    if (isPortalAdmin) {
+      view.querySelectorAll('.al-row-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteAccessLog(btn.dataset.id);
+        }));
+      view.querySelectorAll('.al-user-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const ids = btn.dataset.ids.split(',').filter(Boolean);
+          deleteAccessLogs(ids, `「${btn.dataset.name}」の ${ids.length} 件のログ`);
+        }));
+      document.getElementById('al-delete-old-30')?.addEventListener('click', () => deleteAccessLogsOlderThan(30));
+      document.getElementById('al-delete-old-90')?.addEventListener('click', () => deleteAccessLogsOlderThan(90));
+    }
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+async function deleteAccessLog(id) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  if (!confirm('このアクセスログを削除しますか？')) return;
+  try {
+    await db.collection('LOGIN_LOG').doc(id).delete();
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
+async function deleteAccessLogs(ids, label) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  if (!ids.length) return;
+  if (!confirm(`${label} を削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    // Firestore batch は500件まで → 必要に応じて分割
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+    for (const chunk of chunks) {
+      const batch = db.batch();
+      chunk.forEach(id => batch.delete(db.collection('LOGIN_LOG').doc(id)));
+      await batch.commit();
+    }
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
+async function deleteAccessLogsOlderThan(days) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  if (!confirm(`${days}日より前のアクセスログ（${cutoff.toLocaleDateString('ja-JP')} 以前）を全て削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    const snap = await db.collection('LOGIN_LOG')
+      .where('loginAt', '<', firebase.firestore.Timestamp.fromDate(cutoff))
+      .get();
+    if (snap.empty) {
+      alert('対象のログがありません');
+      return;
+    }
+    const ids = snap.docs.map(d => d.id);
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+    for (const chunk of chunks) {
+      const batch = db.batch();
+      chunk.forEach(id => batch.delete(db.collection('LOGIN_LOG').doc(id)));
+      await batch.commit();
+    }
+    alert(`${ids.length}件削除しました`);
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
   }
 }
 
@@ -5678,6 +5850,8 @@ function openMemberEditModal(id) {
 
   document.getElementById('me-gender').value   = member?.gender   || '';
   document.getElementById('me-mail').value     = member?.mail     || '';
+  document.getElementById('me-stability').value = member?.stability || '';
+  document.getElementById('me-hascar').checked  = member?.hasCar === true;
 
   const grid = document.getElementById('me-status-grid');
   const cur = new Set(member?.status || []);
@@ -5706,6 +5880,8 @@ async function saveMemberEdit(e) {
   const group    = document.getElementById('me-group').value.trim();
   const gender   = document.getElementById('me-gender').value;
   const mail     = document.getElementById('me-mail').value.trim();
+  const stability = document.getElementById('me-stability').value;
+  const hasCar    = document.getElementById('me-hascar').checked;
   if (!name) { alert('氏名は必須です'); return; }
 
   const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
@@ -5714,6 +5890,7 @@ async function saveMemberEdit(e) {
   const data = {
     name, furigana, group, gender,
     mail: mail.toLowerCase(),
+    stability, hasCar,
     status
   };
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=124">
+  <link rel="stylesheet" href="style.css?v=126">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -1235,6 +1235,17 @@
         <input type="email" id="me-mail" placeholder="user@example.com">
       </div>
       <div class="form-group">
+        <label>安定性</label>
+        <select id="me-stability">
+          <option value="">未設定</option>
+          <option value="高">高</option>
+          <option value="低">低</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label><input type="checkbox" id="me-hascar" style="margin-right:6px;vertical-align:middle"> 車を所有している</label>
+      </div>
+      <div class="form-group">
         <label>立場・権限 (status)</label>
         <div id="me-status-grid" class="me-status-grid"></div>
       </div>
@@ -1684,7 +1695,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=135"></script>
+<script src="main.js?v=137"></script>
 <script src="assignment.js?v=77"></script>
 <script src="pw.js?v=6"></script>
 </body>

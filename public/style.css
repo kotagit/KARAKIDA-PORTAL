@@ -1803,6 +1803,63 @@ body {
 .gm-gender-m { background: #e3f2fd; color: #1565c0; }
 .gm-gender-f { background: #fce4ec; color: #c62828; }
 
+/* ── グループ成員表（Excel風） ── */
+.gm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .gm-grid { grid-template-columns: 1fr; }
+}
+.gm-grid .gm-group { margin: 0; }
+.gm-grid .gm-group-header {
+  font-size: 13px;
+  padding: 6px 10px;
+}
+.gm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: white;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+  table-layout: fixed;
+}
+.gm-table th, .gm-table td {
+  border: 1px solid #ccc;
+  padding: 3px 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+.gm-table thead th {
+  background: #f5f5f5;
+  font-weight: 700;
+  font-size: 11px;
+  color: #444;
+  padding: 4px 2px;
+}
+.gm-table .gm-num    { width: 22px; color: #888; font-size: 11px; background: #fafafa; }
+.gm-table .gm-name   { text-align: left; padding-left: 6px; width: auto; }
+.gm-table .gm-age    { width: 28px; }
+.gm-table .gm-gender { width: 28px; }
+.gm-table .gm-role1, .gm-table .gm-role2 { width: 26px; }
+.gm-table .gm-stab   { width: 36px; font-weight: 700; }
+.gm-table .gm-car    { width: 26px; font-weight: 600; color: #333; }
+
+/* 行カラー */
+.gm-row-go { background: #cfe2f3; }   /* グループ監督: 水色 */
+.gm-row-ga { background: #d9ead3; }   /* 補佐: 緑 */
+.gm-row-m  { background: #fff2cc; }   /* 兄弟: クリーム */
+.gm-row-f  { background: #fce5cd; }   /* 姉妹: 桃色 */
+.gm-row-low td { background: #f4cccc; } /* 安定性低: 薄い赤 */
+.gm-row-empty td { background: #fafafa; color: #ccc; }
+
+/* セル装飾 */
+.gm-female { color: #c62828; font-weight: 600; }
+.gm-stab-high { color: #1565c0; }
+.gm-stab-low  { color: #c62828; }
+
 /* ── 公共エリア策定 ── */
 .pw-date-group { margin-bottom: 28px; }
 .pw-date-tag {
@@ -1915,10 +1972,38 @@ body {
 }
 .al-detail-row {
   display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
   padding: 5px 0 5px 40px; font-size: 13px; color: #666;
 }
-.al-detail-time { font-weight: 500; }
+.al-detail-time { font-weight: 500; flex: 1; }
 .al-detail-device { font-size: 11px; color: #999; }
+.al-row-delete-btn {
+  background: none; border: none; cursor: pointer; padding: 2px;
+  display: flex; align-items: center;
+}
+.al-row-delete-btn:hover { background: #ffebee; border-radius: 4px; }
+.al-detail-toolbar {
+  padding: 6px 40px;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+.al-user-delete-btn {
+  background: white;
+  border: 1px solid #ffcdd2;
+  color: #d32f2f;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.al-user-delete-btn:hover { background: #ffebee; }
+.al-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.al-tool-btn { font-size: 12px; padding: 6px 10px; }
 
 /* 成員編集リスト */
 .me-status-row {
