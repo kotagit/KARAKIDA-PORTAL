@@ -95,7 +95,8 @@ const PAGE_TITLES = {
   'attendance-form': '出席人数登録',
   'admin-s13': '区域割当ての記録',
   'admin-group-members': 'グループ成員表',
-  'admin-member-edit': '成員編集リスト',
+  'admin-group-emergency': 'グループ成員緊急連絡先',
+  'admin-member-edit': 'グループ成員編集',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
@@ -347,6 +348,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-s89')                 initS89Page();
   if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-member-edit')        initMemberEditPage();
+  if (page === 'admin-group-emergency')    loadGroupEmergency();
   if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-attendance-monthly') initAttendanceMonthly();
   if (page === 'admin-s13')                loadAdminS13Table();
@@ -390,6 +392,10 @@ document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
 document.getElementById('admin-manage-group-members')?.addEventListener('click', () => {
   navigate('admin-group-members');
   loadGroupMembers();
+});
+
+document.getElementById('admin-manage-group-emergency')?.addEventListener('click', () => {
+  navigate('admin-group-emergency');
 });
 
 document.getElementById('admin-manage-member-edit')?.addEventListener('click', () => {
@@ -5285,6 +5291,98 @@ function _gmMemberRank(arr, gender) {
   if (gender === '男') return isPioneer ? 2 : 3;
   if (gender === '女') return isPioneer ? 4 : 5;
   return 6;
+}
+
+// グループ成員緊急連絡先
+async function loadGroupEmergency() {
+  const container = document.getElementById('group-emergency-list');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const userList = await getUserListCached();
+
+    const members = userList
+      .map(d => {
+        const arr = _parseStatus(d.status);
+        // emergencyContacts: 配列・JSON文字列どちらでも対応
+        let ec = d.emergencyContacts;
+        if (typeof ec === 'string' && ec) {
+          try { const a = JSON.parse(ec); ec = Array.isArray(a) ? a : []; }
+          catch (e) { ec = []; }
+        }
+        if (!Array.isArray(ec)) ec = [];
+        ec = ec.filter(c => c && (c.name || c.phone));
+        return {
+          name: String(d.name || '').trim(),
+          furigana: String(d.furigana || '').trim(),
+          group: String(d.group || '').trim() || '（未所属）',
+          gender: String(d.gender || '').trim(),
+          phone: String(d.phone || '').trim(),
+          homePhone: String(d.homePhone || '').trim(),
+          status: arr,
+          _inactive: arr.includes('inactive'),
+          _rank: _gmMemberRank(arr, String(d.gender || '').trim()),
+          contacts: ec,
+        };
+      })
+      .filter(m => m.name && !m._inactive);
+
+    const groupMap = {};
+    members.forEach(m => {
+      if (!groupMap[m.group]) groupMap[m.group] = [];
+      groupMap[m.group].push(m);
+    });
+    Object.values(groupMap).forEach(arr => {
+      arr.sort((a, b) => {
+        if (a._rank !== b._rank) return a._rank - b._rank;
+        return (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja');
+      });
+    });
+
+    const groupNames = Object.keys(groupMap).sort((a, b) => {
+      if (a === '（未所属）') return 1;
+      if (b === '（未所属）') return -1;
+      return a.localeCompare(b, 'ja');
+    });
+
+    if (groupNames.length === 0) {
+      container.innerHTML = '<div class="empty-state">データがありません</div>';
+      return;
+    }
+
+    let html = '';
+    groupNames.forEach(group => {
+      const list = groupMap[group];
+      html += `<div class="gec-group">
+        <div class="gec-group-header">${esc(group)} <span class="gec-count">${list.length}名</span></div>
+        <div class="gec-list">`;
+      list.forEach(m => {
+        html += `<div class="gec-card">
+          <div class="gec-card-head">
+            <span class="gec-name">${esc(m.name)}</span>`;
+        if (m.phone)     html += `<span class="gec-self-phone">本人: ${esc(m.phone)}</span>`;
+        else if (m.homePhone) html += `<span class="gec-self-phone">本人: ${esc(m.homePhone)}</span>`;
+        html += `</div>`;
+        if (m.contacts.length === 0) {
+          html += `<div class="gec-empty">緊急連絡先 未登録</div>`;
+        } else {
+          m.contacts.forEach((c, i) => {
+            html += `<div class="gec-row">
+              <span class="gec-row-num">${i+1}</span>
+              <span class="gec-row-name">${esc(c.name || '')}</span>
+              <span class="gec-row-phone">${esc(c.phone || '')}</span>
+            </div>`;
+          });
+        }
+        html += `</div>`;
+      });
+      html += `</div></div>`;
+    });
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+  }
 }
 
 async function loadGroupMembers() {
