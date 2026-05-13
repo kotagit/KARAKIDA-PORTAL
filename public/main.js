@@ -1997,6 +1997,28 @@ async function loadJouhouContact() {
       html += '<div class="sr-input-wrap"><input type="text" value="' + esc(f.value || '') + '" readonly style="background:#f5f5f5"></div>';
       html += '</div>';
     });
+
+    // 緊急連絡先（emergencyContacts: [{ name, phone }, ...]）
+    let contacts = [];
+    if (Array.isArray(d.emergencyContacts)) {
+      contacts = d.emergencyContacts;
+    } else if (typeof d.emergencyContacts === 'string' && d.emergencyContacts) {
+      try { const a = JSON.parse(d.emergencyContacts); if (Array.isArray(a)) contacts = a; }
+      catch (e) {}
+    }
+    contacts = contacts.filter(c => c && (c.name || c.phone));
+
+    if (contacts.length > 0) {
+      html += '<div class="sr-field-section">緊急連絡先</div>';
+      contacts.forEach((c, i) => {
+        html += '<div class="sr-emergency-card">';
+        html += '<div class="sr-emergency-label">緊急連絡先 ' + (i + 1) + '</div>';
+        if (c.name)  html += '<div class="sr-emergency-row"><span class="material-icons">person</span>' + esc(c.name) + '</div>';
+        if (c.phone) html += '<div class="sr-emergency-row"><span class="material-icons">phone</span><a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a></div>';
+        html += '</div>';
+      });
+    }
+
     html += '</div>';
     view.innerHTML = html;
   } catch (err) {
