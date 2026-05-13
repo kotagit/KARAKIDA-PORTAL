@@ -68,3 +68,8 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 .claude/
+
+# Service account credentials (never commit)
+scripts/serviceAccount.json
+scripts/node_modules/
+scripts/package*.json

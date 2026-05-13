@@ -49,8 +49,19 @@ async function awLoadCodes() {
 }
 
 async function awLoadMembers() {
-  const snap = await db.collection('mwbMembers').where('active','==',true).get();
-  awMembers = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+  const snap = await db.collection('USER_LIST').get();
+  awMembers = snap.docs
+    .map(d => {
+      const data = d.data();
+      const s1 = String(data.status1 || '');
+      let position = '';
+      if (s1 === 'EL') position = '長老';
+      else if (s1 === 'MS') position = '援助奉仕者';
+      else if (data.gender === '男') position = '生徒男';
+      else if (data.gender === '女') position = '生徒女';
+      return { docId: d.id, ...data, position };
+    })
+    .filter(m => String(m.status8 || '') !== 'inactive' && m.name);
   awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
 }
 
@@ -1510,8 +1521,8 @@ function awRenderMemberList() {
     return;
   }
   const filtered = awMemberFilter === 'all' ? awMembers : awMembers.filter(mb => {
-    if (awMemberFilter === '長老') return mb.position === '長老';
-    if (awMemberFilter === '援助奉仕者') return mb.position === '援助奉仕者';
+    if (awMemberFilter === '長老') return mb.status1 === 'EL';
+    if (awMemberFilter === '援助奉仕者') return mb.status1 === 'MS';
     if (awMemberFilter === '男') return mb.gender === '男';
     if (awMemberFilter === '女') return mb.gender === '女';
     return true;
@@ -1647,7 +1658,7 @@ function awCloseMemberModal() {
 async function awDeactivateMember(id) {
   if (!(await customConfirm('このメンバーを無効化しますか？'))) return;
   try {
-    await db.collection('mwbMembers').doc(id).update({ active: false });
+    await db.collection('USER_LIST').doc(id).update({ status8: 'inactive' });
     await awLoadMembers();
     awRenderMemberList();
   } catch(e) {
@@ -1660,7 +1671,7 @@ async function awDeleteMember(id) {
   const name = member ? member.name : id;
   if (!(await customConfirm(`「${name}」を完全に削除しますか？\nこの操作は取り消せません。`))) return;
   try {
-    await db.collection('mwbMembers').doc(id).delete();
+    await db.collection('USER_LIST').doc(id).delete();
     await awLoadMembers();
     awRenderMemberList();
   } catch(e) {
@@ -1682,13 +1693,18 @@ async function awSaveMember(e) {
   if (!name) { alert('名前を入力してください'); return; }
   if (!furigana) { alert('フリガナを入力してください'); return; }
 
-  const data = { name, furigana, gender, position, familyGroup, eligibleCodes, active: true };
+  // position select値 → status1にマッピング (生徒男/生徒女はstatus1空 + gender)
+  let status1 = '';
+  if (position === '長老') status1 = 'EL';
+  else if (position === '援助奉仕者') status1 = 'MS';
+
+  const data = { name, furigana, gender, familyGroup, eligibleCodes, status1, status8: '' };
 
   try {
     if (awEditingMemberId) {
-      await db.collection('mwbMembers').doc(awEditingMemberId).update(data);
+      await db.collection('USER_LIST').doc(awEditingMemberId).update(data);
     } else {
-      await db.collection('mwbMembers').add(data);
+      await db.collection('USER_LIST').add(data);
     }
     awCloseMemberModal();
     await awLoadMembers();

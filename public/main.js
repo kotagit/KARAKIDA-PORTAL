@@ -1592,6 +1592,8 @@ let currentMemberData = null;
 let memberUserName = '';
 let memberUserGroup = '';
 
+let currentUserDocId = null;
+
 async function loadMemberInfoForm() {
   const container = document.getElementById('member-info-form-container');
   container.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -1604,15 +1606,14 @@ async function loadMemberInfoForm() {
     }
 
     if (!snap.empty) {
-      const userData = snap.docs[0].data();
-      memberUserName = userData.name || currentUser.displayName || '';
-      memberUserGroup = userData.group || '';
-
-      const docSnap = await db.collection('MEMBER_INFO').doc(memberUserName).get();
-      if (docSnap.exists) {
-        currentMemberData = docSnap.data();
-      }
+      const doc = snap.docs[0];
+      currentUserDocId = doc.id;
+      currentMemberData = doc.data();
+      memberUserName = currentMemberData.name || currentUser.displayName || '';
+      memberUserGroup = currentMemberData.group || '';
     } else {
+      currentUserDocId = null;
+      currentMemberData = {};
       memberUserName = currentUser.displayName || '';
       memberUserGroup = '';
     }
@@ -1627,6 +1628,21 @@ async function loadMemberInfoForm() {
 function renderMemberInfoForm() {
   const container = document.getElementById('member-info-form-container');
   const data = currentMemberData || {};
+
+  let contacts = [];
+  if (Array.isArray(data.emergencyContacts)) contacts = data.emergencyContacts;
+  else if (typeof data.emergencyContacts === 'string' && data.emergencyContacts) {
+    try { contacts = JSON.parse(data.emergencyContacts) || []; } catch(e) { contacts = []; }
+  }
+  if (contacts.length === 0) contacts = [{ name: '', phone: '' }];
+
+  const contactsHtml = contacts.map((c, i) => `
+    <div class="form-group mf-contact-row" data-idx="${i}">
+      <label>緊急連絡先 ${i + 1}</label>
+      <input type="text" class="mf-emergency-name" value="${esc(c.name || '')}" placeholder="氏名" style="margin-bottom:6px;">
+      <input type="tel" class="mf-emergency-phone" value="${esc(c.phone || '')}" placeholder="電話番号">
+    </div>
+  `).join('');
 
   container.innerHTML = `
     <div class="form-container">
@@ -1652,12 +1668,7 @@ function renderMemberInfoForm() {
 
       <div class="form-group">
         <label>携帯電話 <span style="color:#d32f2f;">*</span></label>
-        <input type="tel" id="mf-mobile-phone" value="${esc(data.mobilePhone || '')}" placeholder="例: 090-1540-3718" required>
-      </div>
-
-      <div class="form-group">
-        <label>メールアドレス</label>
-        <input type="email" id="mf-email" value="${esc(data.email || '')}" placeholder="例: example@gmail.com">
+        <input type="tel" id="mf-phone" value="${esc(data.phone || '')}" placeholder="例: 090-1540-3718" required>
       </div>
 
       <div class="form-group">
@@ -1667,26 +1678,20 @@ function renderMemberInfoForm() {
 
       <div class="form-group">
         <label>生年月日</label>
-        <input type="date" id="mf-birth-date" value="${data.birthDate ? toDateInput(data.birthDate) : ''}">
+        <input type="date" id="mf-birth-date" value="${esc(data.birthDate || '')}">
       </div>
 
       <div class="form-group">
         <label>バプテスマの日付</label>
-        <input type="date" id="mf-baptism-date" value="${data.baptismDate ? toDateInput(data.bapDate) : ''}">
+        <input type="date" id="mf-baptism-date" value="${esc(data.baptismDate || '')}">
       </div>
 
       <div class="section-divider"></div>
       <h3 class="section-title">緊急連絡先</h3>
-
-      <div class="form-group">
-        <label>緊急連絡先氏名</label>
-        <input type="text" id="mf-emergency-name" value="${esc(data.emergencyContactName || '')}" placeholder="例: 森永智裕">
-      </div>
-
-      <div class="form-group">
-        <label>緊急連絡先電話</label>
-        <input type="tel" id="mf-emergency-phone" value="${esc(data.emergencyContactPhone || '')}" placeholder="例: 090-1317-0795">
-      </div>
+      <div id="mf-contacts">${contactsHtml}</div>
+      <button type="button" id="mf-add-contact" class="btn-secondary" style="margin-top:8px;">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle;">add</span> 連絡先を追加
+      </button>
 
       <div style="margin-top:32px;">
         <button type="button" id="mf-submit" class="btn-primary" style="width:100%;">
@@ -1697,12 +1702,27 @@ function renderMemberInfoForm() {
   `;
 
   document.getElementById('mf-submit').addEventListener('click', submitMemberInfo);
+  document.getElementById('mf-add-contact').addEventListener('click', () => {
+    const wrap = document.getElementById('mf-contacts');
+    const idx = wrap.querySelectorAll('.mf-contact-row').length;
+    const div = document.createElement('div');
+    div.className = 'form-group mf-contact-row';
+    div.dataset.idx = idx;
+    div.innerHTML = `<label>緊急連絡先 ${idx + 1}</label>
+      <input type="text" class="mf-emergency-name" placeholder="氏名" style="margin-bottom:6px;">
+      <input type="tel" class="mf-emergency-phone" placeholder="電話番号">`;
+    wrap.appendChild(div);
+  });
 }
 
 async function submitMemberInfo() {
-  const mobilePhone = document.getElementById('mf-mobile-phone').value.trim();
-  if (!mobilePhone) {
+  const phone = document.getElementById('mf-phone').value.trim();
+  if (!phone) {
     alert('携帯電話は必須です');
+    return;
+  }
+  if (!currentUserDocId) {
+    alert('ユーザー情報が見つかりません。管理者にお問い合わせください。');
     return;
   }
 
@@ -1712,28 +1732,26 @@ async function submitMemberInfo() {
   btn.disabled = true;
 
   try {
-    const birthDateVal = document.getElementById('mf-birth-date').value;
-    const baptismDateVal = document.getElementById('mf-baptism-date').value;
+    const contacts = [];
+    document.querySelectorAll('#mf-contacts .mf-contact-row').forEach(row => {
+      const n = row.querySelector('.mf-emergency-name').value.trim();
+      const p = row.querySelector('.mf-emergency-phone').value.trim();
+      if (n || p) contacts.push({ name: n, phone: p });
+    });
 
     const data = {
-      memberName: memberUserName,
-      memberGroupName: memberUserGroup,
       homePhone: document.getElementById('mf-home-phone').value.trim(),
-      mobilePhone: mobilePhone,
-      email: document.getElementById('mf-email').value.trim(),
+      phone: phone,
       address: document.getElementById('mf-address').value.trim(),
-      birthDate: birthDateVal ? firebase.firestore.Timestamp.fromDate(new Date(birthDateVal)) : null,
-      baptismDate: baptismDateVal ? firebase.firestore.Timestamp.fromDate(new Date(baptismDateVal)) : null,
-      emergencyContactName: document.getElementById('mf-emergency-name').value.trim(),
-      emergencyContactPhone: document.getElementById('mf-emergency-phone').value.trim(),
-      registeredBy: memberUserName,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      birthDate: document.getElementById('mf-birth-date').value || '',
+      baptismDate: document.getElementById('mf-baptism-date').value || '',
+      emergencyContacts: contacts,
     };
 
-    await db.collection('MEMBER_INFO').doc(memberUserName).set(data, { merge: true });
+    await db.collection('USER_LIST').doc(currentUserDocId).update(data);
 
     alert('保存しました！');
-    currentMemberData = data;
+    currentMemberData = { ...currentMemberData, ...data };
     renderMemberInfoForm();
   } catch (err) {
     alert('保存エラー: ' + err.message);
@@ -1887,10 +1905,11 @@ async function loadJouhouContact() {
       { label: '氏名', value: d.name },
       { label: 'ふりがな', value: d.furigana },
       { label: 'グループ', value: d.group },
-      { label: '性別', value: displayGender(d.gender) },
-      { label: '生年月日', value: tsToStr(d.birthDay) },
-      { label: 'バプテスマ日', value: tsToStr(d.bapDate) },
-      { label: '携帯電話', value: d.emergencyCall },
+      { label: '性別', value: d.gender || '' },
+      { label: '生年月日', value: d.birthDate || '' },
+      { label: 'バプテスマ日', value: d.baptismDate || '' },
+      { label: '携帯電話', value: d.phone || '' },
+      { label: '自宅電話', value: d.homePhone || '' },
       { label: 'メール', value: d.mail },
       { label: '住所', value: d.address },
     ];
@@ -1933,11 +1952,10 @@ async function loadJouhouCard() {
       name: memberName,
       group: String(d.group || '').trim(),
       gender: String(d.gender || '').trim(),
-      birthDate: tsToStr(d.birthDay),
-      baptismDate: tsToStr(d.bapDate),
-      role: String(d.role || d.position || '').trim(),
-      pioneer: String(d.pioneer || '').trim(),
+      birthDate: String(d.birthDate || '').trim(),
+      baptismDate: String(d.baptismDate || '').trim(),
       status1: String(d.status1 || '').trim(),
+      status7: String(d.status7 || '').trim(),
       hope: String(d.hope || '').trim(),
     };
 
@@ -2428,12 +2446,11 @@ async function loadAdminReports() {
         id: d.id,
         name,
         group: String(data.group || '').trim(),
-        role: String(data.role || data.position || '').trim(),
         gender: String(data.gender || '').trim(),
-        birthDate: tsToStr(data.birthDay),
-        baptismDate: tsToStr(data.bapDate),
-        pioneer: String(data.pioneer || '').trim(),
+        birthDate: String(data.birthDate || '').trim(),
+        baptismDate: String(data.baptismDate || '').trim(),
         status1: String(data.status1 || '').trim(),
+        status7: String(data.status7 || '').trim(),
         hope: String(data.hope || '').trim(),
       });
     });
@@ -2456,8 +2473,8 @@ function setRptFilter(f) {
 }
 
 function isPioneer(m) {
-  const p = (m.pioneer || m.role || '');
-  return p.includes('開拓') || p === 'RP';
+  const s = String(m.status7 || '');
+  return s === 'RP' || s.includes('開拓');
 }
 
 function displayGender(g) {
@@ -2487,9 +2504,9 @@ function displayRole(m) {
   const s1 = m.status1 || '';
   if (s1 === 'EL') parts.push('長老');
   else if (s1 === 'MS') parts.push('援助奉仕者');
-  const r = m.pioneer || m.role || '';
-  if (r === 'RP' || r === '正規開拓者') parts.push('開拓者');
-  else if (r.includes('開拓')) parts.push(r);
+  const s7 = String(m.status7 || '');
+  if (s7 === 'RP' || s7 === '正規開拓者') parts.push('開拓者');
+  else if (s7.includes('開拓')) parts.push(s7);
   if (parts.length === 0) parts.push('伝道者');
   return parts.join(' / ');
 }
@@ -3339,14 +3356,13 @@ async function loadOrgView() {
         const data = d.data();
         const name = String(data.name || '').trim();
         if (!name) return;
-        const statusFields = ['status1','status2','status3','status4','status5','status6','status7','status8'];
-        const statuses = statusFields.map(f => String(data[f] || '').trim());
+        const s1 = String(data.status1 || '').trim();
         let roleLabel = '伝道者';
-        if (statuses.some(v => v === 'EL')) roleLabel = '長老';
-        else if (statuses.some(v => v === 'MS')) roleLabel = '援助奉仕者';
-        const pioneer = String(data.pioneer || '').trim();
-        if (pioneer === 'RP' || pioneer === '正規開拓者') roleLabel += ' / 開拓者';
-        else if (pioneer.includes('開拓')) roleLabel += ' / ' + pioneer;
+        if (s1 === 'EL') roleLabel = '長老';
+        else if (s1 === 'MS') roleLabel = '援助奉仕者';
+        const s7 = String(data.status7 || '').trim();
+        if (s7 === 'RP' || s7 === '正規開拓者') roleLabel += ' / 開拓者';
+        else if (s7.includes('開拓')) roleLabel += ' / ' + s7;
         users.push({ name, group: String(data.group || '').trim(), gender: String(data.gender || '').trim(), roleLabel });
       });
       users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
@@ -5154,7 +5170,12 @@ async function loadGroupMembers() {
       const d = doc.data();
       const name  = String(d.name  || '').trim();
       const group = String(d.group || '（未所属）').trim() || '（未所属）';
-      const role  = String(d.role  || d.position || '').trim();
+      const s1 = String(d.status1 || '').trim();
+      const s7 = String(d.status7 || '').trim();
+      let role = '';
+      if (s1 === 'EL') role = '長老';
+      else if (s1 === 'MS') role = '援助奉仕者';
+      if (s7 === 'RP') role = role ? role + ' / 開拓者' : '開拓者';
       const gender = String(d.gender || '').trim();
       if (!name) return;
       if (!groupMap[group]) groupMap[group] = [];
