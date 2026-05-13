@@ -5406,7 +5406,7 @@ async function loadAccessLog() {
       const key = d.email || d.name || 'unknown';
       if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
       const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      userMap[key].logs.push({ dt, ua: d.userAgent || '' });
+      userMap[key].logs.push({ docId: doc.id, dt, ua: d.userAgent || '' });
     });
     const users = Object.values(userMap).sort((a, b) => {
       const ta = a.logs[0]?.dt?.getTime() || 0;
@@ -5414,30 +5414,135 @@ async function loadAccessLog() {
       return tb - ta;
     });
 
-    let html = '<div class="access-log-list">';
+    // ツールバー（一括削除など）
+    let html = '';
+    if (isPortalAdmin) {
+      html += `<div class="al-toolbar">
+        <button class="btn-secondary al-tool-btn" id="al-delete-old-30">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">delete_sweep</span> 30日より前を削除
+        </button>
+        <button class="btn-secondary al-tool-btn" id="al-delete-old-90">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">delete_sweep</span> 90日より前を削除
+        </button>
+      </div>`;
+    }
+
+    html += '<div class="access-log-list">';
     users.forEach((u, idx) => {
       const latest = u.logs[0];
       const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
       const device = alDevice(latest.ua);
-      html += `<div class="access-log-card" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
-      html += `<div class="access-log-main">`;
+      html += `<div class="access-log-card">`;
+      html += `<div class="access-log-main" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
       html += `<span class="material-icons access-log-icon">person</span>`;
       html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
       html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
       html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
       html += `</div>`;
       html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
+      if (isPortalAdmin) {
+        const ids = u.logs.map(l => l.docId).join(',');
+        html += `<div class="al-detail-toolbar">
+          <button class="al-user-delete-btn" data-ids="${esc(ids)}" data-name="${esc(u.name)}">
+            <span class="material-icons" style="font-size:14px;vertical-align:middle">delete_sweep</span>
+            このユーザーのログを全削除 (${u.logs.length}件)
+          </button>
+        </div>`;
+      }
       u.logs.forEach(log => {
         const dtStr = log.dt ? alFormatDt(log.dt) : '';
         const dev = alDevice(log.ua);
-        html += `<div class="al-detail-row"><span class="al-detail-time">${esc(dtStr)}</span><span class="al-detail-device">${esc(dev)}</span></div>`;
+        html += `<div class="al-detail-row">
+          <span class="al-detail-time">${esc(dtStr)}</span>
+          <span class="al-detail-device">${esc(dev)}</span>`;
+        if (isPortalAdmin) {
+          html += `<button class="al-row-delete-btn icon-btn" data-id="${esc(log.docId)}" title="このログを削除">
+            <span class="material-icons" style="font-size:16px;color:#d32f2f">delete</span>
+          </button>`;
+        }
+        html += `</div>`;
       });
       html += `</div></div>`;
     });
     html += '</div>';
     view.innerHTML = html;
+
+    // 削除イベント
+    if (isPortalAdmin) {
+      view.querySelectorAll('.al-row-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteAccessLog(btn.dataset.id);
+        }));
+      view.querySelectorAll('.al-user-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const ids = btn.dataset.ids.split(',').filter(Boolean);
+          deleteAccessLogs(ids, `「${btn.dataset.name}」の ${ids.length} 件のログ`);
+        }));
+      document.getElementById('al-delete-old-30')?.addEventListener('click', () => deleteAccessLogsOlderThan(30));
+      document.getElementById('al-delete-old-90')?.addEventListener('click', () => deleteAccessLogsOlderThan(90));
+    }
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+async function deleteAccessLog(id) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  if (!confirm('このアクセスログを削除しますか？')) return;
+  try {
+    await db.collection('LOGIN_LOG').doc(id).delete();
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
+async function deleteAccessLogs(ids, label) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  if (!ids.length) return;
+  if (!confirm(`${label} を削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    // Firestore batch は500件まで → 必要に応じて分割
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+    for (const chunk of chunks) {
+      const batch = db.batch();
+      chunk.forEach(id => batch.delete(db.collection('LOGIN_LOG').doc(id)));
+      await batch.commit();
+    }
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
+
+async function deleteAccessLogsOlderThan(days) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  if (!confirm(`${days}日より前のアクセスログ（${cutoff.toLocaleDateString('ja-JP')} 以前）を全て削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    const snap = await db.collection('LOGIN_LOG')
+      .where('loginAt', '<', firebase.firestore.Timestamp.fromDate(cutoff))
+      .get();
+    if (snap.empty) {
+      alert('対象のログがありません');
+      return;
+    }
+    const ids = snap.docs.map(d => d.id);
+    const chunks = [];
+    for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+    for (const chunk of chunks) {
+      const batch = db.batch();
+      chunk.forEach(id => batch.delete(db.collection('LOGIN_LOG').doc(id)));
+      await batch.commit();
+    }
+    alert(`${ids.length}件削除しました`);
+    await loadAccessLog();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
   }
 }
 

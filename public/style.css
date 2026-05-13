@@ -1915,10 +1915,38 @@ body {
 }
 .al-detail-row {
   display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
   padding: 5px 0 5px 40px; font-size: 13px; color: #666;
 }
-.al-detail-time { font-weight: 500; }
+.al-detail-time { font-weight: 500; flex: 1; }
 .al-detail-device { font-size: 11px; color: #999; }
+.al-row-delete-btn {
+  background: none; border: none; cursor: pointer; padding: 2px;
+  display: flex; align-items: center;
+}
+.al-row-delete-btn:hover { background: #ffebee; border-radius: 4px; }
+.al-detail-toolbar {
+  padding: 6px 40px;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+}
+.al-user-delete-btn {
+  background: white;
+  border: 1px solid #ffcdd2;
+  color: #d32f2f;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.al-user-delete-btn:hover { background: #ffebee; }
+.al-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.al-tool-btn { font-size: 12px; padding: 6px 10px; }
 
 /* 成員編集リスト */
 .me-status-row {
