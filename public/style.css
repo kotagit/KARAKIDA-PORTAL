@@ -1945,6 +1945,8 @@ body {
 .me-status-SV    { background: #e0f7fa; color: #006064; }
 .me-status-WEB   { background: #fff8e1; color: #f57f17; }
 .me-status-ADMIN { background: #ffebee; color: #c62828; }
+.me-status-GO    { background: #c8e6c9; color: #1b5e20; font-weight: 700; }
+.me-status-GA    { background: #dcedc8; color: #33691e; }
 
 .me-status-grid {
   display: grid;

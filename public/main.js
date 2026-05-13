@@ -5400,6 +5400,8 @@ async function loadAccessLog() {
 
 // ── 成員編集リスト ────────────────────────────────
 const ME_STATUS_OPTIONS = [
+  { code: 'GO',       label: 'グループ監督' },
+  { code: 'GA',       label: 'グループ補佐' },
   { code: 'EL',       label: '長老' },
   { code: 'MS',       label: '援助奉仕者' },
   { code: 'RP',       label: '正規開拓者' },
@@ -5456,14 +5458,27 @@ function meIsPioneer(status) {
   return status.includes('RP') || status.includes('AP');
 }
 
+// グループ内優先度:
+//   0: グループ監督 (GO)
+//   1: グループ補佐 (GA)
+//   2: 兄弟 (男) - 開拓者
+//   3: 兄弟 (男) - 伝道者
+//   4: 姉妹 (女) - 開拓者
+//   5: 姉妹 (女) - 伝道者
+//   6: 性別未設定
+function meGroupRank(m) {
+  if (m.status.includes('GO')) return 0;
+  if (m.status.includes('GA')) return 1;
+  const isPioneer = meIsPioneer(m.status);
+  if (m.gender === '男') return isPioneer ? 2 : 3;
+  if (m.gender === '女') return isPioneer ? 4 : 5;
+  return 6;
+}
+
 function meSortMembers(arr) {
-  const genderRank = g => (g === '男' ? 0 : g === '女' ? 1 : 2);
-  const pioneerRank = s => (meIsPioneer(s) ? 0 : 1);
   return arr.slice().sort((a, b) => {
-    const g = genderRank(a.gender) - genderRank(b.gender);
-    if (g !== 0) return g;
-    const p = pioneerRank(a.status) - pioneerRank(b.status);
-    if (p !== 0) return p;
+    const r = meGroupRank(a) - meGroupRank(b);
+    if (r !== 0) return r;
     return (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
   });
 }
