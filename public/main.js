@@ -895,8 +895,29 @@ function invalidateUserListCache() {
   _userListCachePromise = null;
   _cachedUserList = null;
 }
+
+// 書き込み後にキャッシュを部分更新（再フェッチを回避）
+function applyUserListLocal(docId, data) {
+  _cachedUserList = null; // member picker 旧キャッシュは作り直し
+  if (!_userListCache) return;
+  const idx = _userListCache.findIndex(m => m.docId === docId);
+  if (idx >= 0) {
+    _userListCache[idx] = { ...(_userListCache[idx] || {}), ...data, docId };
+  } else {
+    _userListCache.push({ docId, ...data });
+  }
+}
+
+function removeUserListLocal(docId) {
+  _cachedUserList = null;
+  if (!_userListCache) return;
+  _userListCache = _userListCache.filter(m => m.docId !== docId);
+}
+
 window.invalidateUserListCache = invalidateUserListCache;
 window.getUserListCached = getUserListCached;
+window.applyUserListLocal = applyUserListLocal;
+window.removeUserListLocal = removeUserListLocal;
 
 async function _renderMemberPicker() {
   const container = document.getElementById('af-member-picker');
@@ -1800,6 +1821,7 @@ async function submitMemberInfo() {
     };
 
     await db.collection('USER_LIST').doc(currentUserDocId).update(data);
+    applyUserListLocal(currentUserDocId, data);
 
     alert('保存しました！');
     currentMemberData = { ...currentMemberData, ...data };
@@ -2848,14 +2870,13 @@ async function loadReportCheckData() {
   const month = parseInt(val[1]);
 
   try {
-    const [userSnap, reportSnap] = await Promise.all([
-      db.collection('USER_LIST').get(),
+    const [userList, reportSnap] = await Promise.all([
+      getUserListCached(),
       db.collection('PREACHING_REPORT').where('month', '==', month).get(),
     ]);
 
     const members = [];
-    userSnap.docs.forEach(d => {
-      const data = d.data();
+    userList.forEach(data => {
       const name = String(data.name || '').trim();
       if (!name) return;
       members.push({
@@ -3004,11 +3025,11 @@ function s13GetGroupsForCity(city) {
 }
 
 async function s13LoadSupervisors() {
-  const svSnap = await db.collection('USER_LIST')
-    .where('status', 'array-contains-any', ['GO', 'SV']).get();
+  const userList = await getUserListCached();
   s13SupervisorMap = {};
-  svSnap.docs.forEach(doc => {
-    const d = doc.data();
+  userList.forEach(d => {
+    const arr = _parseStatus(d.status);
+    if (!arr.includes('GO') && !arr.includes('SV')) return;
     const group = (d.group || '').trim();
     const name = (d.name || '').trim();
     if (group && name) s13SupervisorMap[group] = name;
@@ -3396,10 +3417,9 @@ async function loadOrgView() {
 
     // グループ成員表
     if (groupView) {
-      const userSnap = await db.collection('USER_LIST').get();
+      const userList = await getUserListCached();
       const users = [];
-      userSnap.docs.forEach(d => {
-        const data = d.data();
+      userList.forEach(data => {
         const name = String(data.name || '').trim();
         if (!name) return;
         const arr = _parseStatus(data.status);
@@ -5206,12 +5226,13 @@ async function loadGroupMembers() {
   container.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    const snap = await db.collection('USER_LIST').orderBy('name').get();
+    const userList = await getUserListCached();
+    const sorted = userList.slice().sort((a, b) =>
+      (a.name || '').localeCompare(b.name || '', 'ja'));
 
     // グループ別に振り分け
     const groupMap = {};
-    snap.docs.forEach(doc => {
-      const d = doc.data();
+    sorted.forEach(d => {
       const name  = String(d.name  || '').trim();
       const group = String(d.group || '（未所属）').trim() || '（未所属）';
       const arr = _parseStatus(d.status);
@@ -5493,15 +5514,11 @@ async function loadMemberEditList() {
   const list = document.getElementById('me-list');
   list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    const snap = await db.collection('USER_LIST').get();
-    meAllMembers = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        docId: d.id,
-        ...data,
-        status: _parseStatus(data.status),
-      };
-    });
+    const userList = await getUserListCached();
+    meAllMembers = userList.map(data => ({
+      ...data,
+      status: _parseStatus(data.status),
+    }));
     meAllMembers.sort((a, b) =>
       (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
     // ユニークなグループ名を抽出（既存値からのみ／未所属は空文字）
@@ -5639,6 +5656,7 @@ async function deleteMemberFromList(id, name) {
   if (!confirm(`「${name || '(名前なし)'}」を完全に削除しますか？\nこの操作は取り消せません。`)) return;
   try {
     await db.collection('USER_LIST').doc(id).delete();
+    removeUserListLocal(id);
     await loadMemberEditList();
   } catch (err) {
     alert('削除エラー: ' + err.message);
@@ -5702,11 +5720,13 @@ async function saveMemberEdit(e) {
   try {
     if (meEditingId) {
       await db.collection('USER_LIST').doc(meEditingId).update(data);
+      applyUserListLocal(meEditingId, data);
     } else {
-      await db.collection('USER_LIST').add(data);
+      const ref = await db.collection('USER_LIST').add(data);
+      applyUserListLocal(ref.id, data);
     }
     closeMemberEditModal();
-    await loadMemberEditList();
+    await loadMemberEditList(); // キャッシュヒットで再フェッチなし
   } catch (err) {
     alert('保存エラー: ' + err.message);
   }
@@ -5905,6 +5925,7 @@ async function saveBulkChanges() {
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
   try {
     const batch = db.batch();
+    const pendingApply = [];
     meBulkChanges.forEach((change, docId) => {
       const data = {};
       Object.keys(change).forEach(k => {
@@ -5912,10 +5933,12 @@ async function saveBulkChanges() {
         else data[k] = change[k];
       });
       batch.update(db.collection('USER_LIST').doc(docId), data);
+      pendingApply.push({ docId, data });
     });
     await batch.commit();
+    pendingApply.forEach(({ docId, data }) => applyUserListLocal(docId, data));
     meBulkChanges.clear();
-    await loadMemberEditList();
+    await loadMemberEditList(); // キャッシュヒット
     if (meMode === 'bulk') renderBulkEditTable();
     alert('保存しました');
   } catch (err) {
