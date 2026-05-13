@@ -33,12 +33,19 @@ async function loadPWSchedule() {
         html += `<div class="pw-date-group"><div class="pw-date-tag">${esc(dateLabel)}</div>`;
         lastDate = dateLabel;
       }
-      const placeColor = (item.place || '').includes('唐木田') ? 'pw-place-karakida'
-                       : (item.place || '').includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
+      // places 配列 もしくは レガシー place 文字列 を統一して扱う
+      const placesArr = Array.isArray(item.places) && item.places.length
+        ? item.places
+        : (item.place ? String(item.place).split(/[、,／/]/).map(s => s.trim()).filter(Boolean) : []);
+      const placeBadges = placesArr.map(p => {
+        const c = p.includes('唐木田') ? 'pw-place-karakida'
+                : p.includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
+        return `<span class="pw-place-badge ${c}">${esc(p)}</span>`;
+      }).join('');
       html += `<div class="pw-slot-card" style="position:relative">
         <span class="material-icons pw-slot-icon">access_time</span>
         <span class="pw-slot-time">${esc(item.starttime || '')}〜${esc(item.endtime || '')}</span>
-        <span class="pw-place-badge ${placeColor}">${esc(item.place || '')}</span>
+        ${placeBadges}
         <span class="pw-slot-order" style="font-size:11px;color:#999">順: ${item.order ?? '-'}</span>
         <button class="icon-btn" onclick="event.stopPropagation();openPWSlotModal('${item.id}')" title="編集">
           <span class="material-icons" style="font-size:18px;color:var(--primary)">edit</span>
@@ -83,9 +90,18 @@ function openPWSlotModal(id) {
       document.getElementById('pws-dow').value = item.dayofweek || '月';
       pwsSetStartValue(item.starttime || '');
       document.getElementById('pws-end').value = item.endtime || '';
-      document.getElementById('pws-place').value = item.place || '';
+      // 既存 place（文字列）または新 places（配列）に対応してチェックを復元
+      const placesArr = Array.isArray(item.places)
+        ? item.places
+        : (item.place ? String(item.place).split(/[、,／/]/).map(s => s.trim()).filter(Boolean) : []);
+      document.querySelectorAll('.pws-place-cb').forEach(cb => {
+        cb.checked = placesArr.includes(cb.value);
+      });
       document.getElementById('pws-order').value = item.order ?? '';
     }
+  } else {
+    // 新規時はクリア
+    document.querySelectorAll('.pws-place-cb').forEach(cb => { cb.checked = false; });
   }
   modal.classList.remove('hidden');
 }
@@ -162,16 +178,19 @@ document.getElementById('pw-slot-form')?.addEventListener('submit', async (e) =>
   const dtParts = rawDate.split('-');
   const dayStr = dtParts.length === 3 ? `${parseInt(dtParts[1])}/${parseInt(dtParts[2])}` : rawDate;
   const startVal = pwsGetStartValue();
+  const placesArr = [...document.querySelectorAll('.pws-place-cb:checked')].map(cb => cb.value);
   const data = {
     day: dayStr,
     dayofweek: document.getElementById('pws-dow').value,
     starttime: startVal,
     endtime: document.getElementById('pws-end').value.trim(),
-    place: document.getElementById('pws-place').value.trim(),
+    places: placesArr,
+    // 後方互換用に place フィールドも複数結合で保存
+    place: placesArr.join('、'),
     order: parseInt(document.getElementById('pws-order').value) || 0,
   };
-  if (!data.day || !startVal || !data.endtime || !data.place) {
-    alert('必須項目を入力してください');
+  if (!data.day || !startVal || !data.endtime || placesArr.length === 0) {
+    alert('必須項目を入力してください（場所は最低1つチェック）');
     return;
   }
   try {
@@ -279,14 +298,21 @@ async function loadPWSlots() {
       const slotKey  = `${dateStr}_${time}_${place}`;
 
       // 申込者を抽出
+      // - 同じ date/weekday/time のもの
+      // - preferredLocation に slot の place を含む人を表示
+      //   "A" 単独 → A の場所のプルダウンのみ
+      //   "A＞B"   → A と B 両方のプルダウンに表示
+      // - 旧データ（preferredLocation 未設定）は従来通り d.place === place で判定
       const applicantsForSlot = appSnap.docs
         .map(d => d.data())
-        .filter(d =>
-          d.day       === dateStr &&
-          d.dayofweek === weekday &&
-          d.starttime === time    &&
-          d.place     === place
-        );
+        .filter(d => {
+          if (d.day !== dateStr) return false;
+          if (d.dayofweek !== weekday) return false;
+          if (d.starttime !== time) return false;
+          const pref = String(d.preferredLocation || '').trim();
+          if (pref) return pref.includes(place);
+          return d.place === place;
+        });
 
       // 申込者の希望場所マップ (name → preferredLocation)
       const applicantLocMap = {};

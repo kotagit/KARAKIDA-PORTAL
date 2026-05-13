@@ -2026,6 +2026,21 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .pw-place-karakida  { background: #d4f4d4; color: #2e7d32; }
 .pw-place-horinouchi { background: #d0eeff; color: #01579b; }
 .pw-place-other      { background: #f0f0f0; color: #555; }
+.pws-place-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+.pws-place-check {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid #ddd; border-radius: 6px;
+  cursor: pointer; font-size: 14px;
+}
+.pws-place-check:has(input:checked) { background: #e3f2fd; border-color: var(--primary); }
+.pws-place-check input { margin: 0; }
+.pw-slot-card .pw-place-badge { margin-right: 4px; }
 
 .pw-subloc-card {
   background: white; border-radius: 12px; margin-bottom: 20px;
