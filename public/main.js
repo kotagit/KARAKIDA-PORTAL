@@ -872,7 +872,31 @@ document.getElementById('af-date')?.addEventListener('change', function() {
 });
 
 // ── 成員ピッカー ────────────────────────────────
-let _cachedUserList = null;
+// ── USER_LIST キャッシュ（Firestore readsを抑制） ──────────
+// 書き込み後は invalidateUserListCache() を呼んで無効化
+let _userListCache = null;
+let _userListCachePromise = null;
+let _cachedUserList = null; // 旧キャッシュ（member picker専用、フィルタ済み）
+
+async function getUserListCached() {
+  if (_userListCache) return _userListCache;
+  if (_userListCachePromise) return _userListCachePromise;
+  _userListCachePromise = (async () => {
+    const snap = await db.collection('USER_LIST').get();
+    _userListCache = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    _userListCachePromise = null;
+    return _userListCache;
+  })();
+  return _userListCachePromise;
+}
+
+function invalidateUserListCache() {
+  _userListCache = null;
+  _userListCachePromise = null;
+  _cachedUserList = null;
+}
+window.invalidateUserListCache = invalidateUserListCache;
+window.getUserListCached = getUserListCached;
 
 async function _renderMemberPicker() {
   const container = document.getElementById('af-member-picker');
@@ -884,9 +908,8 @@ async function _renderMemberPicker() {
 
   try {
     if (!_cachedUserList) {
-      const snap = await db.collection('USER_LIST').orderBy('name').get();
-      _cachedUserList = snap.docs
-        .map(d => d.data())
+      const all = await getUserListCached();
+      _cachedUserList = all
         .filter(d => d.name)
         .sort((a, b) => {
           const ga = a.group || 'zzz', gb = b.group || 'zzz';
@@ -1847,15 +1870,14 @@ async function loadJouhouRenraku() {
 
   try {
     // ORG_CHARTから長老団（グループ監督・補佐）を取得
-    const [orgSnap, userSnap] = await Promise.all([
+    const [orgSnap, userList] = await Promise.all([
       db.collection('ORG_CHART').where('section', '==', '長老団').orderBy('order', 'asc').get(),
-      db.collection('USER_LIST').get(),
+      getUserListCached(),
     ]);
 
     // USER_LISTを名前でマップ
     const userMap = {};
-    userSnap.docs.forEach(d => {
-      const data = d.data();
+    userList.forEach(data => {
       const name = String(data.name || '').trim();
       if (name) userMap[name] = data;
     });
@@ -2175,10 +2197,10 @@ async function loadSrGroupList() {
   const sel = document.getElementById('sr-other-group');
   sel.innerHTML = '<option value="">読み込み中...</option>';
   try {
-    const snap = await db.collection('USER_LIST').get();
+    const userList = await getUserListCached();
     const groupSet = new Set();
-    snap.docs.forEach(d => {
-      const g = String(d.data().group || '').trim();
+    userList.forEach(d => {
+      const g = String(d.group || '').trim();
       if (g) groupSet.add(g);
     });
     const groups = [...groupSet].sort();
@@ -2463,14 +2485,13 @@ async function loadAdminReports() {
   }
 
   try {
-    const userSnap = await db.collection('USER_LIST').get();
+    const userList = await getUserListCached();
     rptMembers = [];
-    userSnap.docs.forEach(d => {
-      const data = d.data();
+    userList.forEach(data => {
       const name = String(data.name || '').trim();
       if (!name) return;
       rptMembers.push({
-        id: d.id,
+        id: data.docId,
         name,
         group: String(data.group || '').trim(),
         gender: String(data.gender || '').trim(),
