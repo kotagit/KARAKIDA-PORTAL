@@ -203,6 +203,16 @@ body {
   padding: 24px 16px 80px;
 }
 
+/* 横長レイアウトが必要なページは iPad/PC で page-content を広げる */
+@media (min-width: 768px) {
+  #page-admin-group-members .page-content,
+  #page-admin-member-edit .page-content {
+    max-width: 1600px;
+  }
+  /* リストモードは読みやすさのため中央寄せ・幅制限 */
+  #page-admin-member-edit #me-list-mode { max-width: 900px; margin: 0 auto; }
+}
+
 /* ── 管理画面ダッシュボード ── */
 .admin-dashboard {
   display: grid;
