@@ -5414,6 +5414,7 @@ const ME_STATUS_OPTIONS = [
 ];
 
 let meAllMembers = [];
+let meAllGroups = [];
 let meEditingId = null;
 let meInitialized = false;
 
@@ -5432,6 +5433,9 @@ async function initMemberEditPage() {
     document.getElementById('me-mode-bulk')?.addEventListener('click', () => setMemberEditMode('bulk'));
     document.getElementById('me-bulk-save')?.addEventListener('click', saveBulkChanges);
     document.getElementById('me-bulk-discard')?.addEventListener('click', discardBulkChanges);
+    document.getElementById('me-add-btn')?.addEventListener('click', () => openMemberEditModal(null));
+    document.getElementById('me-bulk-search')?.addEventListener('input', renderBulkEditTable);
+    document.getElementById('me-bulk-filter')?.addEventListener('change', renderBulkEditTable);
     meInitialized = true;
   }
   await loadMemberEditList();
@@ -5463,6 +5467,13 @@ async function loadMemberEditList() {
     });
     meAllMembers.sort((a, b) =>
       (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
+    // ユニークなグループ名を抽出（既存値からのみ／未所属は空文字）
+    const groupSet = new Set();
+    meAllMembers.forEach(m => {
+      const g = (m.group || '').trim();
+      if (g) groupSet.add(g);
+    });
+    meAllGroups = [...groupSet].sort((a, b) => a.localeCompare(b, 'ja'));
     renderMemberEditList();
   } catch (e) {
     list.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(e.message) + '</div>';
@@ -5603,18 +5614,23 @@ async function deleteMemberFromList(id, name) {
 }
 
 function openMemberEditModal(id) {
-  const member = meAllMembers.find(m => m.docId === id);
-  if (!member) return;
-  meEditingId = id;
-  document.getElementById('me-modal-title').textContent = '成員を編集';
-  document.getElementById('me-name').value     = member.name     || '';
-  document.getElementById('me-furigana').value = member.furigana || '';
-  document.getElementById('me-group').value    = member.group    || '';
-  document.getElementById('me-gender').value   = member.gender   || '';
-  document.getElementById('me-mail').value     = member.mail     || '';
+  const member = id ? meAllMembers.find(m => m.docId === id) : null;
+  meEditingId = id || null;
+  document.getElementById('me-modal-title').textContent = id ? '成員を編集' : '成員を追加';
+  document.getElementById('me-name').value     = member?.name     || '';
+  document.getElementById('me-furigana').value = member?.furigana || '';
+
+  // グループ選択肢を更新
+  const groupSel = document.getElementById('me-group');
+  const curGroup = member?.group || '';
+  const opts = ['', ...meAllGroups, ...(curGroup && !meAllGroups.includes(curGroup) ? [curGroup] : [])];
+  groupSel.innerHTML = opts.map(g => `<option value="${esc(g)}" ${g === curGroup ? 'selected' : ''}>${g === '' ? '（未所属）' : esc(g)}</option>`).join('');
+
+  document.getElementById('me-gender').value   = member?.gender   || '';
+  document.getElementById('me-mail').value     = member?.mail     || '';
 
   const grid = document.getElementById('me-status-grid');
-  const cur = new Set(member.status || []);
+  const cur = new Set(member?.status || []);
   grid.innerHTML = ME_STATUS_OPTIONS.map(opt => `
     <label class="me-status-check">
       <input type="checkbox" value="${esc(opt.code)}" ${cur.has(opt.code) ? 'checked' : ''}>
@@ -5635,7 +5651,6 @@ function closeMemberEditModal() {
 
 async function saveMemberEdit(e) {
   e.preventDefault();
-  if (!meEditingId) return;
   const name     = document.getElementById('me-name').value.trim();
   const furigana = document.getElementById('me-furigana').value.trim();
   const group    = document.getElementById('me-group').value.trim();
@@ -5653,7 +5668,11 @@ async function saveMemberEdit(e) {
   };
 
   try {
-    await db.collection('USER_LIST').doc(meEditingId).update(data);
+    if (meEditingId) {
+      await db.collection('USER_LIST').doc(meEditingId).update(data);
+    } else {
+      await db.collection('USER_LIST').add(data);
+    }
     closeMemberEditModal();
     await loadMemberEditList();
   } catch (err) {
@@ -5665,8 +5684,8 @@ async function saveMemberEdit(e) {
 const ME_BULK_TEXT_FIELDS = [
   { key: 'name',     label: '氏名',       width: 140 },
   { key: 'furigana', label: 'ふりがな',   width: 140 },
-  { key: 'group',    label: 'グループ',   width: 100 },
-  { key: 'gender',   label: '性別',       width: 60, type: 'select', options: ['', '男', '女'] },
+  { key: 'group',    label: 'グループ',   width: 100, type: 'select-group' },
+  { key: 'gender',   label: '性別',       width: 60,  type: 'select', options: ['', '男', '女'] },
   { key: 'mail',     label: 'メール',     width: 200 },
 ];
 
@@ -5714,32 +5733,86 @@ function updateBulkToolbar() {
   if (discardBtn) discardBtn.classList.toggle('hidden', dirty === 0);
 }
 
+let meBulkSortKey = null;   // 'name'|'furigana'|'group'|'gender'|'mail'|status code
+let meBulkSortDir = 1;       // 1=asc, -1=desc
+
+function renderBulkLegend() {
+  const el = document.getElementById('me-bulk-legend');
+  if (!el) return;
+  el.innerHTML = ME_STATUS_OPTIONS.map(opt =>
+    `<span class="me-legend-item"><span class="me-status-badge me-status-${esc(opt.code)}">${esc(opt.code)}</span><span class="me-legend-name">${esc(opt.label)}</span></span>`
+  ).join('');
+}
+
 function renderBulkEditTable() {
   const thead = document.getElementById('me-bulk-thead');
   const tbody = document.getElementById('me-bulk-tbody');
   if (!thead || !tbody) return;
 
+  renderBulkLegend();
+
+  const q = (document.getElementById('me-bulk-search')?.value || '').trim().toLowerCase();
+  const sFilter = document.getElementById('me-bulk-filter')?.value || 'all';
+
+  // ソート矢印を作るヘルパ
+  const arrow = key => meBulkSortKey === key ? (meBulkSortDir === 1 ? ' ▲' : ' ▼') : '';
+
   // ヘッダー行
   let theadHtml = '<tr>';
   ME_BULK_TEXT_FIELDS.forEach((f, i) => {
     const sticky = i === 0 ? 'meb-sticky-col' : '';
-    theadHtml += `<th class="${sticky}" style="min-width:${f.width}px">${esc(f.label)}</th>`;
+    theadHtml += `<th class="${sticky} meb-sortable" data-sort="${esc(f.key)}" style="min-width:${f.width}px">${esc(f.label)}${arrow(f.key)}</th>`;
   });
   ME_STATUS_OPTIONS.forEach(opt => {
-    theadHtml += `<th class="meb-status-col" title="${esc(opt.label)}">${esc(opt.code)}</th>`;
+    theadHtml += `<th class="meb-status-col meb-sortable" data-sort="${esc(opt.code)}" title="${esc(opt.label)}">${esc(opt.code)}${arrow(opt.code)}</th>`;
   });
   theadHtml += '</tr>';
   thead.innerHTML = theadHtml;
 
-  // グループ→ランク順
-  const sorted = meAllMembers.slice().sort((a, b) => {
-    const ga = (a.group || '￿').toString();
-    const gb = (b.group || '￿').toString();
-    const gc = ga.localeCompare(gb, 'ja');
-    if (gc !== 0) return gc;
-    const r = meGroupRank(a) - meGroupRank(b);
-    if (r !== 0) return r;
-    return (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+  thead.querySelectorAll('.meb-sortable').forEach(th =>
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (meBulkSortKey === k) meBulkSortDir = -meBulkSortDir;
+      else { meBulkSortKey = k; meBulkSortDir = 1; }
+      renderBulkEditTable();
+    })
+  );
+
+  // フィルター適用
+  const filtered = meAllMembers.filter(m => {
+    if (sFilter !== 'all' && !m.status.includes(sFilter)) return false;
+    if (!q) return true;
+    return (
+      (m.name     || '').toLowerCase().includes(q) ||
+      (m.furigana || '').toLowerCase().includes(q) ||
+      (m.group    || '').toLowerCase().includes(q) ||
+      (m.mail     || '').toLowerCase().includes(q)
+    );
+  });
+
+  // 並び替え
+  const STATUS_CODES = ME_STATUS_OPTIONS.map(o => o.code);
+  const sorted = filtered.slice().sort((a, b) => {
+    let cmp = 0;
+    if (meBulkSortKey && STATUS_CODES.includes(meBulkSortKey)) {
+      const av = a.status.includes(meBulkSortKey) ? 0 : 1;
+      const bv = b.status.includes(meBulkSortKey) ? 0 : 1;
+      cmp = av - bv;
+    } else if (meBulkSortKey) {
+      const av = (a[meBulkSortKey] || '').toString();
+      const bv = (b[meBulkSortKey] || '').toString();
+      cmp = av.localeCompare(bv, 'ja');
+    } else {
+      // デフォルト: グループ → ランク → ふりがな
+      const ga = (a.group || '￿').toString();
+      const gb = (b.group || '￿').toString();
+      cmp = ga.localeCompare(gb, 'ja');
+      if (cmp === 0) cmp = meGroupRank(a) - meGroupRank(b);
+      if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+      return cmp;
+    }
+    if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+    return cmp * meBulkSortDir;
   });
 
   let html = '';
@@ -5748,9 +5821,12 @@ function renderBulkEditTable() {
     ME_BULK_TEXT_FIELDS.forEach((f, i) => {
       const sticky = i === 0 ? 'meb-sticky-col' : '';
       const val = meBulkCurrentValue(m, f.key);
-      if (f.type === 'select') {
+      if (f.type === 'select' || f.type === 'select-group') {
+        const options = f.type === 'select-group'
+          ? ['', ...meAllGroups, ...(val && !meAllGroups.includes(val) ? [val] : [])]
+          : f.options;
         html += `<td class="${sticky}"><select class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}">`;
-        f.options.forEach(opt => {
+        options.forEach(opt => {
           html += `<option value="${esc(opt)}" ${opt === val ? 'selected' : ''}>${opt === '' ? '-' : esc(opt)}</option>`;
         });
         html += '</select></td>';
