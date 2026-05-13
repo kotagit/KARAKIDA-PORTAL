@@ -2544,6 +2544,14 @@ async function loadAdminReports() {
     userList.forEach(data => {
       const name = String(data.name || '').trim();
       if (!name) return;
+      // emergencyContacts: 配列・JSON文字列どちらでも受け取る
+      let ec = data.emergencyContacts;
+      if (typeof ec === 'string' && ec) {
+        try { const a = JSON.parse(ec); if (Array.isArray(a)) ec = a; else ec = []; }
+        catch (e) { ec = []; }
+      }
+      if (!Array.isArray(ec)) ec = [];
+
       rptMembers.push({
         id: data.docId,
         name,
@@ -2553,6 +2561,9 @@ async function loadAdminReports() {
         baptismDate: String(data.baptismDate || '').trim(),
         status: _parseStatus(data.status),
         hope: String(data.hope || '').trim(),
+        phone: String(data.phone || '').trim(),
+        homePhone: String(data.homePhone || '').trim(),
+        emergencyContacts: ec.filter(c => c && (c.name || c.phone)),
       });
     });
     rptMembers.sort((a, b) => {
@@ -2728,6 +2739,16 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
   html += '<tr><td class="s21-info-label">バプテスマ日</td><td class="s21-info-value" colspan="3">' + esc(member.baptismDate || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td><td class="s21-info-label">希望</td><td class="s21-info-value">' + esc(member.hope || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value" colspan="3">' + esc(member.group || '-') + '</td></tr>';
+  // 緊急連絡先（電話番号はテキスト表示、リンクなし）
+  const contacts = Array.isArray(member.emergencyContacts) ? member.emergencyContacts : [];
+  contacts.forEach((c, i) => {
+    if (!c || (!c.name && !c.phone)) return;
+    const parts = [];
+    if (c.name)  parts.push(esc(c.name));
+    if (c.phone) parts.push(esc(c.phone));
+    html += '<tr><td class="s21-info-label">緊急連絡先' + (contacts.length > 1 ? (i + 1) : '') +
+            '</td><td class="s21-info-value" colspan="3">' + parts.join('　') + '</td></tr>';
+  });
   html += '</table></div>';
 
   // 互換: 旧呼び出し（単年）対応
