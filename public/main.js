@@ -4385,13 +4385,21 @@ async function loadSenkyoPublic() {
       const day = (opt.day || '').toString();
       const weekday = (opt.dayofweek || '').toString();
       const time = (opt.starttime || '').toString();
-      const place = (opt.place || '').toString();
+      // places 配列 もしくは レガシー place 文字列を正規化
+      const placesArr = Array.isArray(opt.places) && opt.places.length
+        ? opt.places
+        : (opt.place ? String(opt.place).split(/[、,／/]/).map(s => s.trim()).filter(Boolean) : []);
+      if (placesArr.length === 0) return;
+
       const key = `${day}_${time}`;
       if (key !== lastKey) {
         groups.push({ day, weekday, time, slots: [] });
         lastKey = key;
       }
-      groups[groups.length - 1].slots.push({ place, places: getPlaces(weekday, time, place) });
+      // 各場所ごとにサブエリアを展開して追加
+      placesArr.forEach(p => {
+        groups[groups.length - 1].slots.push({ place: p, places: getPlaces(weekday, time, p) });
+      });
     });
 
     groups.forEach(group => {
