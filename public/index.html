@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=121">
+  <link rel="stylesheet" href="style.css?v=123">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -1120,12 +1120,17 @@
         <h2 style="margin:0">成員編集リスト</h2>
       </div>
       <div class="page-content">
-        <div class="me-mode-toggle">
-          <button type="button" id="me-mode-list" class="me-mode-btn me-mode-active">
-            <span class="material-icons" style="font-size:16px;vertical-align:middle">list</span> リスト
-          </button>
-          <button type="button" id="me-mode-bulk" class="me-mode-btn">
-            <span class="material-icons" style="font-size:16px;vertical-align:middle">grid_on</span> 一括編集
+        <div class="me-top-bar">
+          <div class="me-mode-toggle">
+            <button type="button" id="me-mode-list" class="me-mode-btn me-mode-active">
+              <span class="material-icons" style="font-size:16px;vertical-align:middle">list</span> リスト
+            </button>
+            <button type="button" id="me-mode-bulk" class="me-mode-btn">
+              <span class="material-icons" style="font-size:16px;vertical-align:middle">grid_on</span> 一括編集
+            </button>
+          </div>
+          <button type="button" id="me-add-btn" class="btn-primary me-add-btn">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle">add</span> 追加
           </button>
         </div>
 
@@ -1159,7 +1164,22 @@
 
         <!-- 一括編集モード -->
         <div id="me-bulk-mode" class="hidden">
+          <div id="me-bulk-legend" class="me-bulk-legend"></div>
           <div class="me-bulk-toolbar">
+            <input type="search" id="me-bulk-search" placeholder="検索（氏名・ふりがな・グループ・メール）" class="me-bulk-search">
+            <select id="me-bulk-filter" class="aw-toolbar-select me-bulk-filter">
+              <option value="all">全ステータス</option>
+              <option value="GO">グループ監督</option>
+              <option value="GA">グループ補佐</option>
+              <option value="EL">長老</option>
+              <option value="MS">援助奉仕者</option>
+              <option value="RP">正規開拓者</option>
+              <option value="AP">補助開拓者</option>
+              <option value="AT">案内係</option>
+              <option value="WEB">WEB管理者</option>
+              <option value="ADMIN">ADMIN</option>
+              <option value="inactive">無効</option>
+            </select>
             <span id="me-bulk-status" class="me-bulk-status">変更なし</span>
             <button type="button" id="me-bulk-discard" class="btn-secondary me-bulk-discard hidden">
               <span class="material-icons" style="font-size:16px;vertical-align:middle">undo</span> 取消
@@ -1200,7 +1220,7 @@
       </div>
       <div class="form-group">
         <label>グループ</label>
-        <input type="text" id="me-group" placeholder="例: Aグループ">
+        <select id="me-group"></select>
       </div>
       <div class="form-group">
         <label>性別</label>
@@ -1664,7 +1684,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=131"></script>
+<script src="main.js?v=133"></script>
 <script src="assignment.js?v=76"></script>
 <script src="pw.js?v=6"></script>
 </body>
