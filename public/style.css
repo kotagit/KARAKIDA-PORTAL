@@ -1919,3 +1919,67 @@ body {
 }
 .al-detail-time { font-weight: 500; }
 .al-detail-device { font-size: 11px; color: #999; }
+
+/* 成員編集リスト */
+.me-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.me-status-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #e0e0e0;
+  color: #555;
+  letter-spacing: 0.3px;
+}
+.me-status-EL    { background: #fff3e0; color: #e65100; }
+.me-status-MS    { background: #e3f2fd; color: #1565c0; }
+.me-status-RP    { background: #f3e5f5; color: #6a1b9a; }
+.me-status-AP    { background: #fce4ec; color: #ad1457; }
+.me-status-AT    { background: #e8f5e9; color: #2e7d32; }
+.me-status-SV    { background: #e0f7fa; color: #006064; }
+.me-status-WEB   { background: #fff8e1; color: #f57f17; }
+.me-status-ADMIN { background: #ffebee; color: #c62828; }
+
+.me-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+.me-status-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 13px;
+}
+.me-status-check input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+.me-status-check:has(input:checked) {
+  background: #e3f2fd;
+  border-color: var(--primary);
+}
+.me-status-check-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+.me-status-check-code {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.3px;
+}
+.me-status-check-name { font-size: 12px; color: #444; }

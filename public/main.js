@@ -95,6 +95,7 @@ const PAGE_TITLES = {
   'attendance-form': '出席人数登録',
   'admin-s13': '区域割当ての記録',
   'admin-group-members': 'グループ成員表',
+  'admin-member-edit': '成員編集リスト',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
@@ -345,6 +346,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
   if (page === 'admin-members')            initMembersPage();
+  if (page === 'admin-member-edit')        initMemberEditPage();
   if (page === 'admin-attendance')         loadAdminAttendance();
   if (page === 'admin-attendance-monthly') initAttendanceMonthly();
   if (page === 'admin-s13')                loadAdminS13Table();
@@ -388,6 +390,10 @@ document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
 document.getElementById('admin-manage-group-members')?.addEventListener('click', () => {
   navigate('admin-group-members');
   loadGroupMembers();
+});
+
+document.getElementById('admin-manage-member-edit')?.addEventListener('click', () => {
+  navigate('admin-member-edit');
 });
 
 document.getElementById('admin-manage-org')?.addEventListener('click', () => {
@@ -5389,5 +5395,175 @@ async function loadAccessLog() {
     view.innerHTML = html;
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── 成員編集リスト ────────────────────────────────
+const ME_STATUS_OPTIONS = [
+  { code: 'EL',       label: '長老' },
+  { code: 'MS',       label: '援助奉仕者' },
+  { code: 'RP',       label: '正規開拓者' },
+  { code: 'AP',       label: '補助開拓者' },
+  { code: 'AT',       label: '案内係' },
+  { code: 'SV',       label: '監督' },
+  { code: 'WEB',      label: 'WEB管理者' },
+  { code: 'ADMIN',    label: 'ADMIN' },
+  { code: 'inactive', label: '無効化' },
+];
+
+let meAllMembers = [];
+let meEditingId = null;
+let meInitialized = false;
+
+async function initMemberEditPage() {
+  const list = document.getElementById('me-list');
+  if (!list) return;
+
+  if (!meInitialized) {
+    document.getElementById('me-search')?.addEventListener('input', renderMemberEditList);
+    document.getElementById('me-filter')?.addEventListener('change', renderMemberEditList);
+    document.getElementById('me-modal-close')?.addEventListener('click', closeMemberEditModal);
+    document.getElementById('me-modal-overlay')?.addEventListener('click', closeMemberEditModal);
+    document.getElementById('me-cancel')?.addEventListener('click', closeMemberEditModal);
+    document.getElementById('me-form')?.addEventListener('submit', saveMemberEdit);
+    meInitialized = true;
+  }
+  await loadMemberEditList();
+}
+
+async function loadMemberEditList() {
+  const list = document.getElementById('me-list');
+  list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('USER_LIST').get();
+    meAllMembers = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        docId: d.id,
+        ...data,
+        status: _parseStatus(data.status),
+      };
+    });
+    meAllMembers.sort((a, b) =>
+      (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
+    renderMemberEditList();
+  } catch (e) {
+    list.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderMemberEditList() {
+  const list = document.getElementById('me-list');
+  const countEl = document.getElementById('me-count');
+  if (!list) return;
+
+  const q = (document.getElementById('me-search')?.value || '').trim().toLowerCase();
+  const filter = document.getElementById('me-filter')?.value || 'all';
+
+  const filtered = meAllMembers.filter(m => {
+    if (filter !== 'all' && !m.status.includes(filter)) return false;
+    if (!q) return true;
+    return (
+      (m.name     || '').toLowerCase().includes(q) ||
+      (m.furigana || '').toLowerCase().includes(q) ||
+      (m.group    || '').toLowerCase().includes(q) ||
+      (m.mail     || '').toLowerCase().includes(q)
+    );
+  });
+
+  if (countEl) countEl.textContent = `${filtered.length}名 / 全 ${meAllMembers.length}名`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">該当する成員がいません</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.forEach(m => {
+    const groupLabel = m.group ? esc(m.group) : '<span style="color:#bbb">未所属</span>';
+    const isInactive = m.status.includes('inactive');
+    const statusBadges = m.status
+      .filter(s => s !== 'inactive')
+      .map(s => `<span class="me-status-badge me-status-${esc(s)}">${esc(s)}</span>`)
+      .join('');
+
+    const item = document.createElement('div');
+    item.className = 'admin-list-item';
+    if (isInactive) item.style.opacity = '0.55';
+    item.innerHTML = `
+      <div class="admin-list-info">
+        <div class="admin-list-title">${esc(m.name || '(名前なし)')}${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}</div>
+        <div class="admin-list-date">${groupLabel}${m.gender ? ' ・ ' + esc(m.gender) : ''}</div>
+        <div class="me-status-row">${statusBadges}</div>
+      </div>
+      <div class="admin-list-actions">
+        <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
+          <span class="material-icons">edit</span>
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.btn-edit').forEach(btn =>
+    btn.addEventListener('click', () => openMemberEditModal(btn.dataset.id)));
+}
+
+function openMemberEditModal(id) {
+  const member = meAllMembers.find(m => m.docId === id);
+  if (!member) return;
+  meEditingId = id;
+  document.getElementById('me-modal-title').textContent = '成員を編集';
+  document.getElementById('me-name').value     = member.name     || '';
+  document.getElementById('me-furigana').value = member.furigana || '';
+  document.getElementById('me-group').value    = member.group    || '';
+  document.getElementById('me-gender').value   = member.gender   || '';
+  document.getElementById('me-mail').value     = member.mail     || '';
+
+  const grid = document.getElementById('me-status-grid');
+  const cur = new Set(member.status || []);
+  grid.innerHTML = ME_STATUS_OPTIONS.map(opt => `
+    <label class="me-status-check">
+      <input type="checkbox" value="${esc(opt.code)}" ${cur.has(opt.code) ? 'checked' : ''}>
+      <span class="me-status-check-label">
+        <span class="me-status-check-code">${esc(opt.code)}</span>
+        <span class="me-status-check-name">${esc(opt.label)}</span>
+      </span>
+    </label>
+  `).join('');
+
+  document.getElementById('me-modal').classList.remove('hidden');
+}
+
+function closeMemberEditModal() {
+  document.getElementById('me-modal').classList.add('hidden');
+  meEditingId = null;
+}
+
+async function saveMemberEdit(e) {
+  e.preventDefault();
+  if (!meEditingId) return;
+  const name     = document.getElementById('me-name').value.trim();
+  const furigana = document.getElementById('me-furigana').value.trim();
+  const group    = document.getElementById('me-group').value.trim();
+  const gender   = document.getElementById('me-gender').value;
+  const mail     = document.getElementById('me-mail').value.trim();
+  if (!name) { alert('氏名は必須です'); return; }
+
+  const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
+  const status = [...checks].map(cb => cb.value);
+
+  const data = {
+    name, furigana, group, gender,
+    mail: mail.toLowerCase(),
+    status
+  };
+
+  try {
+    await db.collection('USER_LIST').doc(meEditingId).update(data);
+    closeMemberEditModal();
+    await loadMemberEditList();
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
   }
 }
