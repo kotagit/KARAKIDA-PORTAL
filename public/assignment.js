@@ -53,13 +53,13 @@ async function awLoadMembers() {
   awMembers = snap.docs
     .map(d => {
       const data = d.data();
-      const arr = Array.isArray(data.status) ? data.status : [];
+      const arr = (window._parseStatus ? window._parseStatus(data.status) : (Array.isArray(data.status) ? data.status : []));
       let position = '';
       if (arr.includes('EL')) position = '長老';
       else if (arr.includes('MS')) position = '援助奉仕者';
       else if (data.gender === '男') position = '生徒男';
       else if (data.gender === '女') position = '生徒女';
-      return { docId: d.id, ...data, position, _isInactive: arr.includes('inactive') };
+      return { docId: d.id, ...data, status: arr, position, _isInactive: arr.includes('inactive') };
     })
     .filter(m => !m._isInactive && m.name);
   awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
@@ -1700,7 +1700,8 @@ async function awSaveMember(e) {
       // 既存メンバー: status配列を取得して長老/MSフラグだけ書き換え
       const ref = db.collection('USER_LIST').doc(awEditingMemberId);
       const cur = (await ref.get()).data() || {};
-      const curStatus = Array.isArray(cur.status) ? cur.status.filter(v => v !== 'EL' && v !== 'MS' && v !== 'inactive') : [];
+      const curArr = (window._parseStatus ? window._parseStatus(cur.status) : (Array.isArray(cur.status) ? cur.status : []));
+      const curStatus = curArr.filter(v => v !== 'EL' && v !== 'MS' && v !== 'inactive');
       if (position === '長老') curStatus.push('EL');
       else if (position === '援助奉仕者') curStatus.push('MS');
       await ref.update({ name, furigana, gender, familyGroup, eligibleCodes, status: curStatus });

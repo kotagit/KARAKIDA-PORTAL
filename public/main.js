@@ -130,6 +130,21 @@ async function initApp() {
   }
 
   // 認証状態の変化を監視
+  // status フィールドを配列に正規化(文字列JSON / 配列 / ROWY破損形式 等)
+  function _cleanStatusItem(s) {
+    return String(s || '').replace(/^[\[\]"\s]+|[\[\]"\s]+$/g, '');
+  }
+  function _parseStatus(v) {
+    let arr = [];
+    if (Array.isArray(v)) arr = v;
+    else if (typeof v === 'string' && v) {
+      try { const a = JSON.parse(v); arr = Array.isArray(a) ? a : []; }
+      catch(e) { arr = v.split(/[,;]/); }
+    }
+    return arr.map(_cleanStatusItem).filter(Boolean);
+  }
+  window._parseStatus = _parseStatus;
+
   auth.onAuthStateChanged(async (user) => {
     if (user) {
       currentUser = user;
@@ -169,7 +184,7 @@ async function initApp() {
         memberUserName = userData.name || user.displayName || '';
         memberUserGroup = userData.group || '';
 
-        const statusArr = Array.isArray(userData.status) ? userData.status : [];
+        const statusArr = _parseStatus(userData.status);
         const statusUp = statusArr.map(v => String(v || '').toUpperCase().trim());
         isAdmin = statusUp.includes('WEB');
         isAnnaigakari = statusUp.includes('AT');
@@ -1960,7 +1975,7 @@ async function loadJouhouCard() {
       gender: String(d.gender || '').trim(),
       birthDate: String(d.birthDate || '').trim(),
       baptismDate: String(d.baptismDate || '').trim(),
-      status: Array.isArray(d.status) ? d.status : [],
+      status: _parseStatus(d.status),
       hope: String(d.hope || '').trim(),
     };
 
@@ -2454,7 +2469,7 @@ async function loadAdminReports() {
         gender: String(data.gender || '').trim(),
         birthDate: String(data.birthDate || '').trim(),
         baptismDate: String(data.baptismDate || '').trim(),
-        status: Array.isArray(data.status) ? data.status : [],
+        status: _parseStatus(data.status),
         hope: String(data.hope || '').trim(),
       });
     });
@@ -2477,7 +2492,7 @@ function setRptFilter(f) {
 }
 
 function isPioneer(m) {
-  const arr = Array.isArray(m.status) ? m.status : [];
+  const arr = _parseStatus(m.status);
   return arr.some(v => { const s = String(v || ''); return s === 'RP' || s.includes('開拓'); });
 }
 
@@ -2504,7 +2519,7 @@ function tsToStr(val) {
 }
 
 function displayRole(m) {
-  const arr = Array.isArray(m.status) ? m.status : [];
+  const arr = _parseStatus(m.status);
   const parts = [];
   if (arr.includes('EL')) parts.push('長老');
   else if (arr.includes('MS')) parts.push('援助奉仕者');
@@ -3358,7 +3373,7 @@ async function loadOrgView() {
         const data = d.data();
         const name = String(data.name || '').trim();
         if (!name) return;
-        const arr = Array.isArray(data.status) ? data.status : [];
+        const arr = _parseStatus(data.status);
         let roleLabel = '伝道者';
         if (arr.includes('EL')) roleLabel = '長老';
         else if (arr.includes('MS')) roleLabel = '援助奉仕者';
@@ -5170,7 +5185,7 @@ async function loadGroupMembers() {
       const d = doc.data();
       const name  = String(d.name  || '').trim();
       const group = String(d.group || '（未所属）').trim() || '（未所属）';
-      const arr = Array.isArray(d.status) ? d.status : [];
+      const arr = _parseStatus(d.status);
       let role = '';
       if (arr.includes('EL')) role = '長老';
       else if (arr.includes('MS')) role = '援助奉仕者';
