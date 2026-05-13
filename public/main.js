@@ -149,8 +149,9 @@ async function initApp() {
     if (user) {
       currentUser = user;
       isAdmin = false;
-      // ログインチェック中はアプリを隠したまま
+      // ログインチェック中はログイン画面に「確認中」を出して待たせる
       app.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
       if (loginError) loginError.textContent = 'ユーザー確認中...';
 
       // 権限と名前のチェック（Firestoreから取得）
