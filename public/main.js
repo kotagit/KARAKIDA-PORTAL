@@ -1891,58 +1891,61 @@ async function loadJouhouRenraku() {
   view.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-    // ORG_CHARTから長老団（グループ監督・補佐）を取得
-    const [orgSnap, userList] = await Promise.all([
-      db.collection('ORG_CHART').where('section', '==', '長老団').orderBy('order', 'asc').get(),
-      getUserListCached(),
-    ]);
+    const userList = await getUserListCached();
 
-    // USER_LISTを名前でマップ
-    const userMap = {};
+    // USER_LIST から GO / GA を抽出してグループ別に振り分け
+    const groupMap = {};
     userList.forEach(data => {
       const name = String(data.name || '').trim();
-      if (name) userMap[name] = data;
+      if (!name) return;
+      const arr = _parseStatus(data.status);
+      if (arr.includes('inactive')) return;
+      const isGO = arr.includes('GO');
+      const isGA = arr.includes('GA');
+      if (!isGO && !isGA) return;
+      const group = String(data.group || '').trim() || '（未所属）';
+      if (!groupMap[group]) groupMap[group] = { go: [], ga: [] };
+      const rec = {
+        name,
+        phone: String(data.phone || '').trim(),
+        homePhone: String(data.homePhone || '').trim(),
+        mail: String(data.mail || '').trim(),
+        address: String(data.address || '').trim(),
+      };
+      if (isGO) groupMap[group].go.push(rec);
+      if (isGA) groupMap[group].ga.push(rec);
     });
 
-    const groups = [];
-    orgSnap.docs.forEach(d => {
-      const data = d.data();
-      const dept = String(data.department || '').trim();
-      const sv = String(data.supervisor || '').trim();
-      const asst = String(data.assistant || '').trim();
-      if (dept && (sv || asst)) groups.push({ dept, sv, asst });
+    const groupNames = Object.keys(groupMap).sort((a, b) => {
+      if (a === '（未所属）') return 1;
+      if (b === '（未所属）') return -1;
+      return a.localeCompare(b, 'ja');
     });
 
-    if (groups.length === 0) {
-      view.innerHTML = '<div class="empty-state">連絡先情報がありません</div>';
+    if (groupNames.length === 0) {
+      view.innerHTML = '<div class="empty-state">グループ監督・補佐の情報がありません</div>';
       return;
     }
 
+    function renderCard(role, rec) {
+      let h = '<div class="renraku-card">';
+      h += '<div class="renraku-role">' + esc(role) + '</div>';
+      h += '<div class="renraku-name">' + esc(rec.name) + '</div>';
+      if (rec.phone)     h += '<div class="renraku-detail"><span class="material-icons">smartphone</span><a href="tel:' + esc(rec.phone) + '">' + esc(rec.phone) + '</a></div>';
+      if (rec.homePhone) h += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(rec.homePhone) + '">' + esc(rec.homePhone) + '</a></div>';
+      if (rec.mail)      h += '<div class="renraku-detail"><span class="material-icons">mail</span><a href="mailto:' + esc(rec.mail) + '">' + esc(rec.mail) + '</a></div>';
+      if (rec.address)   h += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(rec.address) + '</div>';
+      h += '</div>';
+      return h;
+    }
+
     let html = '';
-    groups.forEach(g => {
+    groupNames.forEach(group => {
+      const { go, ga } = groupMap[group];
       html += '<div class="renraku-group">';
-      html += '<div class="renraku-group-title">' + esc(g.dept) + '</div>';
-
-      if (g.sv) {
-        const u = userMap[g.sv] || {};
-        html += '<div class="renraku-card">';
-        html += '<div class="renraku-role">グループ監督</div>';
-        html += '<div class="renraku-name">' + esc(g.sv) + '</div>';
-        if (u.address) html += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(u.address) + '</div>';
-        if (u.phone) html += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(u.phone) + '">' + esc(u.phone) + '</a></div>';
-        html += '</div>';
-      }
-
-      if (g.asst) {
-        const u = userMap[g.asst] || {};
-        html += '<div class="renraku-card">';
-        html += '<div class="renraku-role">補佐</div>';
-        html += '<div class="renraku-name">' + esc(g.asst) + '</div>';
-        if (u.address) html += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(u.address) + '</div>';
-        if (u.phone) html += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(u.phone) + '">' + esc(u.phone) + '</a></div>';
-        html += '</div>';
-      }
-
+      html += '<div class="renraku-group-title">' + esc(group) + '</div>';
+      go.forEach(r => html += renderCard('グループ監督', r));
+      ga.forEach(r => html += renderCard('補佐', r));
       html += '</div>';
     });
 
