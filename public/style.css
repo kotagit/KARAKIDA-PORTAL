@@ -1213,6 +1213,40 @@ body {
 .sr-label {
   min-width: 90px; font-size: 13px; font-weight: 700; color: #555; flex-shrink: 0;
 }
+.sr-field-section {
+  margin: 20px 0 10px;
+  padding: 6px 12px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 6px;
+}
+.sr-emergency-card {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+.sr-emergency-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+.sr-emergency-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  padding: 3px 0;
+}
+.sr-emergency-row .material-icons {
+  font-size: 16px;
+  color: var(--text-light);
+}
+.sr-emergency-row a { color: var(--primary); text-decoration: none; }
 .sr-field { overflow: hidden; }
 .sr-input-wrap { flex: 1; min-width: 0; overflow: hidden; }
 .sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
