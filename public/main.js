@@ -5452,6 +5452,22 @@ async function loadMemberEditList() {
   }
 }
 
+function meIsPioneer(status) {
+  return status.includes('RP') || status.includes('AP');
+}
+
+function meSortMembers(arr) {
+  const genderRank = g => (g === '男' ? 0 : g === '女' ? 1 : 2);
+  const pioneerRank = s => (meIsPioneer(s) ? 0 : 1);
+  return arr.slice().sort((a, b) => {
+    const g = genderRank(a.gender) - genderRank(b.gender);
+    if (g !== 0) return g;
+    const p = pioneerRank(a.status) - pioneerRank(b.status);
+    if (p !== 0) return p;
+    return (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+  });
+}
+
 function renderMemberEditList() {
   const list = document.getElementById('me-list');
   const countEl = document.getElementById('me-count');
@@ -5478,31 +5494,62 @@ function renderMemberEditList() {
     return;
   }
 
-  list.innerHTML = '';
+  // グループごとに振り分け
+  const groupMap = {};
   filtered.forEach(m => {
-    const groupLabel = m.group ? esc(m.group) : '<span style="color:#bbb">未所属</span>';
-    const isInactive = m.status.includes('inactive');
-    const statusBadges = m.status
-      .filter(s => s !== 'inactive')
-      .map(s => `<span class="me-status-badge me-status-${esc(s)}">${esc(s)}</span>`)
-      .join('');
+    const g = (m.group || '').trim() || '（未所属）';
+    if (!groupMap[g]) groupMap[g] = [];
+    groupMap[g].push(m);
+  });
+  const groupNames = Object.keys(groupMap).sort((a, b) => {
+    if (a === '（未所属）') return 1;
+    if (b === '（未所属）') return -1;
+    return a.localeCompare(b, 'ja');
+  });
 
-    const item = document.createElement('div');
-    item.className = 'admin-list-item';
-    if (isInactive) item.style.opacity = '0.55';
-    item.innerHTML = `
-      <div class="admin-list-info">
-        <div class="admin-list-title">${esc(m.name || '(名前なし)')}${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}</div>
-        <div class="admin-list-date">${groupLabel}${m.gender ? ' ・ ' + esc(m.gender) : ''}</div>
-        <div class="me-status-row">${statusBadges}</div>
-      </div>
-      <div class="admin-list-actions">
-        <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
-          <span class="material-icons">edit</span>
-        </button>
-      </div>
+  list.innerHTML = '';
+  groupNames.forEach(group => {
+    const members = meSortMembers(groupMap[group]);
+
+    const header = document.createElement('div');
+    header.className = 'me-group-header';
+    header.innerHTML = `
+      <span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:6px">group</span>
+      ${esc(group)}
+      <span class="me-group-count">${members.length}名</span>
     `;
-    list.appendChild(item);
+    list.appendChild(header);
+
+    members.forEach(m => {
+      const isInactive = m.status.includes('inactive');
+      const statusBadges = m.status
+        .filter(s => s !== 'inactive')
+        .map(s => `<span class="me-status-badge me-status-${esc(s)}">${esc(s)}</span>`)
+        .join('');
+      const genderBadge = m.gender
+        ? `<span class="me-gender-badge me-gender-${m.gender === '男' ? 'm' : 'f'}">${esc(m.gender)}</span>`
+        : '';
+
+      const item = document.createElement('div');
+      item.className = 'admin-list-item';
+      if (isInactive) item.style.opacity = '0.55';
+      item.innerHTML = `
+        <div class="admin-list-info">
+          <div class="admin-list-title">
+            ${genderBadge}
+            ${esc(m.name || '(名前なし)')}
+            ${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}
+          </div>
+          ${statusBadges ? `<div class="me-status-row">${statusBadges}</div>` : ''}
+        </div>
+        <div class="admin-list-actions">
+          <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
+            <span class="material-icons">edit</span>
+          </button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
   });
 
   list.querySelectorAll('.btn-edit').forEach(btn =>
