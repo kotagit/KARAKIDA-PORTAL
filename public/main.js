@@ -1943,14 +1943,23 @@ async function loadJouhouRenraku() {
       return h;
     }
 
+    const myGroup = (memberUserGroup || '').trim();
+
     let html = '';
     groupNames.forEach(group => {
       const { go, ga } = groupMap[group];
-      html += '<div class="renraku-group">';
-      html += '<div class="renraku-group-title">' + esc(group) + '</div>';
+      const isMine = group === myGroup;
+      // 自グループはデフォルトで展開、他グループは折りたたみ
+      html += '<details class="renraku-group"' + (isMine ? ' open' : '') + '>';
+      html += '<summary class="renraku-group-title">' + esc(group);
+      if (isMine) html += '<span class="renraku-my-tag">自分のグループ</span>';
+      html += '<span class="material-icons renraku-chevron">expand_more</span>';
+      html += '</summary>';
+      html += '<div class="renraku-group-body">';
       go.forEach(r => html += renderCard('グループ監督', r));
       ga.forEach(r => html += renderCard('補佐', r));
       html += '</div>';
+      html += '</details>';
     });
 
     view.innerHTML = html;
