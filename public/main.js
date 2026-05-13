@@ -2303,15 +2303,19 @@ async function loadPwApply() {
     snap.docs.forEach(d => {
       const data = d.data();
       const day = String(data.day || '');
-      const place = String(data.place || '');
-      if (!day && !place) return;
+      // places 配列 もしくは レガシー place 文字列
+      const placesArr = Array.isArray(data.places) && data.places.length
+        ? data.places
+        : (data.place ? String(data.place).split(/[、,／/]/).map(s => s.trim()).filter(Boolean) : []);
+      if (!day || placesArr.length === 0) return;
       items.push({
-        key: d.id || (day + '_' + data.starttime + '_' + place),
+        key: d.id || (day + '_' + data.starttime + '_' + placesArr.join(',')),
         date: day,
         weekday: String(data.dayofweek || ''),
         startTime: String(data.starttime || ''),
         endTime: String(data.endtime || ''),
-        place: place,
+        places: placesArr,
+        place: placesArr.join('、'),
         order: typeof data.order === 'number' ? data.order : 9999,
       });
     });
@@ -2346,6 +2350,8 @@ async function loadPwApply() {
       const placeClass = item.place.includes('唐木田') ? 'pwa-place-green' : item.place.includes('堀之内') ? 'pwa-place-blue' : '';
       const placeDisplay = item.place.replace(/駅/g, '');
       const wdClass = (item.weekday === '土' || item.weekday === '日') ? ' style="color:#c41c3b"' : '';
+      const singlePlace = item.places && item.places.length === 1;
+      const locSectionClass = singlePlace ? ' hidden' : '';
 
       card.innerHTML = `
         <div class="pwa-row-main">
@@ -2360,7 +2366,7 @@ async function loadPwApply() {
             <div class="pwa-section-label">参加立場</div>
             <div class="pwa-roles-list"></div>
           </div>
-          <div class="pwa-section">
+          <div class="pwa-section${locSectionClass}">
             <div class="pwa-section-label">参加希望場所</div>
             <div class="pwa-locations-list"></div>
           </div>
@@ -2390,23 +2396,29 @@ async function loadPwApply() {
         rolesDiv.appendChild(label);
       });
 
-      PW_LOCATIONS.forEach(loc => {
-        const label = document.createElement('label');
-        label.className = 'pwa-role-label';
-        label.innerHTML = `<span class="material-icons pwa-radio">radio_button_unchecked</span><span>${esc(loc)}</span>`;
-        label.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
-          pwApplySelected[item.key].location = loc;
-          locsDiv.querySelectorAll('.pwa-radio').forEach(ic => {
-            ic.textContent = 'radio_button_unchecked';
-            ic.style.color = '#999';
+      if (singlePlace) {
+        // 場所が1つだけなら自動で設定（UIは非表示）
+        if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
+        pwApplySelected[item.key].location = item.places[0];
+      } else {
+        PW_LOCATIONS.forEach(loc => {
+          const label = document.createElement('label');
+          label.className = 'pwa-role-label';
+          label.innerHTML = `<span class="material-icons pwa-radio">radio_button_unchecked</span><span>${esc(loc)}</span>`;
+          label.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
+            pwApplySelected[item.key].location = loc;
+            locsDiv.querySelectorAll('.pwa-radio').forEach(ic => {
+              ic.textContent = 'radio_button_unchecked';
+              ic.style.color = '#999';
+            });
+            label.querySelector('.pwa-radio').textContent = 'radio_button_checked';
+            label.querySelector('.pwa-radio').style.color = 'var(--primary)';
           });
-          label.querySelector('.pwa-radio').textContent = 'radio_button_checked';
-          label.querySelector('.pwa-radio').style.color = 'var(--primary)';
+          locsDiv.appendChild(label);
         });
-        locsDiv.appendChild(label);
-      });
+      }
 
       mainRow.addEventListener('click', () => {
         const isSelected = card.classList.contains('pwa-selected');
@@ -2425,6 +2437,11 @@ async function loadPwApply() {
           optionsDiv.classList.remove('hidden');
           card.querySelector('.pwa-check .material-icons').textContent = 'check_circle';
           card.querySelector('.pwa-check .material-icons').style.color = 'var(--primary)';
+          // 場所が1つだけのときは自動で location を設定
+          if (singlePlace) {
+            if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
+            pwApplySelected[item.key].location = item.places[0];
+          }
         }
       });
 
