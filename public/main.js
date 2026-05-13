@@ -1991,7 +1991,14 @@ async function loadJouhouContact() {
 
     let html = '<div class="form-container">';
     html += '<p class="form-description">あなたの会衆登録情報</p>';
-    fields.forEach(f => {
+
+    // 氏名・ふりがな は名刺風ヘッダーで表示
+    html += '<div class="contact-name-card">';
+    if (d.furigana) html += '<div class="contact-furigana">' + esc(d.furigana) + '</div>';
+    html += '<div class="contact-name">' + esc(d.name || '') + '</div>';
+    html += '</div>';
+
+    fields.slice(2).forEach(f => {
       html += '<div class="sr-field">';
       html += '<label class="sr-label">' + esc(f.label) + '</label>';
       html += '<div class="sr-input-wrap"><input type="text" value="' + esc(f.value || '') + '" readonly style="background:#f5f5f5"></div>';
