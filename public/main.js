@@ -3476,32 +3476,89 @@ async function loadOrgView() {
     // グループ成員表
     if (groupView) {
       const userList = await getUserListCached();
-      const users = [];
-      userList.forEach(data => {
-        const name = String(data.name || '').trim();
-        if (!name) return;
-        const arr = _parseStatus(data.status);
-        let roleLabel = '伝道者';
-        if (arr.includes('EL')) roleLabel = '長老';
-        else if (arr.includes('MS')) roleLabel = '援助奉仕者';
-        if (arr.includes('RP') || arr.includes('正規開拓者')) roleLabel += ' / 開拓者';
-        users.push({ name, group: String(data.group || '').trim(), gender: String(data.gender || '').trim(), roleLabel });
-      });
-      users.sort((a, b) => a.group.localeCompare(b.group) || a.name.localeCompare(b.name));
+      const members = userList
+        .map(data => {
+          const arr = _parseStatus(data.status);
+          return {
+            name: String(data.name || '').trim(),
+            furigana: String(data.furigana || '').trim(),
+            group: String(data.group || '').trim(),
+            gender: String(data.gender || '').trim(),
+            status: arr,
+            _inactive: arr.includes('inactive'),
+            _rank: _gmMemberRank(arr, String(data.gender || '').trim()),
+          };
+        })
+        .filter(m => m.name && m.group && !m._inactive);
+
       const groupMap = {};
-      users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
-      let gHtml = '';
-      Object.keys(groupMap).sort().forEach(gName => {
-        const members = groupMap[gName];
-        gHtml += '<div class="group-member-card">';
-        gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
-        gHtml += '<div class="group-member-list">';
-        members.forEach(m => {
-          const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-          gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
-        });
-        gHtml += '</div></div>';
+      members.forEach(m => {
+        if (!groupMap[m.group]) groupMap[m.group] = [];
+        groupMap[m.group].push(m);
       });
+      Object.values(groupMap).forEach(arr => {
+        arr.sort((a, b) => {
+          if (a._rank !== b._rank) return a._rank - b._rank;
+          return (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja');
+        });
+      });
+
+      const sortedGroups = Object.keys(groupMap).sort((a, b) => a.localeCompare(b, 'ja'));
+      const maxRows = sortedGroups.length ? Math.max(...sortedGroups.map(g => groupMap[g].length)) : 0;
+
+      const KANA_ROWS = [
+        { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
+        { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
+        { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
+        { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
+        { tag: 'な', chars: 'ナニヌネノなにぬねの' },
+        { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
+        { tag: 'ま', chars: 'マミムメモまみむめも' },
+        { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
+        { tag: 'ら', chars: 'ラリルレロらりるれろ' },
+        { tag: 'わ', chars: 'ワヰヱヲンわをん' },
+      ];
+      function getKanaTag(s) {
+        if (!s) return '';
+        const ch = s.charAt(0);
+        for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
+        return '';
+      }
+
+      let gHtml = '<div class="gm-grid">';
+      sortedGroups.forEach(gName => {
+        const list = groupMap[gName];
+        gHtml += `<div class="gm-group">
+          <div class="gm-group-header">${esc(gName)} <span class="gm-count">${list.length}名</span></div>
+          <table class="gm-table gm-table-simple">
+            <thead><tr>
+              <th class="gm-tag-col">行</th>
+              <th class="gm-num">#</th>
+              <th class="gm-name">名前</th>
+            </tr></thead>
+            <tbody>`;
+        let prevTag = '';
+        for (let i = 0; i < maxRows; i++) {
+          const m = list[i];
+          if (!m) {
+            gHtml += `<tr class="gm-row gm-row-empty"><td class="gm-tag-col"></td><td class="gm-num">${i+1}</td><td></td></tr>`;
+            continue;
+          }
+          const rowClass = m.status.includes('GO') ? 'gm-row-go'
+                         : m.status.includes('GA') ? 'gm-row-ga'
+                         : (m.gender === '男' ? 'gm-row-m' : m.gender === '女' ? 'gm-row-f' : '');
+          const tag = getKanaTag(m.furigana || m.name);
+          const tagCell = tag && tag !== prevTag ? tag : '';
+          prevTag = tag;
+          gHtml += `<tr class="gm-row ${rowClass}">
+            <td class="gm-tag-col">${esc(tagCell)}</td>
+            <td class="gm-num">${i+1}</td>
+            <td class="gm-name ${m.gender === '女' ? 'gm-female' : ''}">${esc(m.name)}</td>
+          </tr>`;
+        }
+        gHtml += '</tbody></table></div>';
+      });
+      gHtml += '</div>';
       groupView.innerHTML = gHtml;
     }
   } catch (e) {
