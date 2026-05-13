@@ -24,7 +24,7 @@ const serviceAccount = require('./serviceAccount.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-const csvPath = process.argv[2] || path.join(__dirname, '..', 'USER_LIST_20260513.csv');
+const inputPath = process.argv[2] || path.join(__dirname, '..', 'USER_LIST_20260513.json');
 const purge = process.argv.includes('--purge');
 
 function parseCsv(text) {
@@ -48,12 +48,39 @@ function parseCsv(text) {
   return rows;
 }
 
-async function main() {
-  console.log(`Reading: ${csvPath}`);
-  const text = fs.readFileSync(csvPath, 'utf8').replace(/^﻿/, '');
+function loadRecordsFromCsv(text) {
   const rows = parseCsv(text).filter(r => r.length > 1);
   const header = rows.shift();
-  console.log(`Columns: ${header.length}, Rows: ${rows.length}`);
+  return rows.map(row => {
+    const obj = {};
+    header.forEach((h, idx) => { obj[h] = row[idx] !== undefined ? row[idx] : ''; });
+    if (typeof obj.eligibleCodes === 'string') {
+      obj.eligibleCodes = obj.eligibleCodes ? obj.eligibleCodes.split(';').map(s => s.trim()).filter(Boolean) : [];
+    }
+    if (typeof obj.emergencyContacts === 'string' && obj.emergencyContacts) {
+      try { obj.emergencyContacts = JSON.parse(obj.emergencyContacts); }
+      catch(e) { obj.emergencyContacts = []; }
+    } else {
+      obj.emergencyContacts = [];
+    }
+    if (obj.dev === 'TRUE') obj.dev = true;
+    else if (obj.dev === 'FALSE') obj.dev = false;
+    else obj.dev = !!obj.dev;
+    return obj;
+  });
+}
+
+async function main() {
+  console.log(`Reading: ${inputPath}`);
+  const text = fs.readFileSync(inputPath, 'utf8').replace(/^﻿/, '');
+  let records;
+  if (inputPath.toLowerCase().endsWith('.json')) {
+    records = JSON.parse(text);
+    if (!Array.isArray(records)) throw new Error('JSON must be an array of objects');
+  } else {
+    records = loadRecordsFromCsv(text);
+  }
+  console.log(`Records: ${records.length}`);
 
   if (purge) {
     console.log('Purging existing USER_LIST...');
@@ -66,24 +93,10 @@ async function main() {
 
   let written = 0;
   const batch = db.batch();
-  for (const row of rows) {
-    const obj = {};
-    header.forEach((h, idx) => { obj[h] = row[idx] !== undefined ? row[idx] : ''; });
-
-    if (typeof obj.eligibleCodes === 'string') {
-      obj.eligibleCodes = obj.eligibleCodes ? obj.eligibleCodes.split(';').map(s => s.trim()).filter(Boolean) : [];
-    }
-    if (typeof obj.emergencyContacts === 'string' && obj.emergencyContacts) {
-      try { obj.emergencyContacts = JSON.parse(obj.emergencyContacts); }
-      catch(e) { console.warn(`Bad emergencyContacts JSON for ${obj.name}: ${e.message}`); obj.emergencyContacts = []; }
-    } else {
-      obj.emergencyContacts = [];
-    }
-    if (obj.dev === 'TRUE') obj.dev = true;
-    else if (obj.dev === 'FALSE') obj.dev = false;
-    else obj.dev = obj.dev || false;
-
+  for (const obj of records) {
     if (!obj.name) continue;
+    if (!Array.isArray(obj.eligibleCodes)) obj.eligibleCodes = [];
+    if (!Array.isArray(obj.emergencyContacts)) obj.emergencyContacts = [];
     const ref = db.collection('USER_LIST').doc(obj.name);
     batch.set(ref, obj);
     written++;
