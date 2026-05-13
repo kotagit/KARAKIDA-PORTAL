@@ -5220,6 +5220,28 @@ function renderAttendanceMonthly(docs) {
 }
 
 // ── グループ成員表 ────────────────────────────
+function _calcAge(birthDate) {
+  if (!birthDate) return '';
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(birthDate));
+  if (!m) return '';
+  const b = new Date(+m[1], +m[2]-1, +m[3]);
+  if (isNaN(b)) return '';
+  const today = new Date();
+  let age = today.getFullYear() - b.getFullYear();
+  const mDiff = today.getMonth() - b.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && today.getDate() < b.getDate())) age--;
+  return age;
+}
+
+function _gmMemberRank(arr, gender) {
+  if (arr.includes('GO')) return 0;
+  if (arr.includes('GA')) return 1;
+  const isPioneer = arr.includes('RP') || arr.includes('AP');
+  if (gender === '男') return isPioneer ? 2 : 3;
+  if (gender === '女') return isPioneer ? 4 : 5;
+  return 6;
+}
+
 async function loadGroupMembers() {
   const container = document.getElementById('group-members-list');
   if (!container) return;
@@ -5227,23 +5249,40 @@ async function loadGroupMembers() {
 
   try {
     const userList = await getUserListCached();
-    const sorted = userList.slice().sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '', 'ja'));
+
+    // 各メンバーのデータを整形（無効化は除外）
+    const members = userList
+      .map(d => {
+        const arr = _parseStatus(d.status);
+        return {
+          docId: d.docId,
+          name: String(d.name || '').trim(),
+          furigana: String(d.furigana || '').trim(),
+          group: String(d.group || '').trim() || '（未所属）',
+          gender: String(d.gender || '').trim(),
+          age: _calcAge(d.birthDate),
+          status: arr,
+          stability: String(d.stability || '').trim(),  // 高 / 低 / ''
+          hasCar: d.hasCar === true || d.hasCar === '○' || d.hasCar === '車',
+          _inactive: arr.includes('inactive'),
+          _rank: _gmMemberRank(arr, String(d.gender || '').trim()),
+        };
+      })
+      .filter(m => m.name && !m._inactive);
 
     // グループ別に振り分け
     const groupMap = {};
-    sorted.forEach(d => {
-      const name  = String(d.name  || '').trim();
-      const group = String(d.group || '（未所属）').trim() || '（未所属）';
-      const arr = _parseStatus(d.status);
-      let role = '';
-      if (arr.includes('EL')) role = '長老';
-      else if (arr.includes('MS')) role = '援助奉仕者';
-      if (arr.includes('RP')) role = role ? role + ' / 開拓者' : '開拓者';
-      const gender = String(d.gender || '').trim();
-      if (!name) return;
-      if (!groupMap[group]) groupMap[group] = [];
-      groupMap[group].push({ name, role, gender });
+    members.forEach(m => {
+      if (!groupMap[m.group]) groupMap[m.group] = [];
+      groupMap[m.group].push(m);
+    });
+
+    // グループ内ソート: ランク → ふりがな
+    Object.values(groupMap).forEach(arr => {
+      arr.sort((a, b) => {
+        if (a._rank !== b._rank) return a._rank - b._rank;
+        return (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja');
+      });
     });
 
     const sortedGroups = Object.keys(groupMap).sort((a, b) => {
@@ -5257,28 +5296,56 @@ async function loadGroupMembers() {
       return;
     }
 
-    let html = '';
+    // 全グループの最大行数（揃った行数で表示）
+    const maxRows = Math.max(...sortedGroups.map(g => groupMap[g].length));
+
+    let html = '<div class="gm-grid">';
     sortedGroups.forEach(group => {
-      const members = groupMap[group];
-      html += `
-        <div class="gm-group">
-          <div class="gm-group-header">
-            <span class="material-icons" style="font-size:20px;vertical-align:middle;margin-right:6px">group</span>
-            ${esc(group)}
-            <span class="gm-count">${members.length}名</span>
-          </div>
-          <div class="admin-list">
-            ${members.map(m => `
-              <div class="admin-list-item">
-                <div class="admin-list-info">
-                  <div class="admin-list-title">${esc(m.name)}</div>
-                  ${m.role ? `<div class="admin-list-date">${esc(m.role)}</div>` : ''}
-                </div>
-                ${m.gender ? `<span class="gm-gender-badge gm-gender-${m.gender === '男' ? 'm' : 'f'}">${esc(m.gender)}</span>` : ''}
-              </div>`).join('')}
-          </div>
-        </div>`;
+      const list = groupMap[group];
+      html += `<div class="gm-group">
+        <div class="gm-group-header">${esc(group)} <span class="gm-count">${list.length}名</span></div>
+        <table class="gm-table">
+          <thead>
+            <tr>
+              <th class="gm-num">#</th>
+              <th class="gm-name">名前</th>
+              <th class="gm-age">年齢</th>
+              <th class="gm-gender">性別</th>
+              <th class="gm-role1">立場1</th>
+              <th class="gm-role2">立場2</th>
+              <th class="gm-stab">安定性</th>
+              <th class="gm-car">車</th>
+            </tr>
+          </thead>
+          <tbody>`;
+      for (let i = 0; i < maxRows; i++) {
+        const m = list[i];
+        if (!m) {
+          html += `<tr class="gm-row gm-row-empty"><td class="gm-num">${i+1}</td><td colspan="7"></td></tr>`;
+          continue;
+        }
+        const rowClass = m.status.includes('GO') ? 'gm-row-go'
+                       : m.status.includes('GA') ? 'gm-row-ga'
+                       : (m.gender === '男' ? 'gm-row-m' : m.gender === '女' ? 'gm-row-f' : '');
+        const role1 = m.status.includes('EL') ? '長' : m.status.includes('MS') ? '援' : '';
+        const role2 = (m.status.includes('RP') || m.status.includes('AP')) ? '開' : '';
+        const stab = m.stability;
+        const stabCls = stab === '高' ? 'gm-stab-high' : stab === '低' ? 'gm-stab-low' : '';
+        const rowExtra = stab === '低' ? ' gm-row-low' : '';
+        html += `<tr class="gm-row ${rowClass}${rowExtra}">
+          <td class="gm-num">${i+1}</td>
+          <td class="gm-name">${esc(m.name)}</td>
+          <td class="gm-age">${m.age !== '' ? m.age : ''}</td>
+          <td class="gm-gender ${m.gender === '女' ? 'gm-female' : ''}">${esc(m.gender)}</td>
+          <td class="gm-role1">${role1}</td>
+          <td class="gm-role2">${role2}</td>
+          <td class="gm-stab ${stabCls}">${esc(stab)}</td>
+          <td class="gm-car">${m.hasCar ? '車' : ''}</td>
+        </tr>`;
+      }
+      html += '</tbody></table></div>';
     });
+    html += '</div>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = `<div class="loading">読み込みエラー: ${e.message}</div>`;
@@ -5783,6 +5850,8 @@ function openMemberEditModal(id) {
 
   document.getElementById('me-gender').value   = member?.gender   || '';
   document.getElementById('me-mail').value     = member?.mail     || '';
+  document.getElementById('me-stability').value = member?.stability || '';
+  document.getElementById('me-hascar').checked  = member?.hasCar === true;
 
   const grid = document.getElementById('me-status-grid');
   const cur = new Set(member?.status || []);
@@ -5811,6 +5880,8 @@ async function saveMemberEdit(e) {
   const group    = document.getElementById('me-group').value.trim();
   const gender   = document.getElementById('me-gender').value;
   const mail     = document.getElementById('me-mail').value.trim();
+  const stability = document.getElementById('me-stability').value;
+  const hasCar    = document.getElementById('me-hascar').checked;
   if (!name) { alert('氏名は必須です'); return; }
 
   const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
@@ -5819,6 +5890,7 @@ async function saveMemberEdit(e) {
   const data = {
     name, furigana, group, gender,
     mail: mail.toLowerCase(),
+    stability, hasCar,
     status
   };
 
