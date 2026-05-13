@@ -150,30 +150,34 @@ async function initApp() {
           snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
         }
         
-        if (!snap.empty) {
-          const userData = snap.docs[0].data();
-          console.log('User data loaded:', userData.name);
-          // USER_LISTにある漢字の名前等に書き換える
-          userNameEl.textContent = userData.name || user.displayName || '';
-          memberUserName = userData.name || user.displayName || '';
-          memberUserGroup = userData.group || '';
-
-          const statusArr = Array.isArray(userData.status) ? userData.status : [];
-          const statusUp = statusArr.map(v => String(v || '').toUpperCase().trim());
-          isAdmin = statusUp.includes('WEB');
-          isAnnaigakari = statusUp.includes('AT');
-          isElder = statusUp.includes('EL');
-          isPortalAdmin = statusUp.includes('ADMIN');
-
-          const adminMenu = document.getElementById('menu-admin');
-          if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
-          const portalAdminSection = document.getElementById('admin-portal-section');
-          if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
-        } else {
-          console.warn('User not found in USER_LIST');
-          memberUserName = user.displayName || '';
-          memberUserGroup = '';
+        if (snap.empty) {
+          // USER_LISTに登録されていないアカウントはアクセス拒否
+          console.warn('Access denied: not in USER_LIST', email);
+          loginScreen.classList.remove('hidden');
+          app.classList.add('hidden');
+          if (loginError) loginError.textContent = 'アクセス権限がありません。管理者にお問い合わせください。';
+          await auth.signOut();
+          return;
         }
+
+        const userData = snap.docs[0].data();
+        console.log('User data loaded:', userData.name);
+        // USER_LISTにある漢字の名前等に書き換える
+        userNameEl.textContent = userData.name || user.displayName || '';
+        memberUserName = userData.name || user.displayName || '';
+        memberUserGroup = userData.group || '';
+
+        const statusArr = Array.isArray(userData.status) ? userData.status : [];
+        const statusUp = statusArr.map(v => String(v || '').toUpperCase().trim());
+        isAdmin = statusUp.includes('WEB');
+        isAnnaigakari = statusUp.includes('AT');
+        isElder = statusUp.includes('EL');
+        isPortalAdmin = statusUp.includes('ADMIN');
+
+        const adminMenu = document.getElementById('menu-admin');
+        if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+        const portalAdminSection = document.getElementById('admin-portal-section');
+        if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
         // サーバー時刻オフセットを取得（セッションに1回）
         try {
           const uid = user.uid;
