@@ -293,16 +293,19 @@ async function loadPWSlots() {
       const dateStr  = String(opt.day       || '');
       const weekday  = String(opt.dayofweek || '');
       const time     = String(opt.starttime || '');
-      const place    = String(opt.place     || '');
+      // places 配列 もしくは レガシー place 文字列を統一処理
+      const placesArr = Array.isArray(opt.places) && opt.places.length
+        ? opt.places
+        : (opt.place ? String(opt.place).split(/[、,／/]/).map(s => s.trim()).filter(Boolean) : []);
+      if (placesArr.length === 0) return;
+      const placeKey = placesArr.join(',');
       const dateLabel = `${dateStr}(${weekday})`;
-      const slotKey  = `${dateStr}_${time}_${place}`;
+      const slotKey  = `${dateStr}_${time}_${placeKey}`;
 
-      // 申込者を抽出
-      // - 同じ date/weekday/time のもの
-      // - preferredLocation に slot の place を含む人を表示
-      //   "A" 単独 → A の場所のプルダウンのみ
-      //   "A＞B"   → A と B 両方のプルダウンに表示
-      // - 旧データ（preferredLocation 未設定）は従来通り d.place === place で判定
+      // 申込者を抽出:
+      // - 同じ date/weekday/time
+      // - preferredLocation に places のいずれかが含まれる
+      // - レガシーは d.place が places のどれかに一致
       const applicantsForSlot = appSnap.docs
         .map(d => d.data())
         .filter(d => {
@@ -310,8 +313,8 @@ async function loadPWSlots() {
           if (d.dayofweek !== weekday) return false;
           if (d.starttime !== time) return false;
           const pref = String(d.preferredLocation || '').trim();
-          if (pref) return pref.includes(place);
-          return d.place === place;
+          if (pref) return placesArr.some(p => pref.includes(p));
+          return placesArr.includes(d.place);
         });
 
       // 申込者の希望場所マップ (name → preferredLocation)
@@ -334,7 +337,17 @@ async function loadPWSlots() {
           .filter(Boolean)
       )].sort();
 
-      const fullPlaces = pwGetFullPlaceNames(weekday, time, place);
+      // fullPlaces: 全 places のサブエリアを結合
+      const fullPlaces = [];
+      const fullPlaceParentMap = {}; // fullPlace → 親 place
+      placesArr.forEach(p => {
+        pwGetFullPlaceNames(weekday, time, p).forEach(fp => {
+          if (!fullPlaces.includes(fp)) {
+            fullPlaces.push(fp);
+            fullPlaceParentMap[fp] = p;
+          }
+        });
+      });
 
       // 既存割当てを初期化
       const subMap = {};
@@ -351,7 +364,14 @@ async function loadPWSlots() {
       });
       pwAssignmentsMap[slotKey] = subMap;
 
-      slots.push({ dateStr, weekday, dateLabel, time, place, slotKey, fullPlaces, conductorApplicants, allApplicants, applicantLocMap });
+      slots.push({
+        dateStr, weekday, dateLabel, time,
+        endtime: String(opt.endtime || ''),
+        places: placesArr,
+        place: placesArr.join('、'), // 後方互換用
+        slotKey, fullPlaces, fullPlaceParentMap,
+        conductorApplicants, allApplicants, applicantLocMap
+      });
     });
 
     // 日付ごとにグループ化して描画
@@ -364,15 +384,17 @@ async function loadPWSlots() {
           <div class="pw-date-tag">${esc(slot.dateLabel)}</div>`;
         lastDate = slot.dateLabel;
       }
-      const placeColor = slot.place.includes('唐木田') ? 'pw-place-karakida'
-                       : slot.place.includes('堀之内') ? 'pw-place-horinouchi'
-                       : 'pw-place-other';
+      const placeBadges = slot.places.map(p => {
+        const c = p.includes('唐木田') ? 'pw-place-karakida'
+                : p.includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
+        return `<span class="pw-place-badge ${c}">${esc(p)}</span>`;
+      }).join('');
       html += `
         <div class="pw-slot-card" data-slotkey="${esc(slot.slotKey)}"
           onclick="openPWAssignment('${esc(slot.slotKey)}')">
           <span class="material-icons pw-slot-icon">access_time</span>
-          <span class="pw-slot-time">${esc(slot.time)}</span>
-          <span class="pw-place-badge ${placeColor}">${esc(slot.place)}</span>
+          <span class="pw-slot-time">${esc(slot.time)}〜${esc(slot.endtime || '')}</span>
+          ${placeBadges}
           <span class="material-icons" style="color:#bbb;font-size:20px">chevron_right</span>
         </div>`;
     });
@@ -409,17 +431,31 @@ function renderPWAssignment(slot) {
   const body = document.getElementById('pw-assignment-body');
   const subMap = pwAssignmentsMap[slot.slotKey] || {};
 
+  // fullPlace ごとに、その親 place に preferredLocation がマッチする応募者だけ抽出
+  function applicantsForFullPlace(fp, baseList) {
+    const parent = (slot.fullPlaceParentMap || {})[fp];
+    if (!parent) return baseList;
+    const locMap = slot.applicantLocMap || {};
+    return baseList.filter(name => {
+      const pref = String(locMap[name] || '').trim();
+      if (!pref) return true; // 旧データはそのまま
+      return pref.includes(parent);
+    });
+  }
+
   let html = '';
   slot.fullPlaces.forEach(fp => {
     const data = subMap[fp] || { '司会者': null, '参加者': [null,null,null,null,null] };
+    const cond = applicantsForFullPlace(fp, slot.conductorApplicants);
+    const all  = applicantsForFullPlace(fp, slot.allApplicants);
     html += `
       <div class="pw-subloc-card">
         <div class="pw-subloc-header">${esc(fp)}</div>
         <div class="pw-subloc-body">
-          ${buildPWRow('司会者', fp, '司会者', data['司会者'], slot.conductorApplicants)}
+          ${buildPWRow('司会者', fp, '司会者', data['司会者'], cond)}
           <div class="pw-divider"></div>
           ${[0,1,2,3,4].map(i =>
-            buildPWRow(`参加者 ${i+1}`, fp, `参加者_${i}`, data['参加者'][i], slot.allApplicants)
+            buildPWRow(`参加者 ${i+1}`, fp, `参加者_${i}`, data['参加者'][i], all)
           ).join('')}
         </div>
       </div>`;
