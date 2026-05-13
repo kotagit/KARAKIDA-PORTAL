@@ -2983,7 +2983,8 @@ function s13GetGroupsForCity(city) {
 }
 
 async function s13LoadSupervisors() {
-  const svSnap = await db.collection('USER_LIST').where('status', 'array-contains', 'SV').get();
+  const svSnap = await db.collection('USER_LIST')
+    .where('status', 'array-contains-any', ['GO', 'SV']).get();
   s13SupervisorMap = {};
   svSnap.docs.forEach(doc => {
     const d = doc.data();
@@ -5407,7 +5408,6 @@ const ME_STATUS_OPTIONS = [
   { code: 'RP',       label: '正規開拓者' },
   { code: 'AP',       label: '補助開拓者' },
   { code: 'AT',       label: '案内係' },
-  { code: 'SV',       label: '監督' },
   { code: 'WEB',      label: 'WEB管理者' },
   { code: 'ADMIN',    label: 'ADMIN' },
   { code: 'inactive', label: '無効化' },
@@ -5428,9 +5428,24 @@ async function initMemberEditPage() {
     document.getElementById('me-modal-overlay')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-cancel')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-form')?.addEventListener('submit', saveMemberEdit);
+    document.getElementById('me-mode-list')?.addEventListener('click', () => setMemberEditMode('list'));
+    document.getElementById('me-mode-bulk')?.addEventListener('click', () => setMemberEditMode('bulk'));
+    document.getElementById('me-bulk-save')?.addEventListener('click', saveBulkChanges);
+    document.getElementById('me-bulk-discard')?.addEventListener('click', discardBulkChanges);
     meInitialized = true;
   }
   await loadMemberEditList();
+}
+
+let meMode = 'list';
+function setMemberEditMode(mode) {
+  meMode = mode;
+  document.getElementById('me-mode-list')?.classList.toggle('me-mode-active', mode === 'list');
+  document.getElementById('me-mode-bulk')?.classList.toggle('me-mode-active', mode === 'bulk');
+  document.getElementById('me-list-mode')?.classList.toggle('hidden', mode !== 'list');
+  document.getElementById('me-bulk-mode')?.classList.toggle('hidden', mode !== 'bulk');
+  if (mode === 'bulk') renderBulkEditTable();
+  else renderMemberEditList();
 }
 
 async function loadMemberEditList() {
@@ -5561,6 +5576,9 @@ function renderMemberEditList() {
           <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
             <span class="material-icons">edit</span>
           </button>
+          ${isPortalAdmin ? `<button class="btn-me-delete icon-btn" data-id="${esc(m.docId)}" data-name="${esc(m.name || '')}" style="color:#d32f2f" title="削除">
+            <span class="material-icons">delete</span>
+          </button>` : ''}
         </div>
       `;
       list.appendChild(item);
@@ -5569,6 +5587,19 @@ function renderMemberEditList() {
 
   list.querySelectorAll('.btn-edit').forEach(btn =>
     btn.addEventListener('click', () => openMemberEditModal(btn.dataset.id)));
+  list.querySelectorAll('.btn-me-delete').forEach(btn =>
+    btn.addEventListener('click', () => deleteMemberFromList(btn.dataset.id, btn.dataset.name)));
+}
+
+async function deleteMemberFromList(id, name) {
+  if (!isPortalAdmin) { alert('削除権限がありません'); return; }
+  if (!confirm(`「${name || '(名前なし)'}」を完全に削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    await db.collection('USER_LIST').doc(id).delete();
+    await loadMemberEditList();
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
 }
 
 function openMemberEditModal(id) {
@@ -5628,4 +5659,169 @@ async function saveMemberEdit(e) {
   } catch (err) {
     alert('保存エラー: ' + err.message);
   }
+}
+
+// ── 成員 一括編集 ────────────────────────────────
+const ME_BULK_TEXT_FIELDS = [
+  { key: 'name',     label: '氏名',       width: 140 },
+  { key: 'furigana', label: 'ふりがな',   width: 140 },
+  { key: 'group',    label: 'グループ',   width: 100 },
+  { key: 'gender',   label: '性別',       width: 60, type: 'select', options: ['', '男', '女'] },
+  { key: 'mail',     label: 'メール',     width: 200 },
+];
+
+// docId -> { name?, furigana?, group?, gender?, mail?, status?: [] }
+const meBulkChanges = new Map();
+
+function meBulkOriginal(docId) {
+  return meAllMembers.find(m => m.docId === docId);
+}
+
+function meBulkCurrentValue(member, key) {
+  const change = meBulkChanges.get(member.docId);
+  if (change && Object.prototype.hasOwnProperty.call(change, key)) return change[key];
+  if (key === 'status') return member.status || [];
+  return member[key] || '';
+}
+
+function meBulkRecordChange(docId, key, value) {
+  const member = meBulkOriginal(docId);
+  if (!member) return;
+  const original = key === 'status' ? (member.status || []) : (member[key] || '');
+  const same = key === 'status'
+    ? (Array.isArray(value) && value.length === original.length && value.every(v => original.includes(v)))
+    : (value === original);
+  let change = meBulkChanges.get(docId) || {};
+  if (same) {
+    delete change[key];
+    if (Object.keys(change).length === 0) meBulkChanges.delete(docId);
+    else meBulkChanges.set(docId, change);
+  } else {
+    change[key] = value;
+    meBulkChanges.set(docId, change);
+  }
+  updateBulkToolbar();
+}
+
+function updateBulkToolbar() {
+  const dirty = meBulkChanges.size;
+  const statusEl = document.getElementById('me-bulk-status');
+  const saveBtn = document.getElementById('me-bulk-save');
+  const discardBtn = document.getElementById('me-bulk-discard');
+  if (statusEl) statusEl.textContent = dirty === 0 ? '変更なし' : `${dirty}件の変更`;
+  if (statusEl) statusEl.classList.toggle('me-bulk-dirty', dirty > 0);
+  if (saveBtn) saveBtn.disabled = dirty === 0;
+  if (discardBtn) discardBtn.classList.toggle('hidden', dirty === 0);
+}
+
+function renderBulkEditTable() {
+  const thead = document.getElementById('me-bulk-thead');
+  const tbody = document.getElementById('me-bulk-tbody');
+  if (!thead || !tbody) return;
+
+  // ヘッダー行
+  let theadHtml = '<tr>';
+  ME_BULK_TEXT_FIELDS.forEach((f, i) => {
+    const sticky = i === 0 ? 'meb-sticky-col' : '';
+    theadHtml += `<th class="${sticky}" style="min-width:${f.width}px">${esc(f.label)}</th>`;
+  });
+  ME_STATUS_OPTIONS.forEach(opt => {
+    theadHtml += `<th class="meb-status-col" title="${esc(opt.label)}">${esc(opt.code)}</th>`;
+  });
+  theadHtml += '</tr>';
+  thead.innerHTML = theadHtml;
+
+  // グループ→ランク順
+  const sorted = meAllMembers.slice().sort((a, b) => {
+    const ga = (a.group || '￿').toString();
+    const gb = (b.group || '￿').toString();
+    const gc = ga.localeCompare(gb, 'ja');
+    if (gc !== 0) return gc;
+    const r = meGroupRank(a) - meGroupRank(b);
+    if (r !== 0) return r;
+    return (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+  });
+
+  let html = '';
+  sorted.forEach(m => {
+    html += `<tr data-id="${esc(m.docId)}">`;
+    ME_BULK_TEXT_FIELDS.forEach((f, i) => {
+      const sticky = i === 0 ? 'meb-sticky-col' : '';
+      const val = meBulkCurrentValue(m, f.key);
+      if (f.type === 'select') {
+        html += `<td class="${sticky}"><select class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}">`;
+        f.options.forEach(opt => {
+          html += `<option value="${esc(opt)}" ${opt === val ? 'selected' : ''}>${opt === '' ? '-' : esc(opt)}</option>`;
+        });
+        html += '</select></td>';
+      } else {
+        const type = f.key === 'mail' ? 'email' : 'text';
+        html += `<td class="${sticky}"><input type="${type}" class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}" value="${esc(val)}"></td>`;
+      }
+    });
+    const curStatus = meBulkCurrentValue(m, 'status');
+    ME_STATUS_OPTIONS.forEach(opt => {
+      const checked = curStatus.includes(opt.code) ? 'checked' : '';
+      html += `<td class="meb-status-col"><input type="checkbox" class="meb-status" data-id="${esc(m.docId)}" data-code="${esc(opt.code)}" ${checked}></td>`;
+    });
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  tbody.querySelectorAll('.meb-input').forEach(el => {
+    const handler = () => meBulkRecordChange(el.dataset.id, el.dataset.key, el.value);
+    el.addEventListener('change', handler);
+    if (el.tagName === 'INPUT') el.addEventListener('blur', handler);
+  });
+  tbody.querySelectorAll('.meb-status').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const docId = cb.dataset.id;
+      const code = cb.dataset.code;
+      const member = meBulkOriginal(docId);
+      if (!member) return;
+      const cur = meBulkCurrentValue(member, 'status').slice();
+      const idx = cur.indexOf(code);
+      if (cb.checked && idx === -1) cur.push(code);
+      else if (!cb.checked && idx !== -1) cur.splice(idx, 1);
+      meBulkRecordChange(docId, 'status', cur);
+    });
+  });
+
+  updateBulkToolbar();
+}
+
+async function saveBulkChanges() {
+  if (meBulkChanges.size === 0) return;
+  const saveBtn = document.getElementById('me-bulk-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
+  try {
+    const batch = db.batch();
+    meBulkChanges.forEach((change, docId) => {
+      const data = {};
+      Object.keys(change).forEach(k => {
+        if (k === 'mail') data[k] = (change[k] || '').toLowerCase();
+        else data[k] = change[k];
+      });
+      batch.update(db.collection('USER_LIST').doc(docId), data);
+    });
+    await batch.commit();
+    meBulkChanges.clear();
+    await loadMemberEditList();
+    if (meMode === 'bulk') renderBulkEditTable();
+    alert('保存しました');
+  } catch (err) {
+    alert('保存エラー: ' + err.message);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存';
+    }
+  }
+}
+
+function discardBulkChanges() {
+  if (meBulkChanges.size === 0) return;
+  if (!confirm(`${meBulkChanges.size}件の変更を破棄しますか？`)) return;
+  meBulkChanges.clear();
+  renderBulkEditTable();
 }
