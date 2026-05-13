@@ -5449,48 +5449,57 @@ async function loadGroupMembers() {
     // 全グループの最大行数（揃った行数で表示）
     const maxRows = Math.max(...sortedGroups.map(g => groupMap[g].length));
 
+    // ふりがな先頭文字 → 50音タグ
+    const KANA_ROWS = [
+      { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
+      { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
+      { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
+      { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
+      { tag: 'な', chars: 'ナニヌネノなにぬねの' },
+      { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
+      { tag: 'ま', chars: 'マミムメモまみむめも' },
+      { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
+      { tag: 'ら', chars: 'ラリルレロらりるれろ' },
+      { tag: 'わ', chars: 'ワヰヱヲンわをん' },
+    ];
+    function getKanaTag(s) {
+      if (!s) return '';
+      const ch = s.charAt(0);
+      for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
+      return '';
+    }
+
     let html = '<div class="gm-grid">';
     sortedGroups.forEach(group => {
       const list = groupMap[group];
       html += `<div class="gm-group">
         <div class="gm-group-header">${esc(group)} <span class="gm-count">${list.length}名</span></div>
-        <table class="gm-table">
+        <table class="gm-table gm-table-simple">
           <thead>
             <tr>
+              <th class="gm-tag-col">行</th>
               <th class="gm-num">#</th>
               <th class="gm-name">名前</th>
-              <th class="gm-age">年齢</th>
-              <th class="gm-gender">性別</th>
-              <th class="gm-role1">立場1</th>
-              <th class="gm-role2">立場2</th>
-              <th class="gm-stab">安定性</th>
-              <th class="gm-car">車</th>
             </tr>
           </thead>
           <tbody>`;
+      let prevTag = '';
       for (let i = 0; i < maxRows; i++) {
         const m = list[i];
         if (!m) {
-          html += `<tr class="gm-row gm-row-empty"><td class="gm-num">${i+1}</td><td colspan="7"></td></tr>`;
+          html += `<tr class="gm-row gm-row-empty"><td class="gm-tag-col"></td><td class="gm-num">${i+1}</td><td></td></tr>`;
           continue;
         }
         const rowClass = m.status.includes('GO') ? 'gm-row-go'
                        : m.status.includes('GA') ? 'gm-row-ga'
                        : (m.gender === '男' ? 'gm-row-m' : m.gender === '女' ? 'gm-row-f' : '');
-        const role1 = m.status.includes('EL') ? '長' : m.status.includes('MS') ? '援' : '';
-        const role2 = (m.status.includes('RP') || m.status.includes('AP')) ? '開' : '';
-        const stab = m.stability;
-        const stabCls = stab === '高' ? 'gm-stab-high' : stab === '低' ? 'gm-stab-low' : '';
-        const rowExtra = stab === '低' ? ' gm-row-low' : '';
-        html += `<tr class="gm-row ${rowClass}${rowExtra}">
+        const tag = getKanaTag(m.furigana || m.name);
+        const tagCell = tag && tag !== prevTag ? tag : '';
+        prevTag = tag;
+        html += `<tr class="gm-row ${rowClass}">
+          <td class="gm-tag-col">${esc(tagCell)}</td>
           <td class="gm-num">${i+1}</td>
-          <td class="gm-name">${esc(m.name)}</td>
-          <td class="gm-age">${m.age !== '' ? m.age : ''}</td>
-          <td class="gm-gender ${m.gender === '女' ? 'gm-female' : ''}">${esc(m.gender)}</td>
-          <td class="gm-role1">${role1}</td>
-          <td class="gm-role2">${role2}</td>
-          <td class="gm-stab ${stabCls}">${esc(stab)}</td>
-          <td class="gm-car">${m.hasCar ? '車' : ''}</td>
+          <td class="gm-name ${m.gender === '女' ? 'gm-female' : ''}">${esc(m.name)}</td>
         </tr>`;
       }
       html += '</tbody></table></div>';
