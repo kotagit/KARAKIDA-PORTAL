@@ -1278,11 +1278,25 @@ body {
   -webkit-appearance: none; appearance: none;
 }
 /* ── 連絡先情報 ── */
-.renraku-group { margin-bottom: 20px; }
+.renraku-group { margin-bottom: 14px; }
+details.renraku-group { border: 1px solid var(--border, #e0e0e0); border-radius: 8px; overflow: hidden; background: white; }
 .renraku-group-title {
   font-size: 14px; font-weight: 700; color: var(--primary);
-  padding: 8px 4px; border-bottom: 2px solid var(--primary); margin-bottom: 0;
+  padding: 10px 14px; background: var(--primary-light);
+  display: flex; align-items: center; gap: 8px;
+  cursor: pointer; list-style: none; user-select: none;
 }
+.renraku-group-title::-webkit-details-marker { display: none; }
+.renraku-chevron {
+  margin-left: auto; transition: transform .2s; color: var(--primary);
+}
+details[open] .renraku-chevron { transform: rotate(180deg); }
+.renraku-my-tag {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 10px;
+  background: var(--primary); color: white;
+}
+.renraku-group-body { padding: 0; }
 .renraku-card {
   background: white; padding: 14px 16px; border-bottom: 1px solid #f0f0f0;
   box-shadow: var(--shadow);
