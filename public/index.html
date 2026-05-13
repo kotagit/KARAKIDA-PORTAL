@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=117">
+  <link rel="stylesheet" href="style.css?v=118">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -217,6 +217,10 @@
           </div>
           <div class="admin-list-row" id="admin-manage-group-members">
             <span class="admin-row-label">グループ成員表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-member-edit">
+            <span class="admin-row-label">成員編集リスト</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" id="admin-manage-org">
@@ -1109,7 +1113,83 @@
       </div>
     </section>
 
+    <!-- 成員編集リスト -->
+    <section id="page-admin-member-edit" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">成員編集リスト</h2>
+      </div>
+      <div class="page-content">
+        <div class="rpt-toolbar">
+          <div class="rpt-toolbar-row" style="gap:8px;align-items:center;width:100%">
+            <input type="search" id="me-search" placeholder="氏名・ふりがな・グループで検索" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px">
+            <select id="me-filter" class="aw-toolbar-select">
+              <option value="all">全て</option>
+              <option value="EL">長老</option>
+              <option value="MS">援助奉仕者</option>
+              <option value="RP">正規開拓者</option>
+              <option value="WEB">WEB管理者</option>
+              <option value="AT">案内係</option>
+              <option value="SV">監督</option>
+              <option value="inactive">無効</option>
+            </select>
+          </div>
+          <div class="rpt-toolbar-row" style="margin-top:6px">
+            <span id="me-count" style="font-size:12px;color:var(--text-light)"></span>
+          </div>
+        </div>
+        <div id="me-list" class="admin-list">
+          <div class="loading">読み込み中...</div>
+        </div>
+      </div>
+    </section>
+
   </main>
+</div>
+
+<!-- 成員編集モーダル -->
+<div id="me-modal" class="modal hidden">
+  <div class="modal-overlay" id="me-modal-overlay"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="me-modal-title">成員を編集</h2>
+      <button class="icon-btn" id="me-modal-close"><span class="material-icons">close</span></button>
+    </div>
+    <form id="me-form">
+      <div class="form-group">
+        <label>氏名 <span style="color:#d32f2f">*</span></label>
+        <input type="text" id="me-name" required placeholder="山田 太郎">
+      </div>
+      <div class="form-group">
+        <label>ふりがな</label>
+        <input type="text" id="me-furigana" placeholder="ヤマダ タロウ">
+      </div>
+      <div class="form-group">
+        <label>グループ</label>
+        <input type="text" id="me-group" placeholder="例: Aグループ">
+      </div>
+      <div class="form-group">
+        <label>性別</label>
+        <select id="me-gender">
+          <option value="">未設定</option>
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>メール</label>
+        <input type="email" id="me-mail" placeholder="user@example.com">
+      </div>
+      <div class="form-group">
+        <label>立場・権限 (status)</label>
+        <div id="me-status-grid" class="me-status-grid"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" id="me-cancel">キャンセル</button>
+        <button type="submit" class="btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- 出席登録モーダル -->
@@ -1550,7 +1630,7 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=127"></script>
+<script src="main.js?v=128"></script>
 <script src="assignment.js?v=76"></script>
 <script src="pw.js?v=6"></script>
 </body>
