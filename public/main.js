@@ -3485,6 +3485,133 @@ async function loadAdminS13Table() {
 var orgData = [];
 var orgSections = ['長老団', '奉仕委員会', '集会', 'その他'];
 
+// USER_LIST.orgRoles から組織表データを集約
+function buildOrgChartFromUserList(userList) {
+  // 部門ごとに { section, department, sectionOrder, parentDept, responsible, members[], supervisor, assistant } を構築
+  const deptMap = new Map(); // key = `${section}__${department}`
+  function ensure(section, department, sectionOrder, parentDept) {
+    const key = `${section}__${department}`;
+    if (!deptMap.has(key)) {
+      deptMap.set(key, {
+        section, department,
+        sectionOrder: sectionOrder ?? 9999,
+        parentDept: parentDept || '',
+        supervisor: '', assistant: '', responsible: '',
+        members: [],
+      });
+    } else {
+      const d = deptMap.get(key);
+      if (sectionOrder != null && d.sectionOrder === 9999) d.sectionOrder = sectionOrder;
+      if (parentDept && !d.parentDept) d.parentDept = parentDept;
+    }
+    return deptMap.get(key);
+  }
+  userList.forEach(u => {
+    const name = String(u.name || '').trim();
+    if (!name) return;
+    const roles = Array.isArray(u.orgRoles) ? u.orgRoles : [];
+    roles.forEach(r => {
+      if (!r || !r.section || !r.department || !r.role) return;
+      const d = ensure(r.section, r.department, r.sectionOrder, r.parentDept);
+      if (r.role === 'supervisor') d.supervisor = name;
+      else if (r.role === 'assistant') d.assistant = name;
+      else if (r.role === 'responsible') d.responsible = name;
+      else if (r.role === 'member') d.members.push(name);
+    });
+  });
+  // 配列に変換し sectionOrder 順でソート
+  return [...deptMap.values()].sort((a, b) => (a.sectionOrder - b.sectionOrder) || a.department.localeCompare(b.department, 'ja'));
+}
+
+// USER_LIST から組織表を描画（ORG_CHART不要）
+function renderOrgFromUserList(depts) {
+  // 各 section ごとに分割
+  const SEC_ORDER = ['奉仕委員会', '長老団', 'その他'];
+  const bySec = {}; SEC_ORDER.forEach(s => bySec[s] = []);
+  depts.forEach(d => {
+    if (!bySec[d.section]) bySec[d.section] = [];
+    bySec[d.section].push(d);
+  });
+
+  function toRows(members) { return Math.max(1, Math.ceil(members.length / 3)); }
+  let html = '<div class="org-xl-wrap">';
+  html += '<h3 class="org-xl-title">東京都多摩市唐木田会衆　組織表</h3>';
+  html += '<div class="org-xl-scroll"><table class="org-xl">';
+  html += '<thead><tr><th colspan="2"></th><th>監督</th><th>補佐</th><th>部門</th><th>責任者</th><th colspan="3">奉仕者</th></tr></thead><tbody>';
+
+  // ── 奉仕委員会 ──
+  const committeeDepts = bySec['奉仕委員会'] || [];
+  // supervisor のいる部門を「監督部門」とし、parentDept で紐付く子部門をぶら下げる
+  const supervisorDepts = committeeDepts.filter(d => d.supervisor);
+  const childDepts = committeeDepts.filter(d => !d.supervisor);
+  const colors = ['#e8f5e9', '#fff3e0', '#e3f2fd'];
+
+  let groupedTotalRows = 0;
+  const supervisorGroups = supervisorDepts.map((sup, idx) => {
+    const children = childDepts.filter(c => c.parentDept === sup.department);
+    const allInGroup = children.length > 0 ? children : [sup];
+    const totalRows = allInGroup.reduce((s, d) => s + toRows(d.members), 0);
+    groupedTotalRows += totalRows;
+    return { sup, children: allInGroup, totalRows, color: colors[idx % colors.length] };
+  });
+
+  let firstSup = true;
+  supervisorGroups.forEach(g => {
+    let firstChild = true;
+    g.children.forEach(dept => {
+      const rows = toRows(dept.members);
+      for (let r = 0; r < rows; r++) {
+        html += '<tr>';
+        if (firstSup && firstChild && r === 0)
+          html += '<td class="org-xl-sec" rowspan="' + groupedTotalRows + '">奉<br>仕<br>委<br>員<br>会</td>';
+        if (firstChild && r === 0) {
+          html += '<td class="org-xl-role" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.sup.department) + '</td>';
+          html += '<td class="org-xl-sv" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.sup.supervisor) + '</td>';
+          html += '<td style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.sup.assistant) + '</td>';
+        }
+        if (r === 0) {
+          html += '<td class="org-xl-dept"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.department) + '</td>';
+          html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.responsible) + '</td>';
+        }
+        for (let c = 0; c < 3; c++) {
+          const mi = r * 3 + c;
+          html += '<td class="org-xl-m">' + (mi < dept.members.length ? esc(dept.members[mi]) : '') + '</td>';
+        }
+        html += '</tr>';
+      }
+      firstChild = false;
+    });
+    firstSup = false;
+  });
+
+  // ── 下段（長老団・その他） ──
+  const rest = [...(bySec['長老団'] || []), ...(bySec['その他'] || [])];
+  if (rest.length > 0) {
+    const totalRestRows = rest.reduce((s, d) => s + toRows(d.members), 0);
+    let firstRest = true;
+    rest.forEach(item => {
+      const rows = toRows(item.members);
+      for (let r = 0; r < rows; r++) {
+        html += '<tr class="org-xl-bottom">';
+        if (firstRest && r === 0)
+          html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + totalRestRows + '">' + (item.section === '長老団' ? '長<br>老<br>団' : 'そ<br>の<br>他') + '</td>';
+        if (r === 0) {
+          html += '<td class="org-xl-dept" colspan="4"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.department) + '</td>';
+          html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.responsible) + '</td>';
+        }
+        for (let c = 0; c < 3; c++) {
+          const mi = r * 3 + c;
+          html += '<td class="org-xl-m">' + (mi < item.members.length ? esc(item.members[mi]) : '') + '</td>';
+        }
+        html += '</tr>';
+      }
+      firstRest = false;
+    });
+  }
+  html += '</tbody></table></div></div>';
+  return html;
+}
+
 async function loadOrgView() {
   const chartView = document.getElementById('org-view-chart') || document.getElementById('org-view');
   const groupView = document.getElementById('org-view-group');
@@ -3492,185 +3619,195 @@ async function loadOrgView() {
   chartView.innerHTML = '<div class="loading">読み込み中...</div>';
   if (groupView) groupView.innerHTML = '';
   try {
-    const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
-    const allData = snap.docs.map(doc => doc.data());
-
-    const elders = allData.filter(d => d.section === '長老団');
-    const committee = allData.filter(d => d.section === '奉仕委員会');
-    const rest = allData.filter(d => d.section === '集会' || d.section === 'その他');
-
-    function toArr(v) {
-      if (Array.isArray(v)) return v;
-      if (typeof v === 'string' && v) return v.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-      return [];
-    }
-    function mRows(item) {
-      return Math.max(1, Math.ceil(toArr(item.members).length / 3));
-    }
-
-    // 奉仕委員会の部門を長老団の役職に紐付け
-    var roleGroups = [];
-    if (elders.length === 3 && committee.length >= 3) {
-      var splits = [3, 2, committee.length - 5];
-      if (committee.length === 8) splits = [3, 2, 3];
-      var idx = 0;
-      for (var e = 0; e < 3; e++) {
-        var g = { role: elders[e], depts: committee.slice(idx, idx + splits[e]) };
-        idx += splits[e];
-        roleGroups.push(g);
-      }
+    // まず USER_LIST.orgRoles から構築を試みる
+    const userListAll = await getUserListCached();
+    const hasOrgRoles = userListAll.some(u => Array.isArray(u.orgRoles) && u.orgRoles.length > 0);
+    if (hasOrgRoles) {
+      const depts = buildOrgChartFromUserList(userListAll);
+      chartView.innerHTML = renderOrgFromUserList(depts);
     } else {
-      var per = Math.ceil(committee.length / Math.max(elders.length, 1));
-      for (var e = 0; e < elders.length; e++) {
-        roleGroups.push({ role: elders[e], depts: committee.slice(e * per, (e + 1) * per) });
-      }
+      // 互換: USER_LIST.orgRoles未登録の場合は従来通り ORG_CHART を使用
+      await _loadOrgViewLegacy(chartView);
     }
 
-    // 行数計算
-    var colors = ['#e8f5e9', '#fff3e0', '#e3f2fd'];
-    for (var i = 0; i < roleGroups.length; i++) {
-      var g = roleGroups[i];
-      g.totalRows = g.depts.reduce(function(s, d) { return s + mRows(d); }, 0);
-      g.color = colors[i % colors.length];
-    }
-    var totalCommRows = roleGroups.reduce(function(s, g) { return s + g.totalRows; }, 0);
-
-    var html = '<div class="org-xl-wrap">';
-    html += '<h3 class="org-xl-title">東京都多摩市唐木田会衆　組織表</h3>';
-    html += '<div class="org-xl-scroll"><table class="org-xl">';
-    html += '<thead><tr><th colspan="2"></th><th>監督</th><th>補佐</th><th>部門</th><th>責任者</th><th colspan="3">奉仕者</th></tr></thead>';
-    html += '<tbody>';
-
-    var firstRole = true;
-    for (var gi = 0; gi < roleGroups.length; gi++) {
-      var g = roleGroups[gi];
-      var firstDept = true;
-      for (var di = 0; di < g.depts.length; di++) {
-        var dept = g.depts[di];
-        var rows = mRows(dept);
-        var members = toArr(dept.members);
-        for (var r = 0; r < rows; r++) {
-          html += '<tr>';
-          if (firstRole && firstDept && r === 0)
-            html += '<td class="org-xl-sec" rowspan="' + totalCommRows + '">奉<br>仕<br>委<br>員<br>会</td>';
-          if (firstDept && r === 0) {
-            html += '<td class="org-xl-role" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.department || '') + '</td>';
-            html += '<td class="org-xl-sv" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.supervisor || '') + '</td>';
-            html += '<td style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.role.assistant || '') + '</td>';
-          }
-          if (r === 0) {
-            html += '<td class="org-xl-dept"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.department || '') + '</td>';
-            html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.responsible || '') + '</td>';
-          }
-          for (var c = 0; c < 3; c++) {
-            var mi = r * 3 + c;
-            html += '<td class="org-xl-m">' + (mi < members.length ? esc(members[mi]) : '') + '</td>';
-          }
-          html += '</tr>';
-        }
-        firstDept = false;
-      }
-      firstRole = false;
-    }
-
-    // 下段: 長老団
-    if (rest.length > 0) {
-      var totalRestRows = rest.reduce(function(s, d) { return s + mRows(d); }, 0);
-      var firstRest = true;
-      for (var ri = 0; ri < rest.length; ri++) {
-        var item = rest[ri];
-        var rows = mRows(item);
-        var members = toArr(item.members);
-        for (var r = 0; r < rows; r++) {
-          html += '<tr class="org-xl-bottom">';
-          if (firstRest && r === 0)
-            html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + totalRestRows + '">長<br>老<br>団</td>';
-          if (r === 0) {
-            html += '<td class="org-xl-dept" colspan="4"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.department || '') + '</td>';
-            html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(item.responsible || '') + '</td>';
-          }
-          for (var c = 0; c < 3; c++) {
-            var mi = r * 3 + c;
-            html += '<td class="org-xl-m">' + (mi < members.length ? esc(members[mi]) : '') + '</td>';
-          }
-          html += '</tr>';
-        }
-        firstRest = false;
-      }
-    }
-
-    html += '</tbody></table></div></div>';
-    chartView.innerHTML = html;
-
-    // グループ成員表
-    if (groupView) {
-      const userList = await getUserListCached();
-      const users = [];
-      userList.forEach(data => {
-        const name = String(data.name || '').trim();
-        if (!name) return;
-        const arr = _parseStatus(data.status);
-        let roleLabel = '伝道者';
-        if (arr.includes('EL')) roleLabel = '長老';
-        else if (arr.includes('MS')) roleLabel = '援助奉仕者';
-        if (arr.includes('RP') || arr.includes('正規開拓者')) roleLabel += ' / 開拓者';
-        users.push({
-          name,
-          furigana: String(data.furigana || '').trim(),
-          group: String(data.group || '').trim(),
-          gender: String(data.gender || '').trim(),
-          roleLabel,
-        });
-      });
-      // ふりがな順
-      users.sort((a, b) => a.group.localeCompare(b.group) || (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
-      const groupMap = {};
-      users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
-
-      // ふりがな先頭文字 → 五十音タグ
-      const KANA_ROWS = [
-        { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
-        { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
-        { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
-        { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
-        { tag: 'な', chars: 'ナニヌネノなにぬねの' },
-        { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
-        { tag: 'ま', chars: 'マミムメモまみむめも' },
-        { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
-        { tag: 'ら', chars: 'ラリルレロらりるれろ' },
-        { tag: 'わ', chars: 'ワヰヱヲンわをん' },
-      ];
-      function getKanaTag(s) {
-        if (!s) return '';
-        const ch = s.charAt(0);
-        for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
-        return '';
-      }
-
-      let gHtml = '';
-      Object.keys(groupMap).sort((a, b) => a.localeCompare(b, 'ja')).forEach(gName => {
-        const members = groupMap[gName];
-        gHtml += '<div class="group-member-card">';
-        gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
-        gHtml += '<div class="group-member-list">';
-        let prevTag = '';
-        members.forEach(m => {
-          const tag = getKanaTag(m.furigana || m.name);
-          if (tag && tag !== prevTag) {
-            gHtml += '<div class="group-member-kana-tag">' + esc(tag) + '</div>';
-            prevTag = tag;
-          }
-          const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-          gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
-        });
-        gHtml += '</div></div>';
-      });
-      groupView.innerHTML = gHtml;
-    }
+    // グループ成員表（既存ロジック）
+    await _renderGroupMemberSection(groupView, userListAll);
   } catch (e) {
     console.error('loadOrgView error:', e);
     chartView.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
   }
+}
+
+async function _loadOrgViewLegacy(chartView) {
+  const snap = await db.collection('ORG_CHART').orderBy('order', 'asc').get();
+  const allData = snap.docs.map(doc => doc.data());
+
+  const elders = allData.filter(d => d.section === '長老団');
+  const committee = allData.filter(d => d.section === '奉仕委員会');
+  const rest = allData.filter(d => d.section === '集会' || d.section === 'その他');
+
+  function toArr(v) {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string' && v) return v.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    return [];
+  }
+  function mRows(item) {
+    return Math.max(1, Math.ceil(toArr(item.members).length / 3));
+  }
+
+  var roleGroups = [];
+  if (elders.length === 3 && committee.length >= 3) {
+    var splits = [3, 2, committee.length - 5];
+    if (committee.length === 8) splits = [3, 2, 3];
+    var idx = 0;
+    for (var e = 0; e < 3; e++) {
+      var g = { role: elders[e], depts: committee.slice(idx, idx + splits[e]) };
+      idx += splits[e];
+      roleGroups.push(g);
+    }
+  } else {
+    var per = Math.ceil(committee.length / Math.max(elders.length, 1));
+    for (var e2 = 0; e2 < elders.length; e2++) {
+      roleGroups.push({ role: elders[e2], depts: committee.slice(e2 * per, (e2 + 1) * per) });
+    }
+  }
+
+  var colors = ['#e8f5e9', '#fff3e0', '#e3f2fd'];
+  for (var i = 0; i < roleGroups.length; i++) {
+    var rg = roleGroups[i];
+    rg.totalRows = rg.depts.reduce(function(s, d) { return s + mRows(d); }, 0);
+    rg.color = colors[i % colors.length];
+  }
+  var totalCommRows = roleGroups.reduce(function(s, x) { return s + x.totalRows; }, 0);
+
+  var html = '<div class="org-xl-wrap">';
+  html += '<h3 class="org-xl-title">東京都多摩市唐木田会衆　組織表</h3>';
+  html += '<div class="org-xl-scroll"><table class="org-xl">';
+  html += '<thead><tr><th colspan="2"></th><th>監督</th><th>補佐</th><th>部門</th><th>責任者</th><th colspan="3">奉仕者</th></tr></thead>';
+  html += '<tbody>';
+
+  var firstRole = true;
+  for (var gi = 0; gi < roleGroups.length; gi++) {
+    var rgg = roleGroups[gi];
+    var firstDept = true;
+    for (var di = 0; di < rgg.depts.length; di++) {
+      var dept = rgg.depts[di];
+      var rows = mRows(dept);
+      var mems = toArr(dept.members);
+      for (var r = 0; r < rows; r++) {
+        html += '<tr>';
+        if (firstRole && firstDept && r === 0)
+          html += '<td class="org-xl-sec" rowspan="' + totalCommRows + '">奉<br>仕<br>委<br>員<br>会</td>';
+        if (firstDept && r === 0) {
+          html += '<td class="org-xl-role" style="background:' + rgg.color + '" rowspan="' + rgg.totalRows + '">' + esc(rgg.role.department || '') + '</td>';
+          html += '<td class="org-xl-sv" style="background:' + rgg.color + '" rowspan="' + rgg.totalRows + '">' + esc(rgg.role.supervisor || '') + '</td>';
+          html += '<td style="background:' + rgg.color + '" rowspan="' + rgg.totalRows + '">' + esc(rgg.role.assistant || '') + '</td>';
+        }
+        if (r === 0) {
+          html += '<td class="org-xl-dept"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.department || '') + '</td>';
+          html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(dept.responsible || '') + '</td>';
+        }
+        for (var c = 0; c < 3; c++) {
+          var mi = r * 3 + c;
+          html += '<td class="org-xl-m">' + (mi < mems.length ? esc(mems[mi]) : '') + '</td>';
+        }
+        html += '</tr>';
+      }
+      firstDept = false;
+    }
+    firstRole = false;
+  }
+
+  if (rest.length > 0) {
+    var totalRestRows = rest.reduce(function(s, d) { return s + mRows(d); }, 0);
+    var firstRest = true;
+    for (var ri = 0; ri < rest.length; ri++) {
+      var item = rest[ri];
+      var rows2 = mRows(item);
+      var mems2 = toArr(item.members);
+      for (var r2 = 0; r2 < rows2; r2++) {
+        html += '<tr class="org-xl-bottom">';
+        if (firstRest && r2 === 0)
+          html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + totalRestRows + '">長<br>老<br>団</td>';
+        if (r2 === 0) {
+          html += '<td class="org-xl-dept" colspan="4"' + (rows2 > 1 ? ' rowspan="' + rows2 + '"' : '') + '>' + esc(item.department || '') + '</td>';
+          html += '<td' + (rows2 > 1 ? ' rowspan="' + rows2 + '"' : '') + '>' + esc(item.responsible || '') + '</td>';
+        }
+        for (var c2 = 0; c2 < 3; c2++) {
+          var mi2 = r2 * 3 + c2;
+          html += '<td class="org-xl-m">' + (mi2 < mems2.length ? esc(mems2[mi2]) : '') + '</td>';
+        }
+        html += '</tr>';
+      }
+      firstRest = false;
+    }
+  }
+
+  html += '</tbody></table></div></div>';
+  chartView.innerHTML = html;
+}
+
+async function _renderGroupMemberSection(groupView, userList) {
+  if (!groupView) return;
+  const users = [];
+  userList.forEach(data => {
+    const name = String(data.name || '').trim();
+    if (!name) return;
+    const arr = _parseStatus(data.status);
+    let roleLabel = '伝道者';
+    if (arr.includes('EL')) roleLabel = '長老';
+    else if (arr.includes('MS')) roleLabel = '援助奉仕者';
+    if (arr.includes('RP') || arr.includes('正規開拓者')) roleLabel += ' / 開拓者';
+    users.push({
+      name,
+      furigana: String(data.furigana || '').trim(),
+      group: String(data.group || '').trim(),
+      gender: String(data.gender || '').trim(),
+      roleLabel,
+    });
+  });
+  users.sort((a, b) => a.group.localeCompare(b.group) || (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
+  const groupMap = {};
+  users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
+
+  const KANA_ROWS = [
+    { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
+    { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
+    { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
+    { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
+    { tag: 'な', chars: 'ナニヌネノなにぬねの' },
+    { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
+    { tag: 'ま', chars: 'マミムメモまみむめも' },
+    { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
+    { tag: 'ら', chars: 'ラリルレロらりるれろ' },
+    { tag: 'わ', chars: 'ワヰヱヲンわをん' },
+  ];
+  function getKanaTag(s) {
+    if (!s) return '';
+    const ch = s.charAt(0);
+    for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
+    return '';
+  }
+
+  let gHtml = '';
+  Object.keys(groupMap).sort((a, b) => a.localeCompare(b, 'ja')).forEach(gName => {
+    const members = groupMap[gName];
+    gHtml += '<div class="group-member-card">';
+    gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
+    gHtml += '<div class="group-member-list">';
+    let prevTag = '';
+    members.forEach(m => {
+      const tag = getKanaTag(m.furigana || m.name);
+      if (tag && tag !== prevTag) {
+        gHtml += '<div class="group-member-kana-tag">' + esc(tag) + '</div>';
+        prevTag = tag;
+      }
+      const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
+      gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
+    });
+    gHtml += '</div></div>';
+  });
+  groupView.innerHTML = gHtml;
 }
 
 async function loadOrgEditor() {
