@@ -6119,9 +6119,6 @@ let meEditingId = null;
 let meInitialized = false;
 
 async function initMemberEditPage() {
-  const list = document.getElementById('me-list');
-  if (!list) return;
-
   if (!meInitialized) {
     document.getElementById('me-modal-close')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-modal-overlay')?.addEventListener('click', closeMemberEditModal);
