@@ -6123,14 +6123,12 @@ async function initMemberEditPage() {
   if (!list) return;
 
   if (!meInitialized) {
-    document.getElementById('me-search')?.addEventListener('input', renderMemberEditList);
-    document.getElementById('me-filter')?.addEventListener('change', renderMemberEditList);
     document.getElementById('me-modal-close')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-modal-overlay')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-cancel')?.addEventListener('click', closeMemberEditModal);
     document.getElementById('me-form')?.addEventListener('submit', saveMemberEdit);
-    document.getElementById('me-mode-list')?.addEventListener('click', () => setMemberEditMode('list'));
-    document.getElementById('me-mode-bulk')?.addEventListener('click', () => setMemberEditMode('bulk'));
+    document.getElementById('me-mode-basic')?.addEventListener('click', () => setMemberEditMode('basic'));
+    document.getElementById('me-mode-dept')?.addEventListener('click', () => setMemberEditMode('dept'));
     document.getElementById('me-bulk-save')?.addEventListener('click', saveBulkChanges);
     document.getElementById('me-bulk-discard')?.addEventListener('click', discardBulkChanges);
     document.getElementById('me-add-btn')?.addEventListener('click', () => openMemberEditModal(null));
@@ -6145,20 +6143,17 @@ async function initMemberEditPage() {
   await loadMemberEditList();
 }
 
-let meMode = 'list';
+let meMode = 'basic';
 function setMemberEditMode(mode) {
   meMode = mode;
-  document.getElementById('me-mode-list')?.classList.toggle('me-mode-active', mode === 'list');
-  document.getElementById('me-mode-bulk')?.classList.toggle('me-mode-active', mode === 'bulk');
-  document.getElementById('me-list-mode')?.classList.toggle('hidden', mode !== 'list');
-  document.getElementById('me-bulk-mode')?.classList.toggle('hidden', mode !== 'bulk');
-  if (mode === 'bulk') renderBulkEditTable();
-  else renderMemberEditList();
+  document.getElementById('me-mode-basic')?.classList.toggle('me-mode-active', mode === 'basic');
+  document.getElementById('me-mode-dept')?.classList.toggle('me-mode-active', mode === 'dept');
+  document.getElementById('me-basic-mode')?.classList.toggle('hidden', mode !== 'basic');
+  document.getElementById('me-dept-mode')?.classList.toggle('hidden', mode !== 'dept');
+  renderBulkEditTable();
 }
 
 async function loadMemberEditList() {
-  const list = document.getElementById('me-list');
-  list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     const userList = await getUserListCached();
     meAllMembers = userList.map(data => ({
@@ -6174,9 +6169,9 @@ async function loadMemberEditList() {
       if (g) groupSet.add(g);
     });
     meAllGroups = [...groupSet].sort((a, b) => a.localeCompare(b, 'ja'));
-    renderMemberEditList();
+    renderBulkEditTable();
   } catch (e) {
-    list.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(e.message) + '</div>';
+    console.error('loadMemberEditList error:', e);
   }
 }
 
@@ -6209,93 +6204,7 @@ function meSortMembers(arr) {
   });
 }
 
-function renderMemberEditList() {
-  const list = document.getElementById('me-list');
-  const countEl = document.getElementById('me-count');
-  if (!list) return;
-
-  const q = (document.getElementById('me-search')?.value || '').trim().toLowerCase();
-  const filter = document.getElementById('me-filter')?.value || 'all';
-
-  const filtered = meAllMembers.filter(m => {
-    if (filter !== 'all' && !m.status.includes(filter)) return false;
-    if (!q) return true;
-    return (
-      (m.name     || '').toLowerCase().includes(q) ||
-      (m.furigana || '').toLowerCase().includes(q) ||
-      (m.group    || '').toLowerCase().includes(q) ||
-      (m.mail     || '').toLowerCase().includes(q)
-    );
-  });
-
-  if (countEl) countEl.textContent = `${filtered.length}名 / 全 ${meAllMembers.length}名`;
-
-  if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty-state">該当する成員がいません</div>';
-    return;
-  }
-
-  // グループごとに振り分け
-  const groupMap = {};
-  filtered.forEach(m => {
-    const g = (m.group || '').trim() || '（未所属）';
-    if (!groupMap[g]) groupMap[g] = [];
-    groupMap[g].push(m);
-  });
-  const groupNames = Object.keys(groupMap).sort((a, b) => {
-    if (a === '（未所属）') return 1;
-    if (b === '（未所属）') return -1;
-    return a.localeCompare(b, 'ja');
-  });
-
-  list.innerHTML = '';
-  groupNames.forEach(group => {
-    const members = meSortMembers(groupMap[group]);
-
-    const header = document.createElement('div');
-    header.className = 'me-group-header';
-    header.innerHTML = `
-      <span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:6px">group</span>
-      ${esc(group)}
-      <span class="me-group-count">${members.length}名</span>
-    `;
-    list.appendChild(header);
-
-    members.forEach(m => {
-      const isInactive = m.status.includes('inactive');
-      const squareBadges = ME_BADGE_DEFS
-        .filter(def => def.test(m))
-        .map(def => `<span class="me-square-badge ${def.cls}">${def.kanji}</span>`)
-        .join('');
-
-      const item = document.createElement('div');
-      item.className = 'admin-list-item';
-      if (isInactive) item.style.opacity = '0.55';
-      item.innerHTML = `
-        <div class="admin-list-info">
-          <div class="admin-list-title me-title-row">
-            <span class="me-title-name">${esc(m.name || '(名前なし)')}${isInactive ? ' <span style="font-size:11px;color:#d32f2f">[無効]</span>' : ''}</span>
-            <span class="me-square-row">${squareBadges}</span>
-          </div>
-        </div>
-        <div class="admin-list-actions">
-          <button class="btn-edit icon-btn" data-id="${esc(m.docId)}" style="color:var(--primary)" title="編集">
-            <span class="material-icons">edit</span>
-          </button>
-          ${isPortalAdmin ? `<button class="btn-me-delete icon-btn" data-id="${esc(m.docId)}" data-name="${esc(m.name || '')}" style="color:#d32f2f" title="削除">
-            <span class="material-icons">delete</span>
-          </button>` : ''}
-        </div>
-      `;
-      list.appendChild(item);
-    });
-  });
-
-  list.querySelectorAll('.btn-edit').forEach(btn =>
-    btn.addEventListener('click', () => openMemberEditModal(btn.dataset.id)));
-  list.querySelectorAll('.btn-me-delete').forEach(btn =>
-    btn.addEventListener('click', () => deleteMemberFromList(btn.dataset.id, btn.dataset.name)));
-}
+// 旧 renderMemberEditList は削除（リストモード廃止）
 
 async function deleteMemberFromList(id, name) {
   if (!isPortalAdmin) { alert('削除権限がありません'); return; }
@@ -6490,6 +6399,49 @@ const ME_BULK_TEXT_FIELDS = [
   { key: 'mail',     label: 'メール',     width: 140 },
 ];
 
+// 部門情報モード: 所属部門
+const ME_DEPT_OPTIONS = [
+  { id: 'annai',    label: '案内' },
+  { id: 'avs',      label: 'AVS' },
+  { id: 'parking',  label: '駐車' },
+  { id: 'cleaning', label: '清掃' },
+];
+// 部門情報モード: ポジション限定（部門ごとのポジション）
+const ME_POSITION_DEFS = [
+  { dept: 'annai',    pos: 'hall',     label: '会場' },
+  { dept: 'annai',    pos: 'entrance', label: '入口' },
+  { dept: 'annai',    pos: 'zoom',     label: 'Zoom' },
+  { dept: 'avs',      pos: 'stage',    label: 'ステ' },
+  { dept: 'avs',      pos: 'audio',    label: '音響' },
+  { dept: 'avs',      pos: 'video',    label: 'ビデ' },
+  { dept: 'parking',  pos: 'before',   label: '前' },
+  { dept: 'parking',  pos: 'after',    label: '後' },
+  { dept: 'cleaning', pos: 'group',    label: 'グ' },
+];
+// 部門情報モード: 組織表役職プリセット
+const ME_ORGROLE_PRESETS = [
+  { id: 'sup_meeting',   section: '奉仕委員会', department: '集会',     role: 'supervisor',  group: '監督', label: '集会' },
+  { id: 'sup_field',     section: '奉仕委員会', department: '野外',     role: 'supervisor',  group: '監督', label: '野外' },
+  { id: 'sup_cong',      section: '奉仕委員会', department: '会衆',     role: 'supervisor',  group: '監督', label: '会衆' },
+  { id: 'asst_meeting',  section: '奉仕委員会', department: '集会',     role: 'assistant',   group: '補佐', label: '集会' },
+  { id: 'asst_field',    section: '奉仕委員会', department: '野外',     role: 'assistant',   group: '補佐', label: '野外' },
+  { id: 'asst_cong',     section: '奉仕委員会', department: '会衆',     role: 'assistant',   group: '補佐', label: '会衆' },
+  { id: 'el_chair',      section: '長老団',     department: '司会者',   role: 'member',      group: '長老', label: '司会' },
+  { id: 'el_reader',     section: '長老団',     department: '朗読者',   role: 'member',      group: '長老', label: '朗読' },
+  { id: 'el_pioneer',    section: '長老団',     department: '開拓者',   role: 'member',      group: '長老', label: '開拓' },
+  { id: 'el_hospital',   section: '長老団',     department: '病院班',   role: 'member',      group: '長老', label: '病院' },
+  { id: 'resp_annai',    section: '奉仕委員会', department: '案内係',   role: 'responsible', group: '責任', label: '案内', parentDept: '集会' },
+  { id: 'resp_parking',  section: '奉仕委員会', department: '駐車場',   role: 'responsible', group: '責任', label: '駐車', parentDept: '集会' },
+  { id: 'resp_cleaning', section: '奉仕委員会', department: '清掃',     role: 'responsible', group: '責任', label: '清掃', parentDept: '集会' },
+  { id: 'resp_avs',      section: '奉仕委員会', department: 'AVS',      role: 'responsible', group: '責任', label: 'AVS',  parentDept: '集会' },
+  { id: 'resp_audio',    section: '奉仕委員会', department: '音響',     role: 'responsible', group: '責任', label: '音響', parentDept: '集会' },
+  { id: 'resp_video',    section: '奉仕委員会', department: 'ビデオ',   role: 'responsible', group: '責任', label: 'ビデオ', parentDept: '集会' },
+  { id: 'resp_stage',    section: '奉仕委員会', department: 'ステージ', role: 'responsible', group: '責任', label: 'ステージ', parentDept: '集会' },
+];
+function meOrgPresetMatches(preset, r) {
+  return r && r.section === preset.section && r.department === preset.department && r.role === preset.role;
+}
+
 // docId -> { name?, furigana?, group?, gender?, mail?, status?: [] }
 const meBulkChanges = new Map();
 
@@ -6500,17 +6452,41 @@ function meBulkOriginal(docId) {
 function meBulkCurrentValue(member, key) {
   const change = meBulkChanges.get(member.docId);
   if (change && Object.prototype.hasOwnProperty.call(change, key)) return change[key];
-  if (key === 'status') return member.status || [];
+  if (key === 'status')         return member.status || [];
+  if (key === 'departments')    return Array.isArray(member.departments) ? member.departments : [];
+  if (key === 'orgRoles')       return Array.isArray(member.orgRoles) ? member.orgRoles : [];
+  if (key === 'deptPositions')  return (member.deptPositions && typeof member.deptPositions === 'object') ? member.deptPositions : {};
+  if (key === 'dutyWeight')     return (typeof member.dutyWeight === 'number') ? member.dutyWeight : 1.0;
   return member[key] || '';
+}
+
+function _meDeepEq(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((x, i) => _meDeepEq(x, b[i]));
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const ak = Object.keys(a), bk = Object.keys(b);
+    if (ak.length !== bk.length) return false;
+    return ak.every(k => _meDeepEq(a[k], b[k]));
+  }
+  return false;
 }
 
 function meBulkRecordChange(docId, key, value) {
   const member = meBulkOriginal(docId);
   if (!member) return;
-  const original = key === 'status' ? (member.status || []) : (member[key] || '');
-  const same = key === 'status'
-    ? (Array.isArray(value) && value.length === original.length && value.every(v => original.includes(v)))
-    : (value === original);
+  // 元の値を取得
+  let original;
+  if (key === 'status')              original = member.status || [];
+  else if (key === 'departments')    original = Array.isArray(member.departments) ? member.departments : [];
+  else if (key === 'orgRoles')       original = Array.isArray(member.orgRoles) ? member.orgRoles : [];
+  else if (key === 'deptPositions')  original = (member.deptPositions && typeof member.deptPositions === 'object') ? member.deptPositions : {};
+  else if (key === 'dutyWeight')     original = (typeof member.dutyWeight === 'number') ? member.dutyWeight : 1.0;
+  else                               original = member[key] || '';
+
+  const same = _meDeepEq(value, original);
   let change = meBulkChanges.get(docId) || {};
   if (same) {
     delete change[key];
@@ -6546,26 +6522,60 @@ function renderBulkLegend() {
 }
 
 function renderBulkEditTable() {
-  const thead = document.getElementById('me-bulk-thead');
-  const tbody = document.getElementById('me-bulk-tbody');
-  if (!thead || !tbody) return;
+  if (meMode === 'dept') return renderDeptEditTable();
+  return renderBasicEditTable();
+}
 
-  renderBulkLegend();
-
+function _getFilteredSorted() {
   const q = (document.getElementById('me-bulk-search')?.value || '').trim().toLowerCase();
   const sFilter = document.getElementById('me-bulk-filter')?.value || 'all';
 
-  // ソート矢印を作るヘルパ
+  const filtered = meAllMembers.filter(m => {
+    if (sFilter !== 'all' && !m.status.includes(sFilter)) return false;
+    if (!q) return true;
+    return (
+      (m.name     || '').toLowerCase().includes(q) ||
+      (m.furigana || '').toLowerCase().includes(q) ||
+      (m.group    || '').toLowerCase().includes(q) ||
+      (m.mail     || '').toLowerCase().includes(q)
+    );
+  });
+
+  const STATUS_CODES = ME_STATUS_OPTIONS.map(o => o.code);
+  return filtered.slice().sort((a, b) => {
+    let cmp = 0;
+    if (meBulkSortKey && STATUS_CODES.includes(meBulkSortKey)) {
+      const av = a.status.includes(meBulkSortKey) ? 0 : 1;
+      const bv = b.status.includes(meBulkSortKey) ? 0 : 1;
+      cmp = av - bv;
+    } else if (meBulkSortKey) {
+      const av = (a[meBulkSortKey] || '').toString();
+      const bv = (b[meBulkSortKey] || '').toString();
+      cmp = av.localeCompare(bv, 'ja');
+    } else {
+      const ga = (a.group || '￿').toString();
+      const gb = (b.group || '￿').toString();
+      cmp = ga.localeCompare(gb, 'ja');
+      if (cmp === 0) cmp = meGroupRank(a) - meGroupRank(b);
+      if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+      return cmp;
+    }
+    if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+    return cmp * meBulkSortDir;
+  });
+}
+
+function renderBasicEditTable() {
+  const thead = document.getElementById('me-basic-thead');
+  const tbody = document.getElementById('me-basic-tbody');
+  if (!thead || !tbody) return;
+
   const arrow = key => meBulkSortKey === key ? (meBulkSortDir === 1 ? ' ▲' : ' ▼') : '';
 
-  // ヘッダー行
   let theadHtml = '<tr>';
   ME_BULK_TEXT_FIELDS.forEach((f, i) => {
     const sticky = i === 0 ? 'meb-sticky-col' : '';
     theadHtml += `<th class="${sticky} meb-sortable" data-sort="${esc(f.key)}" style="min-width:${f.width}px">${esc(f.label)}${arrow(f.key)}</th>`;
-  });
-  ME_STATUS_OPTIONS.forEach(opt => {
-    theadHtml += `<th class="meb-status-col meb-sortable" data-sort="${esc(opt.code)}" title="${esc(opt.label)}">${esc(opt.code)}${arrow(opt.code)}</th>`;
   });
   theadHtml += '</tr>';
   thead.innerHTML = theadHtml;
@@ -6579,43 +6589,7 @@ function renderBulkEditTable() {
     })
   );
 
-  // フィルター適用
-  const filtered = meAllMembers.filter(m => {
-    if (sFilter !== 'all' && !m.status.includes(sFilter)) return false;
-    if (!q) return true;
-    return (
-      (m.name     || '').toLowerCase().includes(q) ||
-      (m.furigana || '').toLowerCase().includes(q) ||
-      (m.group    || '').toLowerCase().includes(q) ||
-      (m.mail     || '').toLowerCase().includes(q)
-    );
-  });
-
-  // 並び替え
-  const STATUS_CODES = ME_STATUS_OPTIONS.map(o => o.code);
-  const sorted = filtered.slice().sort((a, b) => {
-    let cmp = 0;
-    if (meBulkSortKey && STATUS_CODES.includes(meBulkSortKey)) {
-      const av = a.status.includes(meBulkSortKey) ? 0 : 1;
-      const bv = b.status.includes(meBulkSortKey) ? 0 : 1;
-      cmp = av - bv;
-    } else if (meBulkSortKey) {
-      const av = (a[meBulkSortKey] || '').toString();
-      const bv = (b[meBulkSortKey] || '').toString();
-      cmp = av.localeCompare(bv, 'ja');
-    } else {
-      // デフォルト: グループ → ランク → ふりがな
-      const ga = (a.group || '￿').toString();
-      const gb = (b.group || '￿').toString();
-      cmp = ga.localeCompare(gb, 'ja');
-      if (cmp === 0) cmp = meGroupRank(a) - meGroupRank(b);
-      if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
-      return cmp;
-    }
-    if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
-    return cmp * meBulkSortDir;
-  });
-
+  const sorted = _getFilteredSorted();
   let html = '';
   sorted.forEach((m, rowIdx) => {
     html += `<tr data-id="${esc(m.docId)}">`;
@@ -6637,11 +6611,6 @@ function renderBulkEditTable() {
         html += `<td class="${sticky}"><div class="meb-cell-wrap">${numPrefix}<input type="${type}" class="meb-input" data-id="${esc(m.docId)}" data-key="${esc(f.key)}" value="${esc(val)}"></div></td>`;
       }
     });
-    const curStatus = meBulkCurrentValue(m, 'status');
-    ME_STATUS_OPTIONS.forEach(opt => {
-      const checked = curStatus.includes(opt.code) ? 'checked' : '';
-      html += `<td class="meb-status-col"><input type="checkbox" class="meb-status" data-id="${esc(m.docId)}" data-code="${esc(opt.code)}" ${checked}></td>`;
-    });
     html += '</tr>';
   });
   tbody.innerHTML = html;
@@ -6651,6 +6620,98 @@ function renderBulkEditTable() {
     el.addEventListener('change', handler);
     if (el.tagName === 'INPUT') el.addEventListener('blur', handler);
   });
+
+  updateBulkToolbar();
+}
+
+function renderDeptEditTable() {
+  const thead = document.getElementById('me-dept-thead');
+  const tbody = document.getElementById('me-dept-tbody');
+  if (!thead || !tbody) return;
+
+  renderBulkLegend();
+
+  // ヘッダー: 2段構成
+  let row1 = '<tr>';
+  let row2 = '<tr>';
+  // 氏名（縦結合）
+  row1 += '<th class="meb-sticky-col" rowspan="2" style="min-width:110px">氏名</th>';
+  // 立場 グループ
+  row1 += `<th colspan="${ME_STATUS_OPTIONS.length}" class="meb-grp-status">立場</th>`;
+  ME_STATUS_OPTIONS.forEach(opt => {
+    row2 += `<th class="meb-status-col" title="${esc(opt.label)}">${esc(opt.code)}</th>`;
+  });
+  // 所属部門 グループ
+  row1 += `<th colspan="${ME_DEPT_OPTIONS.length}" class="meb-grp-dept">所属部門</th>`;
+  ME_DEPT_OPTIONS.forEach(d => {
+    row2 += `<th class="meb-status-col" title="${esc(d.id)}">${esc(d.label)}</th>`;
+  });
+  // ポジション限定 グループ
+  row1 += `<th colspan="${ME_POSITION_DEFS.length}" class="meb-grp-pos">ポジション限定</th>`;
+  ME_POSITION_DEFS.forEach(p => {
+    row2 += `<th class="meb-status-col" title="${esc(p.dept)}/${esc(p.pos)}">${esc(p.label)}</th>`;
+  });
+  // 組織表役職 グループ（プリセット）
+  row1 += `<th colspan="${ME_ORGROLE_PRESETS.length + 1}" class="meb-grp-org">組織表役職</th>`;
+  ME_ORGROLE_PRESETS.forEach(p => {
+    row2 += `<th class="meb-status-col" title="${esc(p.section)}/${esc(p.department)}/${esc(p.role)}">${esc(p.group)}<br>${esc(p.label)}</th>`;
+  });
+  row2 += `<th class="meb-status-col" title="カスタム役職">✏️</th>`;
+  // 負荷
+  row1 += '<th rowspan="2" style="min-width:50px">負荷</th>';
+  row1 += '</tr>';
+  row2 += '</tr>';
+  thead.innerHTML = row1 + row2;
+
+  const sorted = _getFilteredSorted();
+  let html = '';
+  sorted.forEach((m, rowIdx) => {
+    const docId = m.docId;
+    html += `<tr data-id="${esc(docId)}">`;
+    // 氏名
+    html += `<td class="meb-sticky-col"><div class="meb-cell-wrap"><span class="meb-rownum">${rowIdx + 1}</span><span class="meb-name-readonly">${esc(m.name || '')}</span></div></td>`;
+    // 立場
+    const curStatus = meBulkCurrentValue(m, 'status');
+    ME_STATUS_OPTIONS.forEach(opt => {
+      const checked = curStatus.includes(opt.code) ? 'checked' : '';
+      html += `<td class="meb-status-col"><input type="checkbox" class="meb-status" data-id="${esc(docId)}" data-code="${esc(opt.code)}" ${checked}></td>`;
+    });
+    // 所属部門
+    const curDepts = meBulkCurrentValue(m, 'departments');
+    const curDeptsArr = Array.isArray(curDepts) ? curDepts : [];
+    ME_DEPT_OPTIONS.forEach(d => {
+      const checked = curDeptsArr.includes(d.id) ? 'checked' : '';
+      html += `<td class="meb-status-col"><input type="checkbox" class="meb-dept-cb" data-id="${esc(docId)}" data-dept="${esc(d.id)}" ${checked}></td>`;
+    });
+    // ポジション限定
+    const curPositions = meBulkCurrentValue(m, 'deptPositions');
+    const curPos = (curPositions && typeof curPositions === 'object') ? curPositions : {};
+    ME_POSITION_DEFS.forEach(p => {
+      const arr = Array.isArray(curPos[p.dept]) ? curPos[p.dept] : [];
+      const enabled = curDeptsArr.includes(p.dept);
+      const checked = arr.includes(p.pos) ? 'checked' : '';
+      const dis = enabled ? '' : 'disabled';
+      html += `<td class="meb-status-col"><input type="checkbox" class="meb-pos-cb" data-id="${esc(docId)}" data-dept="${esc(p.dept)}" data-pos="${esc(p.pos)}" ${checked} ${dis}></td>`;
+    });
+    // 組織表役職
+    const curOrg = meBulkCurrentValue(m, 'orgRoles');
+    const curOrgArr = Array.isArray(curOrg) ? curOrg : [];
+    ME_ORGROLE_PRESETS.forEach(p => {
+      const checked = curOrgArr.some(r => meOrgPresetMatches(p, r)) ? 'checked' : '';
+      html += `<td class="meb-status-col"><input type="checkbox" class="meb-org-cb" data-id="${esc(docId)}" data-preset="${esc(p.id)}" ${checked}></td>`;
+    });
+    // カスタム役職編集ボタン（プリセット以外の数を表示）
+    const customCount = curOrgArr.filter(r => !ME_ORGROLE_PRESETS.some(p => meOrgPresetMatches(p, r))).length;
+    html += `<td class="meb-status-col"><button type="button" class="meb-org-custom-btn" data-id="${esc(docId)}" title="カスタム役職編集">${customCount > 0 ? customCount : '✏️'}</button></td>`;
+    // 負荷係数
+    const curWeight = meBulkCurrentValue(m, 'dutyWeight');
+    const wVal = (typeof curWeight === 'number') ? curWeight : 1.0;
+    html += `<td><select class="meb-weight" data-id="${esc(docId)}"><option value="0.5" ${wVal===0.5?'selected':''}>0.5</option><option value="1" ${wVal===1?'selected':''}>1.0</option><option value="1.5" ${wVal===1.5?'selected':''}>1.5</option><option value="2" ${wVal===2?'selected':''}>2.0</option></select></td>`;
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  // バインド: 立場
   tbody.querySelectorAll('.meb-status').forEach(cb => {
     cb.addEventListener('change', () => {
       const docId = cb.dataset.id;
@@ -6663,6 +6724,72 @@ function renderBulkEditTable() {
       else if (!cb.checked && idx !== -1) cur.splice(idx, 1);
       meBulkRecordChange(docId, 'status', cur);
     });
+  });
+  // バインド: 所属部門
+  tbody.querySelectorAll('.meb-dept-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const docId = cb.dataset.id;
+      const dept = cb.dataset.dept;
+      const member = meBulkOriginal(docId);
+      if (!member) return;
+      const cur = (meBulkCurrentValue(member, 'departments') || []).slice();
+      const idx = cur.indexOf(dept);
+      if (cb.checked && idx === -1) cur.push(dept);
+      else if (!cb.checked && idx !== -1) cur.splice(idx, 1);
+      meBulkRecordChange(docId, 'departments', cur);
+      // ポジション限定の有効/無効を更新（再描画）
+      renderDeptEditTable();
+    });
+  });
+  // バインド: ポジション限定
+  tbody.querySelectorAll('.meb-pos-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const docId = cb.dataset.id;
+      const dept = cb.dataset.dept;
+      const pos = cb.dataset.pos;
+      const member = meBulkOriginal(docId);
+      if (!member) return;
+      const cur = meBulkCurrentValue(member, 'deptPositions') || {};
+      const newObj = { ...cur };
+      const arr = Array.isArray(newObj[dept]) ? newObj[dept].slice() : [];
+      const idx = arr.indexOf(pos);
+      if (cb.checked && idx === -1) arr.push(pos);
+      else if (!cb.checked && idx !== -1) arr.splice(idx, 1);
+      if (arr.length === 0) delete newObj[dept];
+      else newObj[dept] = arr;
+      meBulkRecordChange(docId, 'deptPositions', newObj);
+    });
+  });
+  // バインド: 組織表役職プリセット
+  tbody.querySelectorAll('.meb-org-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const docId = cb.dataset.id;
+      const presetId = cb.dataset.preset;
+      const preset = ME_ORGROLE_PRESETS.find(p => p.id === presetId);
+      if (!preset) return;
+      const member = meBulkOriginal(docId);
+      if (!member) return;
+      const cur = (meBulkCurrentValue(member, 'orgRoles') || []).slice();
+      const idx = cur.findIndex(r => meOrgPresetMatches(preset, r));
+      if (cb.checked && idx === -1) {
+        const entry = { section: preset.section, department: preset.department, role: preset.role };
+        if (preset.parentDept) entry.parentDept = preset.parentDept;
+        cur.push(entry);
+      } else if (!cb.checked && idx !== -1) {
+        cur.splice(idx, 1);
+      }
+      meBulkRecordChange(docId, 'orgRoles', cur);
+    });
+  });
+  // バインド: 負荷係数
+  tbody.querySelectorAll('.meb-weight').forEach(sel => {
+    sel.addEventListener('change', () => {
+      meBulkRecordChange(sel.dataset.id, 'dutyWeight', Number(sel.value));
+    });
+  });
+  // バインド: カスタム役職編集（既存のモーダルを開く）
+  tbody.querySelectorAll('.meb-org-custom-btn').forEach(btn => {
+    btn.addEventListener('click', () => openMemberEditModal(btn.dataset.id));
   });
 
   updateBulkToolbar();
@@ -6687,8 +6814,8 @@ async function saveBulkChanges() {
     await batch.commit();
     pendingApply.forEach(({ docId, data }) => applyUserListLocal(docId, data));
     meBulkChanges.clear();
-    await loadMemberEditList(); // キャッシュヒット
-    if (meMode === 'bulk') renderBulkEditTable();
+    await loadMemberEditList();
+    renderBulkEditTable();
     alert('保存しました');
   } catch (err) {
     alert('保存エラー: ' + err.message);
