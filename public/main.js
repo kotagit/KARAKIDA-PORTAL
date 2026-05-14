@@ -314,7 +314,7 @@ function navigate(page, pushHistory) {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'bumon';
   } else if (page.startsWith('jouhou-')) {
     backBtn._backTarget = 'jouhou';
-  } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply') {
+  } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply' || page === 'attendance-form') {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'shinsei';
   } else if (page.startsWith('admin-')) {
     const assignSubs = ['admin-assignment-history','admin-assignment-week'];
@@ -2412,12 +2412,12 @@ async function loadPwApply() {
         order: typeof data.order === 'number' ? data.order : 9999,
       });
     });
-    // APPと同じクライアント側ソート
+    // 日付順 → 時刻順にソート
     items.sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
       const da = a.date.replace(/[^\d]/g, '').padStart(4, '0');
       const db2 = b.date.replace(/[^\d]/g, '').padStart(4, '0');
       if (da !== db2) return da.localeCompare(db2);
+      if (a.order !== b.order) return a.order - b.order;
       return a.startTime.localeCompare(b.startTime);
     });
 
@@ -2428,33 +2428,44 @@ async function loadPwApply() {
 
     container.innerHTML = '';
 
-    // ヘッダー
-    const hdr = document.createElement('div');
-    hdr.className = 'pwa-header';
-    hdr.innerHTML = '<span style="width:36px"></span><span>日付</span><span>曜日</span><span>時間</span><span>場所</span>';
-    container.appendChild(hdr);
-
-    // 各項目
+    // 日付グループ＋スロットカード
+    let curDate = '';
+    let curGroup = null;
     items.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'pwa-card';
-      card.dataset.key = item.key;
+      const dateLabel = `${item.date}(${item.weekday})`;
+      if (dateLabel !== curDate) {
+        curGroup = document.createElement('div');
+        curGroup.className = 'pw-date-group';
+        const tag = document.createElement('div');
+        tag.className = 'pw-date-tag';
+        tag.textContent = dateLabel;
+        curGroup.appendChild(tag);
+        container.appendChild(curGroup);
+        curDate = dateLabel;
+      }
 
-      const placeClass = item.place.includes('唐木田') ? 'pwa-place-green' : item.place.includes('堀之内') ? 'pwa-place-blue' : '';
-      const placeDisplay = item.place.replace(/駅/g, '');
-      const wdClass = (item.weekday === '土' || item.weekday === '日') ? ' style="color:#c41c3b"' : '';
+      const card = document.createElement('div');
+      card.className = 'pw-slot-card pwa-card';
+      card.dataset.key = item.key;
+      card.style.position = 'relative';
+      card.style.cursor = 'pointer';
+
       const singlePlace = item.places && item.places.length === 1;
       const locSectionClass = singlePlace ? ' hidden' : '';
+      const placeBadges = item.places.map(p => {
+        const cls = p.includes('唐木田') ? 'pw-place-karakida'
+                  : p.includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
+        return `<span class="pw-place-badge ${cls}">${esc(p)}</span>`;
+      }).join('');
 
       card.innerHTML = `
-        <div class="pwa-row-main">
-          <span class="pwa-check"><span class="material-icons">check_circle_outline</span></span>
-          <span class="pwa-col">${esc(item.date)}</span>
-          <span class="pwa-col"${wdClass}>${esc(item.weekday)}</span>
-          <span class="pwa-col">${esc(item.startTime)}</span>
-          <span class="pwa-col ${placeClass}">${esc(placeDisplay)}</span>
+        <div class="pwa-row-main" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
+          <span class="material-icons pw-slot-icon">access_time</span>
+          <span class="pw-slot-time">${esc(item.startTime)}〜${esc(item.endTime)}</span>
+          ${placeBadges}
+          <span class="pwa-check" style="margin-left:auto"><span class="material-icons">check_circle_outline</span></span>
         </div>
-        <div class="pwa-options hidden">
+        <div class="pwa-options hidden" style="width:100%;margin-top:10px;padding-top:10px;border-top:1px dashed #ddd">
           <div class="pwa-section">
             <div class="pwa-section-label">参加立場</div>
             <div class="pwa-roles-list"></div>
@@ -2538,7 +2549,7 @@ async function loadPwApply() {
         }
       });
 
-      container.appendChild(card);
+      curGroup.appendChild(card);
     });
 
     // 送信ボタン
