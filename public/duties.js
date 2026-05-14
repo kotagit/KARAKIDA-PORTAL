@@ -263,11 +263,23 @@ async function openDutyMemberPicker() {
       ).join('');
     } else {
       const all = await getUserListCached();
-      const members = all
-        .filter(m => m.name)
+      // 当該部門に所属する成員のみ抽出
+      const inDept = all.filter(m => {
+        if (!m.name) return false;
+        const ds = m.departments;
+        if (!Array.isArray(ds)) return false;
+        return ds.includes(dept);
+      });
+      const showFiltered = inDept.length > 0;
+      const members = (showFiltered ? inDept : all.filter(m => m.name))
         .sort((a, b) => (a.group || 'zzz').localeCompare(b.group || 'zzz', 'ja')
           || a.name.localeCompare(b.name, 'ja'));
-      list.innerHTML = members.map(m =>
+      const noteHtml = showFiltered
+        ? ''
+        : `<div style="padding:8px 12px;font-size:11px;color:#888;background:#fff8e1;border-bottom:1px solid #ffe082">
+             ${esc(DEPT_CONFIG[dept].label)} の所属者がUSER_LIST.departmentsに登録されていないため、全成員を表示しています。
+           </div>`;
+      list.innerHTML = noteHtml + members.map(m =>
         `<div class="duty-picker-item" onclick="selectDutyValue('${esc(m.name).replace(/'/g,"\\'")}')">
           <span class="duty-picker-name">${esc(m.name)}</span>
           <span class="duty-picker-group">${esc(m.group || '')}</span>
