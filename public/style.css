@@ -2656,3 +2656,58 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 
 /* style.css版を上げる */
+
+/* ── 集会ページ：公開講演 / 週中の集会アコーディオン ── */
+.sk-accordion {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.sk-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary, #047CBC), var(--primary-dark, #035d9a));
+  transition: filter 0.15s;
+}
+.sk-accordion-header:hover { filter: brightness(1.05); }
+.sk-accordion-weekend .sk-accordion-header {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+}
+.sk-accordion-midweek .sk-accordion-header {
+  background: linear-gradient(135deg, #4caf50, #388e3c);
+}
+.sk-accordion-icon { font-size: 22px; }
+.sk-accordion-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sk-accordion-count {
+  font-size: 12px;
+  background: rgba(255,255,255,0.28);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.sk-accordion-chevron {
+  font-size: 22px;
+  transition: transform 0.2s;
+}
+.sk-accordion.sk-collapsed .sk-accordion-chevron {
+  transform: rotate(-90deg);
+}
+.sk-accordion-body {
+  padding: 12px;
+  background: #fafafa;
+}
+.sk-accordion.sk-collapsed .sk-accordion-body {
+  display: none;
+}
