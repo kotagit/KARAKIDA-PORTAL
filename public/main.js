@@ -198,10 +198,15 @@ async function initApp() {
 
         const statusArr = _parseStatus(userData.status);
         const statusUp = statusArr.map(v => String(v || '').toUpperCase().trim());
+        // システム権限フラグは status 配列に残る
         isAdmin = statusUp.includes('WEB');
-        isAnnaigakari = statusUp.includes('AT');
-        isElder = statusUp.includes('EL');
         isPortalAdmin = statusUp.includes('ADMIN');
+        // 長老・案内係は orgRoles + appointment から派生
+        isElder = deriveIsElder({ ...userData, orgRoles: userData.orgRoles || [], appointment: userData.appointment });
+        isAnnaigakari = deriveIsAnnaigakari({ ...userData, orgRoles: userData.orgRoles || [] });
+        // 旧 status 値からの互換フォールバック
+        if (!isElder && statusUp.includes('EL')) isElder = true;
+        if (!isAnnaigakari && statusUp.includes('AT')) isAnnaigakari = true;
 
         const adminMenu = document.getElementById('menu-admin');
         if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
@@ -3519,6 +3524,8 @@ function renderOrgFromUserList(deptDataMap) {
   // 監督部門と配下部門を分類
   const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
   const elders = ORG_DEPARTMENTS.filter(d => d.type === 'elder').sort((a,b) => a.order - b.order);
+  const pioneers = ORG_DEPARTMENTS.filter(d => d.type === 'pioneer').sort((a,b) => a.order - b.order);
+  const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
   const subsByParent = {};
   ORG_DEPARTMENTS.filter(d => d.type === 'sub').forEach(d => {
     (subsByParent[d.parent] = subsByParent[d.parent] || []).push(d);
@@ -3761,10 +3768,11 @@ async function _renderGroupMemberSection(groupView, userList) {
     const name = String(data.name || '').trim();
     if (!name) return;
     const arr = _parseStatus(data.status);
+    // appointment + orgRoles 派生（旧status fallback付き）
     let roleLabel = '伝道者';
-    if (arr.includes('EL')) roleLabel = '長老';
-    else if (arr.includes('MS')) roleLabel = '援助奉仕者';
-    if (arr.includes('RP') || arr.includes('正規開拓者')) roleLabel += ' / 開拓者';
+    if (data.appointment === 'elder' || arr.includes('EL') || deriveIsElder(data)) roleLabel = '長老';
+    else if (data.appointment === 'ministerial' || arr.includes('MS')) roleLabel = '援助奉仕者';
+    if (deriveIsPioneer(data) || arr.includes('RP') || arr.includes('AP')) roleLabel += ' / 開拓者';
     users.push({
       name,
       furigana: String(data.furigana || '').trim(),
@@ -6091,31 +6099,30 @@ async function deleteAccessLogsOlderThan(days) {
 }
 
 // ── 成員編集リスト ────────────────────────────────
+// system フラグのみに集約（旧 GO/GA/EL/MS/RP/AP/AT/AM/PA は orgRoles + appointment から派生）
 const ME_STATUS_OPTIONS = [
-  { code: 'GO',       label: 'グループ監督' },
-  { code: 'GA',       label: 'グループ補佐' },
-  { code: 'EL',       label: '長老' },
-  { code: 'MS',       label: '援助奉仕者' },
-  { code: 'RP',       label: '正規開拓者' },
-  { code: 'AP',       label: '補助開拓者' },
-  { code: 'AT',       label: '案内係' },
-  { code: 'AM',       label: '区域係' },
-  { code: 'PA',       label: '公共エリア' },
   { code: 'WEB',      label: 'WEB管理者' },
   { code: 'ADMIN',    label: 'ADMIN' },
   { code: 'inactive', label: '無効化' },
 ];
 
+// 任命（長老/援助奉仕者）
+const ME_APPOINTMENT_OPTIONS = [
+  { code: '',            label: '伝道者' },
+  { code: 'elder',       label: '長老' },
+  { code: 'ministerial', label: '援助奉仕者' },
+];
+
 // リスト表示用 正方形バッジ定義
 const ME_BADGE_DEFS = [
-  { kanji: '監', cls: 'meb-go',  test: m => m.status.includes('GO') },
-  { kanji: '補', cls: 'meb-ga',  test: m => m.status.includes('GA') },
-  { kanji: '長', cls: 'meb-el',  test: m => m.status.includes('EL') },
-  { kanji: '援', cls: 'meb-ms',  test: m => m.status.includes('MS') },
-  { kanji: '開', cls: 'meb-rp',  test: m => m.status.includes('RP') || m.status.includes('AP') },
-  { kanji: '区', cls: 'meb-am',  test: m => m.status.includes('AM') },
-  { kanji: '公', cls: 'meb-pa',  test: m => m.status.includes('PA') },
-  { kanji: '網', cls: 'meb-web', test: m => m.status.includes('WEB') },
+  { kanji: '監', cls: 'meb-go',  test: m => deriveGroupRole(m)?.position === '監督' },
+  { kanji: '補', cls: 'meb-ga',  test: m => deriveGroupRole(m)?.position === '補佐' },
+  { kanji: '長', cls: 'meb-el',  test: m => deriveIsElder(m) },
+  { kanji: '援', cls: 'meb-ms',  test: m => deriveIsMS(m) },
+  { kanji: '開', cls: 'meb-rp',  test: m => deriveIsPioneer(m) },
+  { kanji: '区', cls: 'meb-am',  test: m => Array.isArray(m.orgRoles) && m.orgRoles.some(r => r?.department === 'territory') },
+  { kanji: '公', cls: 'meb-pa',  test: m => Array.isArray(m.orgRoles) && m.orgRoles.some(r => r?.department === 'public_area') },
+  { kanji: '網', cls: 'meb-web', test: m => Array.isArray(m.status) && m.status.includes('WEB') },
   { kanji: '男', cls: 'meb-m',   test: m => m.gender === '男' },
   { kanji: '女', cls: 'meb-f',   test: m => m.gender === '女' },
 ];
@@ -6179,22 +6186,18 @@ async function loadMemberEditList() {
   }
 }
 
-function meIsPioneer(status) {
-  return status.includes('RP') || status.includes('AP');
+function meIsPioneer(m) {
+  // 旧シグネチャ互換: status配列が渡された場合
+  if (Array.isArray(m)) return m.includes('RP') || m.includes('AP');
+  return deriveIsPioneer(m);
 }
 
-// グループ内優先度:
-//   0: グループ監督 (GO)
-//   1: グループ補佐 (GA)
-//   2: 兄弟 (男) - 開拓者
-//   3: 兄弟 (男) - 伝道者
-//   4: 姉妹 (女) - 開拓者
-//   5: 姉妹 (女) - 伝道者
-//   6: 性別未設定
+// グループ内優先度（orgRoles 派生版）
 function meGroupRank(m) {
-  if (m.status.includes('GO')) return 0;
-  if (m.status.includes('GA')) return 1;
-  const isPioneer = meIsPioneer(m.status);
+  const gr = deriveGroupRole(m);
+  if (gr?.position === '監督') return 0;
+  if (gr?.position === '補佐') return 1;
+  const isPioneer = deriveIsPioneer(m);
   if (m.gender === '男') return isPioneer ? 2 : 3;
   if (m.gender === '女') return isPioneer ? 4 : 5;
   return 6;
@@ -6239,6 +6242,8 @@ function openMemberEditModal(id) {
   document.getElementById('me-mail').value     = member?.mail     || '';
   document.getElementById('me-stability').value = member?.stability || '';
   document.getElementById('me-hascar').checked  = member?.hasCar === true;
+  const apEl = document.getElementById('me-appointment');
+  if (apEl) apEl.value = member?.appointment || '';
 
   const grid = document.getElementById('me-status-grid');
   const cur = new Set(member?.status || []);
@@ -6327,6 +6332,7 @@ async function saveMemberEdit(e) {
   const mail     = document.getElementById('me-mail').value.trim();
   const stability = document.getElementById('me-stability').value;
   const hasCar    = document.getElementById('me-hascar').checked;
+  const appointment = document.getElementById('me-appointment')?.value || '';
   if (!name) { alert('氏名は必須です'); return; }
 
   const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
@@ -6342,6 +6348,7 @@ async function saveMemberEdit(e) {
     mail: mail.toLowerCase(),
     stability, hasCar,
     status,
+    appointment,
     orgRoles,
   };
 
@@ -6408,13 +6415,15 @@ const ME_POSITION_DEFS = [
 //     'supervisor' = 奉仕委員会の監督部門（監督・補佐のみ）
 //     'sub'        = 監督部門配下の実務部門（責任者・奉仕者）
 //     'elder'      = 長老団の部門（責任者・奉仕者）
+//     'pioneer'    = 開拓者区分（本人のみ）
+//     'group'      = 野外宣教グループ（監督・補佐・成員）
 const ORG_DEPARTMENTS = [
-  // 奉仕委員会・監督部門
+  // === 奉仕委員会・監督部門 ===
   { id:'coord',     label:'調整者',   section:'奉仕委員会', type:'supervisor', order:1 },
   { id:'secretary', label:'書記',     section:'奉仕委員会', type:'supervisor', order:2 },
   { id:'svc_ov',    label:'奉仕監督', section:'奉仕委員会', type:'supervisor', order:3 },
 
-  // 奉仕委員会・配下部門
+  // === 奉仕委員会・配下部門 ===
   { id:'annai',          label:'案内',                section:'奉仕委員会', type:'sub', parent:'coord',     order:1 },
   { id:'stage_av',       label:'ステージ・音響・ビデオ', section:'奉仕委員会', type:'sub', parent:'coord',     order:2 },
   { id:'public_talk',    label:'公開講演調整者',         section:'奉仕委員会', type:'sub', parent:'coord',     order:3 },
@@ -6424,7 +6433,7 @@ const ORG_DEPARTMENTS = [
   { id:'public_area',    label:'公共エリア',           section:'奉仕委員会', type:'sub', parent:'svc_ov',    order:2 },
   { id:'literature',     label:'文書',                section:'奉仕委員会', type:'sub', parent:'svc_ov',    order:3 },
 
-  // 長老団
+  // === 長老団 ===
   { id:'wt_chair',       label:'ものみの塔研究司会者',     section:'長老団', type:'elder', order:1 },
   { id:'life_meeting',   label:'生活と奉仕の集会の監督',    section:'長老団', type:'elder', order:2 },
   { id:'assistant_adv',  label:'補助助言者',              section:'長老団', type:'elder', order:3 },
@@ -6435,14 +6444,77 @@ const ORG_DEPARTMENTS = [
   { id:'pw_planner',     label:'公共エリア伝道割当策定者', section:'長老団', type:'elder', order:8 },
   { id:'cleaning_coord', label:'清掃調整者',              section:'長老団', type:'elder', order:9 },
   { id:'parking',        label:'駐車場',                 section:'長老団', type:'elder', order:10 },
+
+  // === 開拓者 ===
+  { id:'pioneer_regular', label:'正規開拓者', section:'開拓者', type:'pioneer', order:1 },
+  { id:'pioneer_aux',     label:'補助開拓者', section:'開拓者', type:'pioneer', order:2 },
+
+  // === 野外宣教グループ ===
+  { id:'group_poplar',      label:'ポプラ',      section:'野外宣教グループ', type:'group', order:1 },
+  { id:'group_baobab',      label:'バオバブ',    section:'野外宣教グループ', type:'group', order:2 },
+  { id:'group_almond',      label:'アーモンド',  section:'野外宣教グループ', type:'group', order:3 },
+  { id:'group_metasequoia', label:'メタセコイア', section:'野外宣教グループ', type:'group', order:4 },
 ];
 window.ORG_DEPARTMENTS = ORG_DEPARTMENTS;
 
+// グループ名 → グループID マッピング
+const GROUP_NAME_TO_ID = {
+  'ポプラ':'group_poplar', 'バオバブ':'group_baobab',
+  'アーモンド':'group_almond', 'メタセコイア':'group_metasequoia',
+};
+window.GROUP_NAME_TO_ID = GROUP_NAME_TO_ID;
+
 function getOrgPositions(dept) {
+  if (!dept) return [];
   if (dept.type === 'supervisor') return ['監督', '補佐'];
-  return ['責任者', '奉仕者'];
+  if (dept.type === 'pioneer')    return ['本人'];
+  if (dept.type === 'group')      return ['監督', '補佐', '成員'];
+  return ['責任者', '奉仕者']; // sub, elder
 }
 function getOrgDept(id) { return ORG_DEPARTMENTS.find(d => d.id === id); }
+window.getOrgPositions = getOrgPositions;
+window.getOrgDept = getOrgDept;
+
+// ─── 派生関数（status配列を使わず orgRoles + appointment から判定）───
+function deriveIsElder(user) {
+  if (!user) return false;
+  if (user.appointment === 'elder') return true;
+  return Array.isArray(user.orgRoles) && user.orgRoles.some(r => {
+    const d = getOrgDept(r?.department);
+    return d && (d.section === '奉仕委員会' || d.section === '長老団');
+  });
+}
+function deriveIsMS(user) {
+  return user?.appointment === 'ministerial';
+}
+function deriveIsPioneer(user) {
+  if (!user) return false;
+  return Array.isArray(user.orgRoles) && user.orgRoles.some(r =>
+    r?.department === 'pioneer_regular' || r?.department === 'pioneer_aux');
+}
+function deriveIsRegularPioneer(user) {
+  return Array.isArray(user?.orgRoles) && user.orgRoles.some(r => r?.department === 'pioneer_regular');
+}
+function deriveIsAuxPioneer(user) {
+  return Array.isArray(user?.orgRoles) && user.orgRoles.some(r => r?.department === 'pioneer_aux');
+}
+function deriveIsAnnaigakari(user) {
+  return Array.isArray(user?.orgRoles) && user.orgRoles.some(r => r?.department === 'annai');
+}
+function deriveGroupRole(user) {
+  if (!user || !Array.isArray(user.orgRoles)) return null;
+  const r = user.orgRoles.find(r => {
+    const d = getOrgDept(r?.department);
+    return d && d.type === 'group';
+  });
+  if (!r) return null;
+  return { group: getOrgDept(r.department).label, position: r.position };
+}
+window.deriveIsElder = deriveIsElder;
+window.deriveIsMS = deriveIsMS;
+window.deriveIsPioneer = deriveIsPioneer;
+window.deriveIsAnnaigakari = deriveIsAnnaigakari;
+window.deriveGroupRole = deriveGroupRole;
 
 // docId -> { name?, furigana?, group?, gender?, mail?, status?: [] }
 const meBulkChanges = new Map();
@@ -6535,7 +6607,21 @@ function _getFilteredSorted() {
       if (sFilter.startsWith('gender:')) {
         const g = sFilter.slice(7);
         if ((m.gender || '') !== g) return false;
-      } else if (!m.status.includes(sFilter)) {
+      } else if (sFilter === 'GO') {
+        if (deriveGroupRole(m)?.position !== '監督') return false;
+      } else if (sFilter === 'GA') {
+        if (deriveGroupRole(m)?.position !== '補佐') return false;
+      } else if (sFilter === 'EL') {
+        if (!deriveIsElder(m)) return false;
+      } else if (sFilter === 'MS') {
+        if (!deriveIsMS(m)) return false;
+      } else if (sFilter === 'RP') {
+        if (!deriveIsRegularPioneer(m)) return false;
+      } else if (sFilter === 'AP') {
+        if (!deriveIsAuxPioneer(m)) return false;
+      } else if (sFilter === 'AT') {
+        if (!deriveIsAnnaigakari(m)) return false;
+      } else if (!Array.isArray(m.status) || !m.status.includes(sFilter)) {
         return false;
       }
     }

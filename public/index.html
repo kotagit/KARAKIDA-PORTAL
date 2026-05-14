@@ -1436,7 +1436,15 @@
         <label><input type="checkbox" id="me-hascar" style="margin-right:6px;vertical-align:middle"> 車を所有している</label>
       </div>
       <div class="form-group">
-        <label>立場・権限 (status)</label>
+        <label>任命 (appointment)</label>
+        <select id="me-appointment">
+          <option value="">伝道者</option>
+          <option value="elder">長老</option>
+          <option value="ministerial">援助奉仕者</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>システム権限 (status)</label>
         <div id="me-status-grid" class="me-status-grid"></div>
       </div>
       <div class="form-group">
@@ -1909,7 +1917,7 @@
   </div>
 </div>
 
-<script src="main.js?v=168"></script>
+<script src="main.js?v=169"></script>
 <script src="assignment.js?v=79"></script>
 <script src="pw.js?v=9"></script>
 <script src="duties.js?v=6"></script>
