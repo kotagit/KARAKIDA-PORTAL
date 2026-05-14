@@ -6528,7 +6528,14 @@ function _getFilteredSorted() {
   const sFilter = document.getElementById('me-bulk-filter')?.value || 'all';
 
   const filtered = meAllMembers.filter(m => {
-    if (sFilter !== 'all' && !m.status.includes(sFilter)) return false;
+    if (sFilter !== 'all') {
+      if (sFilter.startsWith('gender:')) {
+        const g = sFilter.slice(7);
+        if ((m.gender || '') !== g) return false;
+      } else if (!m.status.includes(sFilter)) {
+        return false;
+      }
+    }
     if (!q) return true;
     return (
       (m.name     || '').toLowerCase().includes(q) ||
