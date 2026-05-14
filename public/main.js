@@ -2455,7 +2455,8 @@ async function loadPwApply() {
       const placeBadges = item.places.map(p => {
         const cls = p.includes('唐木田') ? 'pw-place-karakida'
                   : p.includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
-        return `<span class="pw-place-badge ${cls}">${esc(p)}</span>`;
+        const label = p.replace(/駅$/, '');
+        return `<span class="pw-place-badge ${cls}">${esc(label)}</span>`;
       }).join('');
 
       card.innerHTML = `
@@ -2596,7 +2597,7 @@ async function pwApplySubmit(items) {
     // 場所が複数あるときだけ表示（単一の場合は location と重複するため省略）
     const parts = [];
     if (item.places && item.places.length > 1) {
-      parts.push(item.place.replace(/駅/g, ''));
+      parts.push(item.places.map(p => p.replace(/駅$/, '')).join('・'));
     }
     if (sel.role) parts.push(sel.role);
     if (sel.location) parts.push(sel.location);

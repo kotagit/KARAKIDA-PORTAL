@@ -40,7 +40,8 @@ async function loadPWSchedule() {
       const placeBadges = placesArr.map(p => {
         const c = p.includes('唐木田') ? 'pw-place-karakida'
                 : p.includes('堀之内') ? 'pw-place-horinouchi' : 'pw-place-other';
-        return `<span class="pw-place-badge ${c}">${esc(p)}</span>`;
+        const label = p.replace(/駅$/, '');
+        return `<span class="pw-place-badge ${c}">${esc(label)}</span>`;
       }).join('');
       html += `<div class="pw-slot-card" style="position:relative">
         <span class="material-icons pw-slot-icon">access_time</span>
