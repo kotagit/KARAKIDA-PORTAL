@@ -302,7 +302,7 @@ document.getElementById('admin-manage-dept-cleaning')?.addEventListener('click',
 
 // ── ユーザー側表示（集会ページ） ──────────────────────────
 // 今日以降の最も近い集会日について、全部門の係を一覧表示
-async function loadUserDuties(targetElId = 'shukai-duties') {
+async function loadUserDuties(targetElId = 'shukai-duties', deptFilter = null) {
   const el = document.getElementById(targetElId);
   if (!el) return;
   el.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -348,7 +348,10 @@ async function loadUserDuties(targetElId = 'shukai-duties') {
         </div>
         <div class="duty-day-body">`;
       let hasAny = false;
-      for (const [deptId, deptCfg] of Object.entries(DEPT_CONFIG)) {
+      const entries = deptFilter
+        ? Object.entries(DEPT_CONFIG).filter(([id]) => id === deptFilter)
+        : Object.entries(DEPT_CONFIG);
+      for (const [deptId, deptCfg] of entries) {
         const rows = deptCfg.positions.map(p => {
           const val = map[ymd]?.[`${deptId}_${p.id}`] || '';
           if (!val) return '';
@@ -385,6 +388,10 @@ window.loadUserDuties = loadUserDuties;
   window.navigate = function(page) {
     const r = _orig.apply(this, arguments);
     if (page === 'bumon')   loadUserDuties('bumon-duties');
+    if (page && page.startsWith('user-dept-')) {
+      const dept = page.replace('user-dept-', '');
+      if (DEPT_CONFIG[dept]) loadUserDuties(`user-dept-${dept}-body`, dept);
+    }
     if (page && page.startsWith('admin-dept-')) {
       const dept = page.replace('admin-dept-', '');
       if (DEPT_CONFIG[dept]) {

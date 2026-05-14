@@ -110,6 +110,10 @@ const PAGE_TITLES = {
   'admin-dept-parking': '駐車場 取決め表',
   'admin-dept-cleaning': '清掃 取決め表',
   bumon: '部門',
+  'user-dept-annai': '案内部門',
+  'user-dept-avs': 'AVS部門',
+  'user-dept-parking': '駐車場部門',
+  'user-dept-cleaning': '清掃部門',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -444,11 +448,83 @@ document.querySelectorAll('[data-page]').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
-// ホームメニューのアコーディオン（集会）
-document.getElementById('home-acc-shukai-header')?.addEventListener('click', () => {
-  const acc = document.getElementById('home-acc-shukai');
-  if (acc) acc.classList.toggle('open');
+// ホームメニューのアコーディオン
+['shukai','senkyo','bumon','shinsei'].forEach(key => {
+  const hdr = document.getElementById(`home-acc-${key}-header`);
+  if (hdr) hdr.addEventListener('click', () => {
+    const acc = document.getElementById(`home-acc-${key}`);
+    if (acc) acc.classList.toggle('open');
+    if (key === 'shinsei' && acc?.classList.contains('open')) loadHomeShinseiLinks();
+  });
 });
+
+// フォームアコーディオン：固定項目 + Firestore動的リンク
+let _homeShinseiLoaded = false;
+async function loadHomeShinseiLinks() {
+  if (_homeShinseiLoaded) return;
+  const body = document.getElementById('home-acc-shinsei-body');
+  if (!body) return;
+  body.innerHTML = '';
+  // 固定の内部ページ項目
+  const formItems = [
+    { icon: 'location_city', label: '公共エリア伝道申込み', page: 'pw-apply' },
+    { icon: 'summarize',     label: '奉仕報告',           page: 'service-report' },
+    { icon: 'location_on',   label: '区域情報登録',       page: 'area-info' },
+    { icon: 'contact_phone', label: '成員情報登録',       page: 'member-info' },
+  ];
+  if (isAnnaigakari || isAdmin) {
+    formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
+  }
+  formItems.forEach(fi => {
+    const el = document.createElement('div');
+    el.className = 'admin-list-row home-acc-item';
+    el.style.cursor = 'pointer';
+    el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
+    el.addEventListener('click', () => navigate(fi.page));
+    body.appendChild(el);
+  });
+  // 動的リンク（Firestore LINKS）
+  try {
+    const snap = await db.collection('LINKS')
+      .where('section', '==', 'shinsei')
+      .orderBy('order','asc').get();
+    snap.forEach(doc => {
+      const d = doc.data();
+      const a = document.createElement('a');
+      a.className = 'admin-list-row home-acc-item';
+      a.href = d.url || '#';
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.innerHTML = `<span class="material-icons admin-row-icon">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title || '')}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
+      body.appendChild(a);
+    });
+    _homeShinseiLoaded = true;
+  } catch (e) {
+    const err = document.createElement('div');
+    err.className = 'loading';
+    err.style.padding = '12px';
+    err.textContent = '読み込みエラー: ' + e.message;
+    body.appendChild(err);
+  }
+}
+
+// 宣教アコーディオン：区域情報の権限に応じてサブ項目の表示を制御
+function updateSenkyoAccordionVisibility() {
+  // 既存の senkyo-area-list の hidden 状態を確認
+  const senkyoAreaList = document.getElementById('senkyo-area-list');
+  const isVisible = senkyoAreaList && !senkyoAreaList.classList.contains('hidden');
+  document.querySelectorAll('.home-acc-area').forEach(el => {
+    el.classList.toggle('hidden', !isVisible);
+  });
+}
+// 既存の表示制御後にもう一度呼び出されるよう、可視性監視
+(function watchSenkyoVisibility() {
+  const target = document.getElementById('senkyo-area-list');
+  if (!target) return;
+  const obs = new MutationObserver(() => updateSenkyoAccordionVisibility());
+  obs.observe(target, { attributes: true, attributeFilter: ['class'] });
+  updateSenkyoAccordionVisibility();
+})();
 
 backBtn.addEventListener('click', () => navigate(backBtn._backTarget || 'home'));
 headerHomeBtn.addEventListener('click', () => navigate('home'));
