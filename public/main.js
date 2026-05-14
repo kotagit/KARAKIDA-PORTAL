@@ -6136,6 +6136,10 @@ async function initMemberEditPage() {
     document.getElementById('me-add-btn')?.addEventListener('click', () => openMemberEditModal(null));
     document.getElementById('me-bulk-search')?.addEventListener('input', renderBulkEditTable);
     document.getElementById('me-bulk-filter')?.addEventListener('change', renderBulkEditTable);
+    document.getElementById('me-orgrole-add')?.addEventListener('click', () => {
+      _meOrgRolesState.push({ section: '奉仕委員会', department: '', role: 'member', sectionOrder: null, parentDept: '' });
+      _renderMeOrgRoles();
+    });
     meInitialized = true;
   }
   await loadMemberEditList();
@@ -6335,8 +6339,90 @@ function openMemberEditModal(id) {
     </label>
   `).join('');
 
+  // departments チェックボックス
+  const deptGrid = document.getElementById('me-departments-grid');
+  const curDepts = new Set(Array.isArray(member?.departments) ? member.departments : []);
+  const DEPT_OPTIONS = [
+    { id: 'annai',    label: '案内部門' },
+    { id: 'avs',      label: 'AVS部門' },
+    { id: 'parking',  label: '駐車場部門' },
+    { id: 'cleaning', label: '清掃部門' },
+  ];
+  deptGrid.innerHTML = DEPT_OPTIONS.map(opt => `
+    <label class="me-status-check">
+      <input type="checkbox" class="me-dept-cb" value="${opt.id}" ${curDepts.has(opt.id) ? 'checked' : ''}>
+      <span class="me-status-check-label">
+        <span class="me-status-check-name">${esc(opt.label)}</span>
+      </span>
+    </label>
+  `).join('');
+
+  // orgRoles 行エディタ
+  _meOrgRolesState = Array.isArray(member?.orgRoles) ? JSON.parse(JSON.stringify(member.orgRoles)) : [];
+  _renderMeOrgRoles();
+
   document.getElementById('me-modal').classList.remove('hidden');
 }
+
+let _meOrgRolesState = [];
+const ME_ORGROLE_SECTIONS = ['奉仕委員会', '長老団', 'その他'];
+const ME_ORGROLE_ROLES = [
+  { v: 'supervisor',  label: '監督' },
+  { v: 'assistant',   label: '補佐' },
+  { v: 'responsible', label: '責任者' },
+  { v: 'member',      label: '奉仕者' },
+];
+
+function _renderMeOrgRoles() {
+  const list = document.getElementById('me-orgroles-list');
+  if (!list) return;
+  if (_meOrgRolesState.length === 0) {
+    list.innerHTML = '<div class="me-orgrole-empty">役職が登録されていません</div>';
+    return;
+  }
+  list.innerHTML = _meOrgRolesState.map((r, i) => `
+    <div class="me-orgrole-row" data-idx="${i}">
+      <div class="me-orgrole-fields">
+        <select class="me-or-section" data-idx="${i}">
+          ${ME_ORGROLE_SECTIONS.map(s => `<option value="${esc(s)}" ${r.section===s?'selected':''}>${esc(s)}</option>`).join('')}
+        </select>
+        <input type="text" class="me-or-dept" placeholder="部門名" value="${esc(r.department || '')}" data-idx="${i}">
+        <select class="me-or-role" data-idx="${i}">
+          ${ME_ORGROLE_ROLES.map(o => `<option value="${o.v}" ${r.role===o.v?'selected':''}>${esc(o.label)}</option>`).join('')}
+        </select>
+        <input type="number" class="me-or-order" placeholder="順" value="${r.sectionOrder ?? ''}" data-idx="${i}" style="width:60px">
+        <input type="text" class="me-or-parent" placeholder="上位部門" value="${esc(r.parentDept || '')}" data-idx="${i}">
+        <button type="button" class="icon-btn me-or-del" data-idx="${i}" title="削除" style="color:#d32f2f">
+          <span class="material-icons" style="font-size:18px">delete</span>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  // バインド
+  list.querySelectorAll('.me-or-section').forEach(el => el.addEventListener('change', e => {
+    _meOrgRolesState[+e.target.dataset.idx].section = e.target.value;
+  }));
+  list.querySelectorAll('.me-or-dept').forEach(el => el.addEventListener('input', e => {
+    _meOrgRolesState[+e.target.dataset.idx].department = e.target.value.trim();
+  }));
+  list.querySelectorAll('.me-or-role').forEach(el => el.addEventListener('change', e => {
+    _meOrgRolesState[+e.target.dataset.idx].role = e.target.value;
+  }));
+  list.querySelectorAll('.me-or-order').forEach(el => el.addEventListener('input', e => {
+    const v = e.target.value;
+    _meOrgRolesState[+e.target.dataset.idx].sectionOrder = v === '' ? null : Number(v);
+  }));
+  list.querySelectorAll('.me-or-parent').forEach(el => el.addEventListener('input', e => {
+    _meOrgRolesState[+e.target.dataset.idx].parentDept = e.target.value.trim();
+  }));
+  list.querySelectorAll('.me-or-del').forEach(el => el.addEventListener('click', e => {
+    _meOrgRolesState.splice(+e.currentTarget.dataset.idx, 1);
+    _renderMeOrgRoles();
+  }));
+}
+
+// 「追加」ボタンのハンドラは initMemberEditPage 内でバインド
 
 function closeMemberEditModal() {
   document.getElementById('me-modal').classList.add('hidden');
@@ -6357,11 +6443,27 @@ async function saveMemberEdit(e) {
   const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
   const status = [...checks].map(cb => cb.value);
 
+  // departments
+  const deptChecks = document.querySelectorAll('#me-departments-grid .me-dept-cb:checked');
+  const departments = [...deptChecks].map(cb => cb.value);
+
+  // orgRoles（空のdepartmentは除外、null sectionOrder は省略）
+  const orgRoles = (_meOrgRolesState || [])
+    .filter(r => r.section && r.department && r.role)
+    .map(r => {
+      const o = { section: r.section, department: r.department, role: r.role };
+      if (r.sectionOrder != null && !isNaN(r.sectionOrder)) o.sectionOrder = r.sectionOrder;
+      if (r.parentDept) o.parentDept = r.parentDept;
+      return o;
+    });
+
   const data = {
     name, furigana, group, gender,
     mail: mail.toLowerCase(),
     stability, hasCar,
-    status
+    status,
+    departments,
+    orgRoles,
   };
 
   try {

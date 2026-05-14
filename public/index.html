@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=139">
+  <link rel="stylesheet" href="style.css?v=140">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -1449,6 +1449,19 @@
         <label>立場・権限 (status)</label>
         <div id="me-status-grid" class="me-status-grid"></div>
       </div>
+      <div class="form-group">
+        <label>所属部門 (departments)</label>
+        <div id="me-departments-grid" class="me-dept-grid"></div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>組織表の役職 (orgRoles)</span>
+          <button type="button" id="me-orgrole-add" class="btn-secondary" style="padding:4px 10px;font-size:12px">
+            <span class="material-icons" style="font-size:14px;vertical-align:middle">add</span> 追加
+          </button>
+        </label>
+        <div id="me-orgroles-list" class="me-orgroles-list"></div>
+      </div>
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="me-cancel">キャンセル</button>
         <button type="submit" class="btn-primary">保存</button>
@@ -1910,7 +1923,7 @@
   </div>
 </div>
 
-<script src="main.js?v=162"></script>
+<script src="main.js?v=163"></script>
 <script src="assignment.js?v=79"></script>
 <script src="pw.js?v=9"></script>
 <script src="duties.js?v=5"></script>

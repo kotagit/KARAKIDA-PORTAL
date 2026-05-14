@@ -2675,6 +2675,52 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 
 /* style.css版を上げる */
 
+/* ── 成員編集: 部門・組織表役職 ── */
+.me-dept-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.me-orgroles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.me-orgrole-empty {
+  padding: 12px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px dashed #ddd;
+}
+.me-orgrole-row {
+  padding: 8px;
+  background: #f7fbfe;
+  border: 1px solid #e0eaf3;
+  border-radius: 6px;
+}
+.me-orgrole-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.me-orgrole-fields select,
+.me-orgrole-fields input[type="text"],
+.me-orgrole-fields input[type="number"] {
+  padding: 5px 8px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.me-orgrole-fields .me-or-section { width: 100px; }
+.me-orgrole-fields .me-or-dept    { flex: 1; min-width: 120px; }
+.me-orgrole-fields .me-or-role    { width: 90px; }
+.me-orgrole-fields .me-or-parent  { flex: 1; min-width: 100px; }
+
 /* ── ホームメニューのアコーディオン ── */
 .home-accordion .home-acc-chevron {
   transition: transform 0.2s;
