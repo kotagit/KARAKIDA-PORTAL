@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=135">
+  <link rel="stylesheet" href="style.css?v=136">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -206,6 +206,37 @@
             <span class="admin-row-label">出席者数月次集計</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+          <div class="admin-list-row" id="admin-manage-dept-annai">
+            <span class="admin-row-label">案内部門 取決め表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">videocam</span>
+            <span class="admin-role-name">AVS部門</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-dept-avs">
+            <span class="admin-row-label">AVS 取決め表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">local_parking</span>
+            <span class="admin-role-name">駐車場部門</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-dept-parking">
+            <span class="admin-row-label">駐車場 取決め表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">cleaning_services</span>
+            <span class="admin-role-name">清掃部門</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-dept-cleaning">
+            <span class="admin-row-label">清掃 取決め表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
         </div>
 
         <!-- ── 会衆 ── -->
@@ -276,6 +307,47 @@
 
     <!-- 組織表管理 -->
     <!-- 公共エリア策定：スロット一覧 -->
+    <!-- 部門別 取決め表（案内/AVS/駐車場/清掃） -->
+    <section id="page-admin-dept-annai" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">案内部門 取決め表</h2>
+      </div>
+      <div class="page-content">
+        <div id="dept-annai-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <section id="page-admin-dept-avs" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">AVS 取決め表</h2>
+      </div>
+      <div class="page-content">
+        <div id="dept-avs-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <section id="page-admin-dept-parking" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">駐車場 取決め表</h2>
+      </div>
+      <div class="page-content">
+        <div id="dept-parking-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <section id="page-admin-dept-cleaning" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">清掃 取決め表</h2>
+      </div>
+      <div class="page-content">
+        <div id="dept-cleaning-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
     <!-- 公共エリア伝道取決表策定（スケジュール編集） -->
     <section id="page-admin-pw-schedule" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
@@ -566,6 +638,8 @@
         <div id="shukai-links" class="link-list"></div>
         <div id="shukai-month-selector"></div>
         <div id="assignment-week-display"></div>
+        <div class="duty-section-title"><span class="material-icons" style="vertical-align:middle">assignment_ind</span> 集会当日の係</div>
+        <div id="shukai-duties"></div>
       </div>
     </section>
 
@@ -1713,8 +1787,21 @@
 <!-- S-89 PDF用の非表示レンダリング領域 -->
 <div id="s89-render-area" style="position:fixed;left:-9999px;top:0;z-index:-1"></div>
 
-<script src="main.js?v=150"></script>
+<!-- 部門取決め表：成員/グループピッカー -->
+<div id="duty-picker-modal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeDutyPicker()"></div>
+  <div class="modal-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 id="duty-picker-title" style="margin:0;font-size:16px">選択</h3>
+      <button class="icon-btn" onclick="closeDutyPicker()" title="閉じる"><span class="material-icons">close</span></button>
+    </div>
+    <div id="duty-picker-list" class="duty-picker-list"><div class="loading">読み込み中...</div></div>
+  </div>
+</div>
+
+<script src="main.js?v=151"></script>
 <script src="assignment.js?v=77"></script>
 <script src="pw.js?v=8"></script>
+<script src="duties.js?v=1"></script>
 </body>
 </html>

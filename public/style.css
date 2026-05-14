@@ -2485,3 +2485,174 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   background: #f5f5f5;
   z-index: 15;
 }
+
+/* ── 部門別 取決め表 ── */
+.duty-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  background: var(--primary-light, #e3f2fd);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.duty-month-label {
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--primary-dark, #035d9a);
+  min-width: 120px;
+  text-align: center;
+}
+.duty-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+}
+.duty-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.duty-table thead th {
+  background: var(--primary, #047CBC);
+  color: #fff;
+  padding: 10px 8px;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.2);
+}
+.duty-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  vertical-align: middle;
+}
+.duty-date-col { width: 100px; }
+.duty-date-cell {
+  background: #fafafa;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.duty-date-cell.duty-midweek { border-left: 3px solid #4caf50; }
+.duty-date-cell.duty-weekend { border-left: 3px solid #ff9800; }
+.duty-date-main {
+  font-size: 14px;
+  color: var(--primary-dark, #035d9a);
+}
+.duty-date-sub {
+  font-size: 10px;
+  color: #888;
+  margin-top: 2px;
+}
+.duty-input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.duty-input:focus {
+  outline: none;
+  border-color: var(--primary, #047CBC);
+  box-shadow: 0 0 0 2px rgba(4,124,188,0.15);
+}
+.duty-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.duty-picker-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+.duty-picker-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.15s;
+}
+.duty-picker-item:hover {
+  background: var(--primary-light, #e3f2fd);
+}
+.duty-picker-item:last-child { border-bottom: none; }
+.duty-picker-name { font-size: 14px; color: #222; }
+.duty-picker-group {
+  font-size: 11px;
+  color: #888;
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ── ユーザー側：集会ページの係表示 ── */
+.duty-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-dark, #035d9a);
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary-light, #e3f2fd);
+}
+.duty-day-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.duty-day-header {
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+}
+.duty-day-header.duty-midweek {
+  background: linear-gradient(135deg, #4caf50, #388e3c);
+}
+.duty-day-header.duty-weekend {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+}
+.duty-day-date { font-size: 15px; font-weight: 700; }
+.duty-day-type { font-size: 12px; opacity: 0.95; }
+.duty-day-body { padding: 10px 14px; }
+.duty-dept-section { margin-bottom: 10px; }
+.duty-dept-section:last-child { margin-bottom: 0; }
+.duty-dept-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dark, #035d9a);
+  margin-bottom: 4px;
+}
+.duty-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-bottom: 1px dashed #f0f0f0;
+}
+.duty-row:last-child { border-bottom: none; }
+.duty-pos { color: #666; }
+.duty-assignee { color: #222; font-weight: 500; }
+.duty-empty-day {
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  padding: 8px 0;
+}
+
+/* style.css版を上げる */
