@@ -109,6 +109,7 @@ const PAGE_TITLES = {
   'admin-dept-avs': 'AVS 取決め表',
   'admin-dept-parking': '駐車場 取決め表',
   'admin-dept-cleaning': '清掃 取決め表',
+  bumon: '部門',
 };
 
 // ── DOM ──────────────────────────────────────

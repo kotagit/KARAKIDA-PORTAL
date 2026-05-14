@@ -385,6 +385,7 @@ window.loadUserDuties = loadUserDuties;
   window.navigate = function(page) {
     const r = _orig.apply(this, arguments);
     if (page === 'shukai')  loadUserDuties('shukai-duties');
+    if (page === 'bumon')   loadUserDuties('bumon-duties');
     if (page && page.startsWith('admin-dept-')) {
       const dept = page.replace('admin-dept-', '');
       if (DEPT_CONFIG[dept]) {
