@@ -113,7 +113,7 @@ const PAGE_TITLES = {
   'user-dept-annai': '案内部門',
   'user-dept-avs': 'AVS部門',
   'user-dept-parking': '駐車場部門',
-  'user-dept-cleaning': '清掃部門',
+  'user-dept-cleaning': '王国会館の清掃',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -479,23 +479,24 @@ async function loadHomeShinseiLinks() {
     const el = document.createElement('div');
     el.className = 'admin-list-row home-acc-item';
     el.style.cursor = 'pointer';
-    el.innerHTML = `<span class="material-icons admin-row-icon" style="color:${fi.color}">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
+    el.innerHTML = `<span class="material-icons admin-row-icon" style="color:${fi.color} !important">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
     el.addEventListener('click', () => navigate(fi.page));
     body.appendChild(el);
   });
-  // 動的リンク（Firestore LINKS）
+  // 動的リンク（Firestore LINKS）— orderBy省略＋クライアント側ソート
   try {
     const snap = await db.collection('LINKS')
       .where('section', '==', 'shinsei')
-      .orderBy('order','asc').get();
-    snap.forEach(doc => {
-      const d = doc.data();
+      .get();
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+    docs.forEach(d => {
       const a = document.createElement('a');
       a.className = 'admin-list-row home-acc-item';
       a.href = d.url || '#';
       a.target = '_blank';
       a.rel = 'noopener';
-      a.innerHTML = `<span class="material-icons admin-row-icon" style="color:#607d8b">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title || '')}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
+      a.innerHTML = `<span class="material-icons admin-row-icon" style="color:#607d8b !important">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title || '')}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
       body.appendChild(a);
     });
     _homeShinseiLoaded = true;
