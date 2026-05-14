@@ -263,12 +263,13 @@ async function openDutyMemberPicker() {
       ).join('');
     } else {
       const all = await getUserListCached();
-      // 当該部門に所属する成員のみ抽出
+      // orgRoles から所属判定（旧 departments も互換維持）
+      const fnDerive = window.deriveDepartmentsFromOrgRoles;
       const inDept = all.filter(m => {
         if (!m.name) return false;
-        const ds = m.departments;
-        if (!Array.isArray(ds)) return false;
-        return ds.includes(dept);
+        if (Array.isArray(m.departments) && m.departments.includes(dept)) return true;
+        if (fnDerive && fnDerive(m.orgRoles || []).includes(dept)) return true;
+        return false;
       });
       const showFiltered = inDept.length > 0;
       const members = (showFiltered ? inDept : all.filter(m => m.name))
