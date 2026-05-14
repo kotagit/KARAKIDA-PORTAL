@@ -467,19 +467,19 @@ async function loadHomeShinseiLinks() {
   body.innerHTML = '';
   // 固定の内部ページ項目
   const formItems = [
-    { icon: 'location_city', label: '公共エリア伝道申込み', page: 'pw-apply' },
-    { icon: 'summarize',     label: '奉仕報告',           page: 'service-report' },
-    { icon: 'location_on',   label: '区域情報登録',       page: 'area-info' },
-    { icon: 'contact_phone', label: '成員情報登録',       page: 'member-info' },
+    { icon: 'location_city', label: '公共エリア伝道申込み', page: 'pw-apply',        color: '#ef6c00' },
+    { icon: 'summarize',     label: '奉仕報告',           page: 'service-report',  color: '#00897b' },
+    { icon: 'location_on',   label: '区域情報登録',       page: 'area-info',       color: '#2196f3' },
+    { icon: 'contact_phone', label: '成員情報登録',       page: 'member-info',     color: '#7b1fa2' },
   ];
   if (isAnnaigakari || isAdmin) {
-    formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form' });
+    formItems.push({ icon: 'how_to_reg', label: '出席人数登録', page: 'attendance-form', color: '#1976d2' });
   }
   formItems.forEach(fi => {
     const el = document.createElement('div');
     el.className = 'admin-list-row home-acc-item';
     el.style.cursor = 'pointer';
-    el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
+    el.innerHTML = `<span class="material-icons admin-row-icon" style="color:${fi.color}">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
     el.addEventListener('click', () => navigate(fi.page));
     body.appendChild(el);
   });
@@ -495,7 +495,7 @@ async function loadHomeShinseiLinks() {
       a.href = d.url || '#';
       a.target = '_blank';
       a.rel = 'noopener';
-      a.innerHTML = `<span class="material-icons admin-row-icon">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title || '')}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
+      a.innerHTML = `<span class="material-icons admin-row-icon" style="color:#607d8b">${esc(d.icon || 'insert_drive_file')}</span><span class="admin-row-label">${esc(d.title || '')}</span><span class="material-icons admin-row-chevron">open_in_new</span>`;
       body.appendChild(a);
     });
     _homeShinseiLoaded = true;
