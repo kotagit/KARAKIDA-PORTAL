@@ -2593,7 +2593,14 @@ async function pwApplySubmit(items) {
     if (!item) return;
     const sel = pwApplySelected[key];
     msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '〜' + item.endTime + '\n';
-    msg += item.place.replace(/駅/g, '') + ' / ' + sel.role + ' / ' + sel.location + '\n\n';
+    // 場所が複数あるときだけ表示（単一の場合は location と重複するため省略）
+    const parts = [];
+    if (item.places && item.places.length > 1) {
+      parts.push(item.place.replace(/駅/g, ''));
+    }
+    if (sel.role) parts.push(sel.role);
+    if (sel.location) parts.push(sel.location);
+    msg += parts.join(' / ') + '\n\n';
   });
   msg += '送信しますか？';
   if (!(await customConfirm(msg))) return;
