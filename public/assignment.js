@@ -1986,57 +1986,16 @@ function skShowMonthSchedule() {
     return;
   }
 
-  // 週末（公開講演）グループ
-  const ptSorted = monthPts.slice().sort((a, b) => skParsePtDate(a.date) - skParsePtDate(b.date));
-  const weekendGroup = document.createElement('div');
-  weekendGroup.className = 'sk-accordion sk-accordion-weekend';
-  const weekendHdr = document.createElement('div');
-  weekendHdr.className = 'sk-accordion-header';
-  weekendHdr.innerHTML = `
-    <span class="material-icons sk-accordion-icon">campaign</span>
-    <span class="sk-accordion-title">公開講演（週末の集会）</span>
-    <span class="sk-accordion-count">${ptSorted.length}</span>
-    <span class="material-icons sk-accordion-chevron">expand_more</span>
-  `;
-  const weekendBody = document.createElement('div');
-  weekendBody.className = 'sk-accordion-body';
-  if (ptSorted.length === 0) {
-    weekendBody.innerHTML = '<div class="empty-state" style="padding:12px">この月の公開講演はありません</div>';
-  } else {
-    ptSorted.forEach(pt => skRenderPublicTalkCard(pt, weekendBody));
-  }
-  weekendHdr.addEventListener('click', () => weekendGroup.classList.toggle('sk-collapsed'));
-  weekendGroup.appendChild(weekendHdr);
-  weekendGroup.appendChild(weekendBody);
-  container.appendChild(weekendGroup);
+  // 日付順にまとめて表示
+  const events = [];
+  monthWeeks.forEach(cw => events.push({ type: 'midweek', date: cw.meetDate, data: cw }));
+  monthPts.forEach(pt => { const d = skParsePtDate(pt.date); if (d) events.push({ type: 'weekend', date: d, data: pt }); });
+  events.sort((a,b) => a.date - b.date);
 
-  // 週中の集会グループ
-  const wkSorted = monthWeeks.slice().sort((a, b) => a.meetDate - b.meetDate);
-  const midGroup = document.createElement('div');
-  midGroup.className = 'sk-accordion sk-accordion-midweek';
-  const midHdr = document.createElement('div');
-  midHdr.className = 'sk-accordion-header';
-  midHdr.innerHTML = `
-    <span class="material-icons sk-accordion-icon">menu_book</span>
-    <span class="sk-accordion-title">週中の集会</span>
-    <span class="sk-accordion-count">${wkSorted.length}</span>
-    <span class="material-icons sk-accordion-chevron">expand_more</span>
-  `;
-  const midBody = document.createElement('div');
-  midBody.className = 'sk-accordion-body';
-  if (wkSorted.length === 0) {
-    midBody.innerHTML = '<div class="empty-state" style="padding:12px">この月の週中の集会はありません</div>';
-  } else {
-    wkSorted.forEach(cw => skRenderMidweekCard(cw, midBody));
-  }
-  midHdr.addEventListener('click', () => midGroup.classList.toggle('sk-collapsed'));
-  midGroup.appendChild(midHdr);
-  midGroup.appendChild(midBody);
-  container.appendChild(midGroup);
-
-  // 初期状態：両方とも折りたたみ
-  weekendGroup.classList.add('sk-collapsed');
-  midGroup.classList.add('sk-collapsed');
+  events.forEach(ev => {
+    if (ev.type === 'midweek') skRenderMidweekCard(ev.data, container);
+    else skRenderPublicTalkCard(ev.data, container);
+  });
 }
 
 function skRenderMidweekCard({ week, slots, topics }, container) {

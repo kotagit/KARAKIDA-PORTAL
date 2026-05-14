@@ -444,6 +444,12 @@ document.querySelectorAll('[data-page]').forEach(item => {
   item.addEventListener('click', () => navigate(item.dataset.page));
 });
 
+// ホームメニューのアコーディオン（集会）
+document.getElementById('home-acc-shukai-header')?.addEventListener('click', () => {
+  const acc = document.getElementById('home-acc-shukai');
+  if (acc) acc.classList.toggle('open');
+});
+
 backBtn.addEventListener('click', () => navigate(backBtn._backTarget || 'home'));
 headerHomeBtn.addEventListener('click', () => navigate('home'));
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=137">
+  <link rel="stylesheet" href="style.css?v=138">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -74,10 +74,24 @@
             <span class="admin-row-label">宣教</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="admin-list-row" data-page="shukai">
-            <span class="material-icons admin-row-icon">event_seat</span>
-            <span class="admin-row-label">集会</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
+          <div class="home-accordion" id="home-acc-shukai">
+            <div class="admin-list-row home-acc-header" id="home-acc-shukai-header">
+              <span class="material-icons admin-row-icon">event_seat</span>
+              <span class="admin-row-label">集会</span>
+              <span class="material-icons admin-row-chevron home-acc-chevron">expand_more</span>
+            </div>
+            <div class="home-acc-body">
+              <div class="admin-list-row home-acc-item" data-page="shukai" data-section="weekend">
+                <span class="material-icons admin-row-icon" style="color:#ff9800">campaign</span>
+                <span class="admin-row-label">公開講演（週末の集会）</span>
+                <span class="material-icons admin-row-chevron">chevron_right</span>
+              </div>
+              <div class="admin-list-row home-acc-item" data-page="shukai" data-section="midweek">
+                <span class="material-icons admin-row-icon" style="color:#4caf50">menu_book</span>
+                <span class="admin-row-label">週中の集会</span>
+                <span class="material-icons admin-row-chevron">chevron_right</span>
+              </div>
+            </div>
           </div>
           <div class="admin-list-row" data-page="bumon">
             <span class="material-icons admin-row-icon">assignment_ind</span>
@@ -1812,8 +1826,8 @@
   </div>
 </div>
 
-<script src="main.js?v=152"></script>
-<script src="assignment.js?v=78"></script>
+<script src="main.js?v=153"></script>
+<script src="assignment.js?v=79"></script>
 <script src="pw.js?v=8"></script>
 <script src="duties.js?v=3"></script>
 </body>
