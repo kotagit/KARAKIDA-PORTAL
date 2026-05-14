@@ -262,8 +262,11 @@ logoutBtn.addEventListener('click', () => auth.signOut());
 initApp();
 
 // ── ルーティング ──────────────────────────────
+let _prevPage = 'home';
 function navigate(page, pushHistory) {
   if (!page) { page = 'home'; }
+  // 直前ページを記録（自分以外への遷移時のみ更新）
+  if (currentPage && currentPage !== page) _prevPage = currentPage;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById('page-' + page);
   if (targetPage) {
@@ -306,11 +309,13 @@ function navigate(page, pushHistory) {
   } else if (page === 'senkyo-cards') {
     backBtn._backTarget = senkyoCardsBackTarget || 'senkyo-all';
   } else if (page.startsWith('senkyo-')) {
-    backBtn._backTarget = 'senkyo';
+    backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'senkyo';
+  } else if (page.startsWith('user-dept-')) {
+    backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'bumon';
   } else if (page.startsWith('jouhou-')) {
     backBtn._backTarget = 'jouhou';
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply') {
-    backBtn._backTarget = 'shinsei';
+    backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'shinsei';
   } else if (page.startsWith('admin-')) {
     const assignSubs = ['admin-assignment-history','admin-assignment-week'];
     const programSubs = ['admin-schedule-editor'];
