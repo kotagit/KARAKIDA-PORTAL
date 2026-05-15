@@ -7006,6 +7006,28 @@ function renderDeptEditTable() {
   });
 
   updateBulkToolbar();
+
+  // 列ホバー
+  const table = tbody.closest('table');
+  if (table) {
+    let hoverCol = -1;
+    table.addEventListener('mouseover', function(e) {
+      const td = e.target.closest('td, th');
+      if (!td) return;
+      const col = td.cellIndex;
+      if (col === hoverCol || col === 0) return;
+      table.querySelectorAll('.meb-col-hover').forEach(el => el.classList.remove('meb-col-hover'));
+      hoverCol = col;
+      table.querySelectorAll('tr').forEach(tr => {
+        const cell = tr.cells[col];
+        if (cell) cell.classList.add('meb-col-hover');
+      });
+    });
+    table.addEventListener('mouseleave', function() {
+      table.querySelectorAll('.meb-col-hover').forEach(el => el.classList.remove('meb-col-hover'));
+      hoverCol = -1;
+    });
+  }
 }
 
 async function saveBulkChanges() {
