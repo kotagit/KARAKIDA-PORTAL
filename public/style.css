@@ -3001,7 +3001,40 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   padding: 0 5px;
 }
 
-/* style.css版を上げる */
+/* ── 公開講演予定表 ── */
+.pt-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 16px;
+}
+.pt-table { min-width: 700px; }
+.pt-table th { font-size: 12px; white-space: nowrap; }
+.pt-title-cell {
+  font-size: 12px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #555;
+}
+.pt-cong-input {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #666;
+}
+.pt-visit-input {
+  font-size: 11px;
+}
+.pt-visit-input + .pt-visit-input {
+  margin-top: 4px;
+}
+.pt-field {
+  min-width: 80px;
+}
+.pt-talk-select {
+  min-width: 120px;
+  font-size: 11px;
+}
 
 /* ── 成員編集: 部門・組織表役職 ── */
 .me-dept-grid {

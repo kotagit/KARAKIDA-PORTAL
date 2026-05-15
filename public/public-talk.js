@@ -1,0 +1,619 @@
+// ── 公開講演予定表策定 ──────────────────────────────
+// Firestore:
+//   PUBLIC_TALK_LIST/{number}  : { number, title }  講演マスタ(194件)
+//   PUBLIC_TALK_SCHEDULE/{id}  : 週末ごとの予定レコード
+//     date, talkNumber, talkTitle,
+//     speaker, speakerCong,
+//     chairman, reader,
+//     visitCong, visitSpeaker,
+//     publishedXxx..., status, updatedAt, publishedAt
+
+// ── 講演マスタ（S-99） ──────────────────────────
+let _ptTalkList = null;  // [{number, title}]
+let _ptTalkMap  = {};    // number → title
+
+async function loadTalkList() {
+  if (_ptTalkList) return _ptTalkList;
+  try {
+    const snap = await db.collection('PUBLIC_TALK_LIST').orderBy('number').get();
+    if (snap.empty) {
+      // まだインポートされていない
+      _ptTalkList = [];
+      _ptTalkMap = {};
+      return _ptTalkList;
+    }
+    _ptTalkList = snap.docs.map(d => d.data());
+    _ptTalkMap = {};
+    _ptTalkList.forEach(t => { _ptTalkMap[t.number] = t.title; });
+    return _ptTalkList;
+  } catch (e) {
+    console.warn('PUBLIC_TALK_LIST読込エラー:', e);
+    _ptTalkList = [];
+    _ptTalkMap = {};
+    return _ptTalkList;
+  }
+}
+
+// ── 状態 ──────────────────────────
+let _ptCurMonth = null;   // Date(月の1日)
+let _ptDocs = {};         // date → doc data
+let _ptViewMode = 'draft';
+let _ptElderList = [];    // 長老・奉仕の僕リスト
+
+// ── データロード ──────────────────────────
+async function loadPTSchedule(monthDate) {
+  try {
+    const start = fmtPtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
+    const end   = fmtPtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+    const snap = await db.collection('PUBLIC_TALK_SCHEDULE')
+      .where('date', '>=', start)
+      .where('date', '<=', end)
+      .get();
+    const map = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      map[d.date] = { id: doc.id, ...d };
+    });
+    return map;
+  } catch (e) {
+    console.warn('PUBLIC_TALK_SCHEDULE読込エラー:', e);
+    return {};
+  }
+}
+
+async function loadElderList() {
+  try {
+    const all = await getUserListCached();
+    // 長老 or 奉仕の僕
+    _ptElderList = all.filter(u =>
+      u.name && (u.appointment === 'elder' || u.appointment === 'ms')
+    ).sort((a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
+  } catch (e) {
+    _ptElderList = [];
+  }
+}
+
+// ── ユーティリティ ──────────────────────────
+function fmtPtYmd(dt) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function fmtPtMonthLabel(dt) {
+  return `${dt.getFullYear()}年${dt.getMonth() + 1}月`;
+}
+const PT_DOW_JP = ['日','月','火','水','木','金','土'];
+
+function listWeekendDatesInMonth(year, monthIdx) {
+  // CONFIG/app.meetingDaysの2番目(weekendDow)を使う
+  const result = [];
+  const last = new Date(year, monthIdx + 1, 0).getDate();
+  // デフォルト日曜=0、設定があればそれを使う
+  let weekendDow = 0;
+  if (typeof getAppConfig === 'function') {
+    // 同期的に取れない場合はデフォルト
+  }
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(year, monthIdx, d);
+    if (dt.getDay() === weekendDow) result.push(dt);
+  }
+  return result;
+}
+
+async function listWeekendDatesInMonthAsync(year, monthIdx) {
+  let weekendDow = 0;
+  try {
+    if (typeof getAppConfig === 'function') {
+      const cfg = await getAppConfig();
+      const days = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 1
+        ? cfg.meetingDays : [4, 0];
+      weekendDow = days[1];
+    }
+  } catch (e) {}
+  const result = [];
+  const last = new Date(year, monthIdx + 1, 0).getDate();
+  for (let d = 1; d <= last; d++) {
+    const dt = new Date(year, monthIdx, d);
+    if (dt.getDay() === weekendDow) result.push(dt);
+  }
+  return result;
+}
+
+// ── 描画 ──────────────────────────
+async function renderPublicTalkAdmin() {
+  const container = document.getElementById('public-talk-body');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    if (!_ptCurMonth) _ptCurMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const monthDate = _ptCurMonth;
+    const monthLabel = fmtPtMonthLabel(monthDate);
+
+    const [talkList, docs] = await Promise.all([
+      loadTalkList(),
+      loadPTSchedule(monthDate),
+    ]);
+    await loadElderList();
+    _ptDocs = docs;
+
+    const dates = await listWeekendDatesInMonthAsync(monthDate.getFullYear(), monthDate.getMonth());
+
+    // 講演マスタ未インポートチェック
+    if (talkList.length === 0) {
+      container.innerHTML = `
+        <div class="duty-pub-notice">
+          <span class="material-icons">warning</span>
+          講演マスタ（S-99）がまだインポートされていません。
+        </div>
+        <button class="btn-primary" onclick="importTalkListToFirestore()">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">upload</span> 講演マスタをインポート（194件）
+        </button>
+      `;
+      return;
+    }
+
+    // 未公開チェック
+    let hasUnpublished = false;
+    Object.values(_ptDocs).forEach(d => {
+      if ((d.speaker || '') !== (d.publishedSpeaker || '')) hasUnpublished = true;
+      if ((d.chairman || '') !== (d.publishedChairman || '')) hasUnpublished = true;
+      if ((d.reader || '') !== (d.publishedReader || '')) hasUnpublished = true;
+      if ((d.talkNumber || 0) !== (d.publishedTalkNumber || 0)) hasUnpublished = true;
+      if ((d.visitCong || '') !== (d.publishedVisitCong || '')) hasUnpublished = true;
+      if ((d.visitSpeaker || '') !== (d.publishedVisitSpeaker || '')) hasUnpublished = true;
+    });
+
+    const isDraft = _ptViewMode === 'draft';
+
+    // 月切替
+    let html = `
+      <div class="duty-month-nav">
+        <button class="icon-btn" onclick="changePTMonth(-1)" title="前月"><span class="material-icons">chevron_left</span></button>
+        <span class="duty-month-label">${esc(monthLabel)}</span>
+        <button class="icon-btn" onclick="changePTMonth(1)" title="次月"><span class="material-icons">chevron_right</span></button>
+        <button class="icon-btn" onclick="changePTMonth(0)" title="今月"><span class="material-icons">today</span></button>
+      </div>
+    `;
+
+    // タブ
+    html += `<div class="duty-tabs">
+      <button class="duty-tab ${isDraft ? 'duty-tab-active' : ''}" onclick="switchPTView('draft')">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">edit</span> 下書き
+        ${hasUnpublished ? '<span class="duty-unpub-badge">未公開の変更あり</span>' : ''}
+      </button>
+      <button class="duty-tab ${!isDraft ? 'duty-tab-active' : ''}" onclick="switchPTView('published')">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">visibility</span> 公開中
+      </button>
+      ${isDraft && hasUnpublished ? `<button class="btn-primary duty-publish-btn" onclick="publishPTSchedule()">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">publish</span> 公開する
+      </button>` : ''}
+    </div>`;
+
+    if (isDraft) {
+      html += renderPTDraftTable(dates);
+    } else {
+      html += renderPTPublishedTable(dates);
+    }
+
+    container.innerHTML = html;
+
+    // 番号select変更時に主題を自動入力
+    if (isDraft) {
+      container.querySelectorAll('.pt-talk-select').forEach(sel => {
+        sel.addEventListener('change', function() {
+          const ymd = this.dataset.date;
+          const titleEl = container.querySelector(`.pt-title-cell[data-date="${ymd}"]`);
+          if (titleEl) {
+            const num = parseInt(this.value, 10);
+            titleEl.textContent = num ? (_ptTalkMap[num] || '') : '';
+          }
+        });
+      });
+    }
+  } catch (e) {
+    console.error('renderPublicTalkAdmin error:', e);
+    container.innerHTML = `<div class="loading">エラー: ${esc(e.message)}</div>`;
+  }
+}
+window.renderPublicTalkAdmin = renderPublicTalkAdmin;
+
+// ── 下書きテーブル ──────────────────────────
+function renderPTDraftTable(dates) {
+  const elderOpts = _ptElderList.map(u =>
+    `<option value="${esc(u.name)}">${esc(u.name)}</option>`
+  ).join('');
+
+  const talkOpts = (_ptTalkList || []).map(t =>
+    `<option value="${t.number}">${t.number}. ${esc(t.title.length > 15 ? t.title.substring(0,15)+'…' : t.title)}</option>`
+  ).join('');
+
+  let html = '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
+  html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const date of dates) {
+    const ymd = fmtPtYmd(date);
+    const dowJp = PT_DOW_JP[date.getDay()];
+    const d = _ptDocs[ymd] || {};
+
+    html += `<tr>`;
+    // 日付
+    html += `<td class="duty-date-cell duty-weekend">
+      <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
+    </td>`;
+
+    // 番号
+    html += `<td><select class="duty-select pt-talk-select" data-date="${ymd}" data-field="talkNumber">
+      <option value="">—</option>${talkOpts.replace(
+        d.talkNumber ? `value="${d.talkNumber}"` : '____NOMATCH____',
+        d.talkNumber ? `value="${d.talkNumber}" selected` : '____NOMATCH____'
+      )}
+    </select></td>`;
+
+    // 主題（自動表示）
+    const title = d.talkNumber ? (_ptTalkMap[d.talkNumber] || '') : '';
+    html += `<td class="pt-title-cell" data-date="${ymd}">${esc(title)}</td>`;
+
+    // 講演者（テキスト入力 — 他会衆の人も入るため）
+    html += `<td><input type="text" class="duty-input pt-field" data-date="${ymd}" data-field="speaker" value="${esc(d.speaker || '')}" placeholder="講演者名">
+      <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
+    </td>`;
+
+    // 司会者
+    html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="chairman">
+      <option value="">—</option>${elderOpts.replace(
+        d.chairman ? `value="${esc(d.chairman)}"` : '____NOMATCH____',
+        d.chairman ? `value="${esc(d.chairman)}" selected` : '____NOMATCH____'
+      )}
+    </select></td>`;
+
+    // 朗読者
+    html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="reader">
+      <option value="">—</option>${elderOpts.replace(
+        d.reader ? `value="${esc(d.reader)}"` : '____NOMATCH____',
+        d.reader ? `value="${esc(d.reader)}" selected` : '____NOMATCH____'
+      )}
+    </select></td>`;
+
+    // 訪問講演（会衆/人）
+    html += `<td>
+      <input type="text" class="duty-input pt-field pt-visit-input" data-date="${ymd}" data-field="visitCong" value="${esc(d.visitCong || '')}" placeholder="会衆名">
+      <input type="text" class="duty-input pt-field pt-visit-input" data-date="${ymd}" data-field="visitSpeaker" value="${esc(d.visitSpeaker || '')}" placeholder="講演者名">
+    </td>`;
+
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  html += `<div class="duty-actions">
+    <button class="btn-primary" onclick="savePTSchedule()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存（下書き）
+    </button>
+  </div>`;
+
+  return html;
+}
+
+// ── 公開中テーブル ──────────────────────────
+function renderPTPublishedTable(dates) {
+  let html = '';
+  let hasAny = false;
+
+  html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
+  html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const date of dates) {
+    const ymd = fmtPtYmd(date);
+    const dowJp = PT_DOW_JP[date.getDay()];
+    const d = _ptDocs[ymd] || {};
+    const num = d.publishedTalkNumber || '';
+    const title = num ? (_ptTalkMap[num] || d.publishedTalkTitle || '') : '';
+    const speaker = d.publishedSpeaker || '';
+    const cong = d.publishedSpeakerCong || '';
+    const chairman = d.publishedChairman || '';
+    const reader = d.publishedReader || '';
+    const vCong = d.publishedVisitCong || '';
+    const vSpeaker = d.publishedVisitSpeaker || '';
+    if (speaker || chairman || reader) hasAny = true;
+
+    html += `<tr>
+      <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
+      <td class="duty-pub-cell">${num || '—'}</td>
+      <td class="duty-pub-cell" style="text-align:left;font-size:12px">${esc(title) || '—'}</td>
+      <td class="duty-pub-cell">${speaker ? esc(speaker) + (cong && cong !== '唐木田' ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : '—'}</td>
+      <td class="duty-pub-cell">${esc(chairman) || '—'}</td>
+      <td class="duty-pub-cell">${esc(reader) || '—'}</td>
+      <td class="duty-pub-cell">${vCong ? `${esc(vCong)}<br>${esc(vSpeaker)}` : '—'}</td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  if (!hasAny) {
+    html = '<div class="duty-pub-notice"><span class="material-icons">info</span> まだ公開されていません。</div>' + html;
+  }
+
+  return html;
+}
+
+// ── 保存（下書き） ──────────────────────────
+async function savePTSchedule() {
+  const container = document.getElementById('public-talk-body');
+  if (!container) return;
+
+  const batch = db.batch();
+  let writes = 0;
+
+  // 日付ごとにフィールドを収集
+  const dateData = {};
+  container.querySelectorAll('.pt-field, .pt-talk-select').forEach(el => {
+    const ymd = el.dataset.date;
+    const field = el.dataset.field;
+    if (!dateData[ymd]) dateData[ymd] = {};
+    dateData[ymd][field] = el.value.trim();
+  });
+
+  for (const [ymd, fields] of Object.entries(dateData)) {
+    const talkNumber = parseInt(fields.talkNumber, 10) || 0;
+    const talkTitle = talkNumber ? (_ptTalkMap[talkNumber] || '') : '';
+    const data = {
+      date: ymd,
+      talkNumber,
+      talkTitle,
+      speaker: fields.speaker || '',
+      speakerCong: fields.speakerCong || '',
+      chairman: fields.chairman || '',
+      reader: fields.reader || '',
+      visitCong: fields.visitCong || '',
+      visitSpeaker: fields.visitSpeaker || '',
+      updatedAt: firebase.firestore.Timestamp.now(),
+    };
+
+    const existing = _ptDocs[ymd];
+    if (existing) {
+      // 変更があれば更新
+      let changed = false;
+      ['talkNumber','speaker','speakerCong','chairman','reader','visitCong','visitSpeaker'].forEach(f => {
+        if ((existing[f] || '') !== (data[f] || '')) changed = true;
+      });
+      if (existing.talkNumber !== data.talkNumber) changed = true;
+      if (!changed) return;
+      batch.update(db.collection('PUBLIC_TALK_SCHEDULE').doc(existing.id), data);
+      writes++;
+    } else {
+      // 何か入力されていれば新規作成
+      const hasContent = data.talkNumber || data.speaker || data.chairman || data.reader || data.visitCong;
+      if (hasContent) {
+        data.publishedSpeaker = '';
+        data.publishedSpeakerCong = '';
+        data.publishedChairman = '';
+        data.publishedReader = '';
+        data.publishedTalkNumber = 0;
+        data.publishedTalkTitle = '';
+        data.publishedVisitCong = '';
+        data.publishedVisitSpeaker = '';
+        const ref = db.collection('PUBLIC_TALK_SCHEDULE').doc();
+        batch.set(ref, data);
+        writes++;
+      }
+    }
+  }
+
+  if (writes === 0) {
+    alert('変更がありません');
+    return;
+  }
+
+  try {
+    await batch.commit();
+    alert(`${writes}件保存しました（下書き）`);
+    await renderPublicTalkAdmin();
+  } catch (e) {
+    alert('保存エラー: ' + e.message);
+  }
+}
+window.savePTSchedule = savePTSchedule;
+
+// ── 公開 ──────────────────────────
+async function publishPTSchedule() {
+  if (!(await customConfirm('下書きの内容で公開しますか？\n一般成員に表示されます。'))) return;
+
+  // まず保存
+  await savePTSchedule();
+  // 再読込
+  const docs = await loadPTSchedule(_ptCurMonth);
+  _ptDocs = docs;
+
+  const batch = db.batch();
+  let writes = 0;
+  const now = firebase.firestore.Timestamp.now();
+
+  Object.values(_ptDocs).forEach(d => {
+    let changed = false;
+    if ((d.speaker || '') !== (d.publishedSpeaker || '')) changed = true;
+    if ((d.speakerCong || '') !== (d.publishedSpeakerCong || '')) changed = true;
+    if ((d.chairman || '') !== (d.publishedChairman || '')) changed = true;
+    if ((d.reader || '') !== (d.publishedReader || '')) changed = true;
+    if ((d.talkNumber || 0) !== (d.publishedTalkNumber || 0)) changed = true;
+    if ((d.visitCong || '') !== (d.publishedVisitCong || '')) changed = true;
+    if ((d.visitSpeaker || '') !== (d.publishedVisitSpeaker || '')) changed = true;
+
+    if (changed) {
+      batch.update(db.collection('PUBLIC_TALK_SCHEDULE').doc(d.id), {
+        publishedSpeaker: d.speaker || '',
+        publishedSpeakerCong: d.speakerCong || '',
+        publishedChairman: d.chairman || '',
+        publishedReader: d.reader || '',
+        publishedTalkNumber: d.talkNumber || 0,
+        publishedTalkTitle: d.talkTitle || '',
+        publishedVisitCong: d.visitCong || '',
+        publishedVisitSpeaker: d.visitSpeaker || '',
+        publishedAt: now,
+      });
+      writes++;
+    }
+  });
+
+  if (writes === 0) {
+    alert('公開する変更はありません');
+    return;
+  }
+
+  try {
+    await batch.commit();
+    alert(`${writes}件を公開しました`);
+    _ptViewMode = 'published';
+    await renderPublicTalkAdmin();
+  } catch (e) {
+    alert('公開エラー: ' + e.message);
+  }
+}
+window.publishPTSchedule = publishPTSchedule;
+
+// ── 月切替 ──────────────────────────
+function changePTMonth(delta) {
+  if (delta === 0) {
+    const now = new Date();
+    _ptCurMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    _ptCurMonth = new Date(_ptCurMonth.getFullYear(), _ptCurMonth.getMonth() + delta, 1);
+  }
+  renderPublicTalkAdmin();
+}
+window.changePTMonth = changePTMonth;
+
+function switchPTView(mode) {
+  _ptViewMode = mode;
+  renderPublicTalkAdmin();
+}
+window.switchPTView = switchPTView;
+
+// ── 講演マスタ インポート ──────────────────────────
+async function importTalkListToFirestore() {
+  if (!(await customConfirm('S-99の講演マスタ（194件）をFirestoreにインポートしますか？'))) return;
+
+  const TALK_DATA = [
+    {n:1,t:"神を信じる どういうこと?"},{n:2,t:"世界の終わりは近い"},{n:3,t:"エホバの組織と歩調を合わせる"},
+    {n:4,t:"神はいる? 周りにあるものから分かること"},{n:5,t:"温かい家庭を築くために"},{n:6,t:"ノアの大洪水から学べること"},
+    {n:7,t:"「温かな憐れみ」の模範"},{n:8,t:"自分のためだけに生きるのではなく，神に喜んでもらえるように生きる"},
+    {n:9,t:"聞いて学んだことを実行しましょう"},{n:10,t:"いつも正直でいる"},
+    {n:11,t:"「世の人々」のようではなかったキリストに倣いましょう"},{n:12,t:"神から役目を任されている人たちに敬意を払う"},
+    {n:13,t:"性と結婚について聖書が教えていること"},{n:14,t:"神に倣って清い生活をする"},
+    {n:15,t:"全ての人に善いことを行う"},{n:16,t:"神との絆を深めるために"},
+    {n:17,t:"神を褒めたたえる生き方をする"},{n:18,t:"エホバに頼り，守ってもらう"},
+    {n:19,t:"どうすれば将来を知ることができますか"},{n:20,t:"神が世界を治める時は来る？"},
+    {n:21,t:"神の王国の国民として幸せに暮らすために"},{n:22,t:"神からの教えをしっかり学ぶには"},
+    {n:23,t:"生きることには大きな意味がある"},{n:24,t:"「高価な真珠」を見つけましたか"},
+    {n:25,t:"「世の精神」の影響から身を守る"},{n:26,t:"あなたは神にとって大切な存在"},
+    {n:27,t:"新婚生活の第一歩"},{n:28,t:"敬意と愛を示し合う夫婦になる"},
+    {n:29,t:"親としての責任と喜び"},{n:30,t:"家族のコミュニケーション どうすれば良くなりますか"},
+    {n:31,t:"人間には神の導きが必要 なぜそういえるか"},{n:32,t:"心配事があるときにどうしたらよいか"},
+    {n:33,t:"世界に公正が行き渡る日は来るか"},{n:34,t:"生き残るための印 どうしたら付けてもらえますか"},
+    {n:35,t:"人間が永遠に生きる それは可能か"},{n:36,t:"今の命が全てなのか"},
+    {n:37,t:"神の教え通りに生きると良い結果になる"},{n:38,t:"どうすれば 世界の終わりを生き残れますか"},
+    {n:39,t:"イエス･キリストは世を征服する いつ，どのように？"},{n:40,t:"聖書のどんな預言が間もなく実現するか"},
+    {n:41,t:"「じっととどまって，……エホバの救いを見なさい」"},{n:42,t:"愛は憎しみに勝てるか"},
+    {n:43,t:"神のアドバイスはためになる"},{n:44,t:"イエスの教えから学ぶ"},
+    {n:45,t:"聖書の格言 今も役立つ"},{n:46,t:"信仰を強くして，エホバの約束が果たされるのを見る"},
+    {n:47,t:"「良い知らせ」に信仰を持てるのはどうしてですか"},{n:48,t:"神に喜ばれる揺るぎない愛"},
+    {n:49,t:"美しい地球 取り戻せるか"},{n:50,t:"良い結果につながる決定をする"},
+    {n:51,t:"聖書の教えには人を変える力がある"},{n:52,t:"どの宗教を選ぶかは重要?"},
+    {n:53,t:"神の考え方に倣う"},{n:54,t:"神の存在と神の約束を信じる"},
+    {n:55,t:"神からどう見られるかは大切なこと"},{n:56,t:"リーダーとして信頼できるのは誰ですか"},
+    {n:57,t:"迫害のもとで耐え忍ぶ"},{n:58,t:"イエスの教えに従う本物のクリスチャンを見分ける"},
+    {n:59,t:"（使用しないでください。）"},{n:60,t:"何のために生きますか"},
+    {n:61,t:"誰の言うことを信じますか"},{n:62,t:"将来は明るい なぜそう言えるか"},
+    {n:63,t:"真理を見つけることはできる？"},{n:64,t:"遊んで楽しむことが本当の幸せ?"},
+    {n:65,t:"理不尽な目に遭ったら，どうすればよいか"},{n:66,t:"良い知らせを伝える 今しかできないこと"},
+    {n:67,t:"エホバの言葉とエホバが造ったものについてじっくり考える"},{n:68,t:"「引き続き……寛大に許し合いましょう」"},
+    {n:69,t:"与える生き方は素晴らしい"},{n:70,t:"神を信頼できるのはどうしてか"},
+    {n:71,t:"「目を覚まして」いる なぜ? どのように?"},{n:72,t:"愛はクリスチャンである証拠"},
+    {n:73,t:"「心に知恵」を得るには"},{n:74,t:"エホバは見てくれている"},
+    {n:75,t:"エホバを神と認めて生活する"},{n:76,t:"聖書の原則―今日の問題に対処するのに役立ちますか"},
+    {n:77,t:"「人をもてなすことに努めましょう」"},{n:78,t:"エホバに仕えて心からの喜びを味わう"},
+    {n:79,t:"誰の友達になるかは大切"},{n:80,t:"未来を託せるのは科学？ それとも聖書？"},
+    {n:81,t:"聖書を教える あなたにもできますか"},{n:82,t:"（使用しないでください。）"},
+    {n:83,t:"クリスチャンは十戒を守る必要がある？"},{n:84,t:"あなたはこの世界がたどる運命から逃れますか"},
+    {n:85,t:"暴力的な世界における良いたより"},{n:86,t:"神に聞かれる祈り"},
+    {n:87,t:"あなたと神との関係はどのようなものですか"},{n:88,t:"聖書の基準は私たちのためになる なぜそう言えるか"},
+    {n:89,t:"真理を探している皆さん，来てください！"},{n:90,t:"新しい世界で生きることを目指しましょう"},
+    {n:91,t:"メシアの臨在とその支配"},{n:92,t:"世界の出来事における宗教の役割"},
+    {n:93,t:"自然災害 いつかなくなる？"},{n:94,t:"真の宗教は人間社会の必要を満たす"},
+    {n:95,t:"心霊術に用心してください"},{n:96,t:"宗教は将来どうなるか"},
+    {n:97,t:"曲がった世代にあって，とがめのない状態を保つ"},{n:98,t:"「今の世のありさまは変わっていく」"},
+    {n:99,t:"聖書を信頼できる理由"},{n:100,t:"ずっと続く固い友情を築くには"},
+    {n:101,t:"エホバは「偉大な創造者」"},{n:102,t:"「預言の言葉」に注意を払う"},
+    {n:103,t:"本当の喜び どうしたら味わえる？"},{n:104,t:"親の皆さん，火に耐える材料で建てましょう"},
+    {n:105,t:"わたしたちが遭遇するすべての患難において慰めを得る"},{n:106,t:"地を破滅させることは神からの報復を招く"},
+    {n:107,t:"良心を正しい基準に合わせる 大切なのはなぜ？"},{n:108,t:"将来のことを心配する必要はないと言えるのはなぜ？"},
+    {n:109,t:"神の王国は近い"},{n:110,t:"家族生活を成功させるために神を第一にする"},
+    {n:111,t:"人類は完全に癒やされる どういうことか"},{n:112,t:"自己中心的な世の中で愛を表すには"},
+    {n:113,t:"若い時をどう生きるか 後悔しない人生を送るために"},{n:114,t:"神の創造の驚異に認識と感謝を示す"},
+    {n:115,t:"サタンの策略にはまらないために"},{n:116,t:"友を賢明に選んでください"},
+    {n:117,t:"善をもって悪を征服するにはどうすればよいか"},{n:118,t:"エホバの見地から若い人を見る"},
+    {n:119,t:"クリスチャンとして世から離れている―なぜ益になりますか"},{n:120,t:"今，神の支配権に服すべきなのはなぜですか"},
+    {n:121,t:"信仰で結ばれた人たちは守られる"},{n:122,t:"（使用しないでください。）"},
+    {n:123,t:"（使用しないでください。）"},{n:124,t:"聖書が神の著作であることを確信できる根拠"},
+    {n:125,t:"人類に贖いが必要なのはなぜか"},{n:126,t:"救われるのはだれですか"},
+    {n:127,t:"人は死ぬとどうなりますか"},{n:128,t:"地獄は本当に火の燃える責め苦の場所ですか"},
+    {n:129,t:"三位一体は聖書の教えか"},{n:130,t:"地球は永久に存続する"},
+    {n:131,t:"悪魔にしっかり立ち向かう"},{n:132,t:"復活 死に対する勝利"},
+    {n:133,t:"人間の起源―何を信じるかは重大なことですか"},{n:134,t:"クリスチャンは安息日を守る必要がある？"},
+    {n:135,t:"命と血は神聖なもの"},{n:136,t:"神は像を用いた崇拝を是認されますか"},
+    {n:137,t:"聖書の奇跡は本当に起きましたか"},{n:138,t:"堕落した世にあって健全な思いをもって生活しなさい"},
+    {n:139,t:"科学が進んだ世界における敬虔な知恵"},{n:140,t:"イエス･キリストについて知っておきたい本当のこと"},
+    {n:141,t:"創造物としての人間のうめき―いつ終わりますか"},{n:142,t:"エホバのもとに避難すべきなのはなぜですか"},
+    {n:143,t:"すべての慰めの神に依り頼みなさい"},{n:144,t:"キリストの指導のもとにある忠節な会衆"},
+    {n:145,t:"だれがわたしたちの神エホバのようであろうか"},{n:146,t:"教育の益を，エホバを賛美するために用いなさい"},
+    {n:147,t:"エホバには私たちを救う力がある"},{n:148,t:"あなたは命に関して神と同じ見方をしていますか"},
+    {n:149,t:"あなたは神と共に歩んでいますか"},{n:150,t:"世界は滅んでしまうのか"},
+    {n:151,t:"エホバはご自分の民のための「堅固な高台」"},{n:152,t:"真のハルマゲドン―なぜ？また，いつ？"},
+    {n:153,t:"「畏怖の念を抱かせる」日をしっかりと思いに留める"},{n:154,t:"人間による支配―はかりに掛けられた"},
+    {n:155,t:"バビロンの裁きの時は到来しましたか"},{n:156,t:"裁きの日―恐れの時か，希望の時か"},
+    {n:157,t:"真のクリスチャンはどのように神の教えを飾るか"},{n:158,t:"勇気を出し，エホバに依り頼みなさい"},
+    {n:159,t:"危険な世界で安全を見いだす"},{n:160,t:"クリスチャンとしての立場を守ってください"},
+    {n:161,t:"イエスが苦しみのもとで死なれたのはなぜですか"},{n:162,t:"闇の世からの救出"},
+    {n:163,t:"まことの神を恐れるのはなぜですか"},{n:164,t:"現代でも神は支配しておられますか"},
+    {n:165,t:"あなたはどんな価値基準を大切にしますか"},{n:166,t:"信仰とは何か 信仰があると生き方はどう変わるか"},
+    {n:167,t:"無分別な世にあって賢く行動する"},{n:168,t:"問題の多いこの世界にあっても安心感を抱けます"},
+    {n:169,t:"聖書を導きとするのはなぜですか"},{n:170,t:"人類のための支配者としてふさわしいのはだれですか"},
+    {n:171,t:"平和な生活―今，また永久に!"},{n:172,t:"あなたは神のみ前でどのような立場を得ていますか"},
+    {n:173,t:"神から見て正しい宗教がありますか"},{n:174,t:"神の新しい世―どんな人が入れますか"},
+    {n:175,t:"聖書は信頼できる―なぜそう言えますか"},{n:176,t:"真の平和と安全―実現はいつか"},
+    {n:177,t:"苦難の時にどこから助けが得られますか"},{n:178,t:"忠誠の道を歩む"},
+    {n:179,t:"世の幻想を退け，王国に関する現実の事柄を追い求めなさい"},{n:180,t:"復活―現実的希望と言えるのはなぜか"},
+    {n:181,t:"あなたが考える以上に終わりは近づいていますか"},{n:182,t:"神の王国は今わたしたちのために何を行なっていますか"},
+    {n:183,t:"無価値なものから目を背けなさい"},{n:184,t:"死によってすべてが終わりますか"},
+    {n:185,t:"真理はあなたの生活にどのように影響しますか"},{n:186,t:"神の幸福な民と一つに結ばれる"},
+    {n:187,t:"愛の神が悪を許しておられるのはなぜですか"},{n:188,t:"神エホバを信頼するという生き方"},
+    {n:189,t:"神と共に歩むのは幸せなこと"},{n:190,t:"最高に幸せな家族になるために今できること"},
+    {n:191,t:"愛と信仰があれば強くなれる"},{n:192,t:"生きることを永遠に楽しむために"},
+    {n:193,t:"近づく「苦難の時」に救われるために"},{n:194,t:"神だけが教えてくれる最高のアドバイス"},
+  ];
+
+  try {
+    // Firestoreのバッチは500件まで。194件なので1回でOK
+    const batch = db.batch();
+    TALK_DATA.forEach(t => {
+      const ref = db.collection('PUBLIC_TALK_LIST').doc(String(t.n));
+      batch.set(ref, { number: t.n, title: t.t });
+    });
+    await batch.commit();
+    alert(`${TALK_DATA.length}件の講演マスタをインポートしました`);
+    _ptTalkList = null; // キャッシュクリア
+    _ptTalkMap = {};
+    await renderPublicTalkAdmin();
+  } catch (e) {
+    alert('インポートエラー: ' + e.message);
+  }
+}
+window.importTalkListToFirestore = importTalkListToFirestore;
+
+// ── 管理画面ボタン ──────────────────────────
+document.getElementById('admin-manage-public-talk')?.addEventListener('click', () => {
+  _ptViewMode = 'draft';
+  navigate('admin-public-talk');
+  renderPublicTalkAdmin();
+});
