@@ -6382,13 +6382,15 @@ const ME_BULK_TEXT_FIELDS = [
 ];
 
 // 部門情報モード: 部門取決め表IDと組織表部門IDのマッピング
-// 取決め表のピッカーでは orgRoles から導出する
+// 取決め表のピッカーでは orgRoles から���出する
+// parking/cleaning は担当者が orgRole を持たないため、ポジション制限の判定対象外とする
 const DUTY_TO_ORG_DEPT = {
   annai:    ['annai'],
   avs:      ['stage_av'],
   parking:  ['parking'],
   cleaning: ['cleaning_coord'],
 };
+const DUTY_POSITION_UNRESTRICTED = ['parking', 'cleaning'];
 window.DUTY_TO_ORG_DEPT = DUTY_TO_ORG_DEPT;
 // 後方互換: 旧 departments フィールドを参照する箇所のために残す
 function deriveDepartmentsFromOrgRoles(orgRoles) {
@@ -6763,6 +6765,7 @@ function renderDeptEditTable() {
       kind: 'check',
       label,
       sectionCls: 'meb-grp-dept',
+      exclusive: 'appointment',
       get: m => (meBulkCurrentValue(m, 'appointment') || m.appointment || '') === code,
       set: (m, on) => meBulkRecordChange(m.docId, 'appointment', on ? code : '')
     });
@@ -6770,12 +6773,19 @@ function renderDeptEditTable() {
 
   // ポジション限定
   addSection('ポジション限定', 'meb-grp-pos');
+  const _deptLabel = { annai:'案内', avs:'AVS', parking:'駐車場', cleaning:'清掃' };
   ME_POSITION_DEFS.forEach(p => {
     rows.push({
       kind: 'check',
       label: p.label,
-      subLabel: p.dept,
+      subLabel: _deptLabel[p.dept] || p.dept,
       sectionCls: 'meb-grp-pos',
+      disabled: m => {
+        if (DUTY_POSITION_UNRESTRICTED.includes(p.dept)) return false;
+        const orgRoles = meBulkCurrentValue(m, 'orgRoles') || [];
+        const derived = deriveDepartmentsFromOrgRoles(orgRoles);
+        return !derived.includes(p.dept);
+      },
       get: m => {
         const o = meBulkCurrentValue(m, 'deptPositions') || {};
         return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
@@ -6796,7 +6806,6 @@ function renderDeptEditTable() {
 
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
-  let lastDept = '';
   ORG_DEPARTMENTS.forEach(d => {
     if (d.section !== lastSection) {
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
@@ -6806,15 +6815,12 @@ function renderDeptEditTable() {
                 : 'meb-grp-org';
       addSection(d.section, cls);
       lastSection = d.section;
-      lastDept = '';
     }
     getOrgPositions(d).forEach(pos => {
-      const isFirstOfDept = (d.label !== lastDept);
-      lastDept = d.label;
       rows.push({
         kind: 'check',
         label: pos,
-        deptLabel: isFirstOfDept ? d.label : '',
+        deptLabel: d.label,
         sectionCls: 'meb-grp-org',
         get: m => {
           const arr = meBulkCurrentValue(m, 'orgRoles') || [];
@@ -6870,18 +6876,20 @@ function renderDeptEditTable() {
          +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
          +  `<span class="meb-row-pos">${esc(row.label)}</span></td>`;
     // 各成員のセル
+    const rowIdx = rows.indexOf(row);
     members.forEach((m, i) => {
       if (row.kind === 'select') {
         const cur = row.get(m);
         const val = (typeof cur === 'number') ? cur : 1.0;
-        html += `<td class="meb-status-col"><select class="meb-tr-sel" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}">`;
+        html += `<td class="meb-status-col"><select class="meb-tr-sel" data-row="${rowIdx}" data-mid="${esc(m.docId)}">`;
         row.options.forEach(o => {
           html += `<option value="${o.value}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`;
         });
         html += '</select></td>';
       } else {
         const checked = row.get(m) ? 'checked' : '';
-        html += `<td class="meb-status-col"><input type="checkbox" class="meb-tr-cb" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}" ${checked}></td>`;
+        const dis = (row.disabled && row.disabled(m)) ? 'disabled' : '';
+        html += `<td class="meb-status-col"><input type="checkbox" class="meb-tr-cb" data-row="${rowIdx}" data-mid="${esc(m.docId)}" ${checked} ${dis}></td>`;
       }
     });
     html += '</tr>';
@@ -6893,7 +6901,28 @@ function renderDeptEditTable() {
     cb.addEventListener('change', () => {
       const row = rows[+cb.dataset.row];
       const member = meBulkOriginal(cb.dataset.mid);
-      if (row && member) row.set(member, cb.checked);
+      if (!row || !member) return;
+      row.set(member, cb.checked);
+      // 排他グループ: 同じ exclusive キーを持つ他行のチェックを外す
+      if (row.exclusive && cb.checked) {
+        tbody.querySelectorAll(`.meb-tr-cb[data-mid="${cb.dataset.mid}"]`).forEach(other => {
+          if (other === cb) return;
+          const otherRow = rows[+other.dataset.row];
+          if (otherRow && otherRow.exclusive === row.exclusive && other.checked) {
+            other.checked = false;
+          }
+        });
+      }
+      // orgRoles 変更時: ポジション限定の disabled 状態を更新
+      if (row.sectionCls === 'meb-grp-org') {
+        const mid = cb.dataset.mid;
+        tbody.querySelectorAll(`.meb-tr-cb[data-mid="${mid}"]`).forEach(other => {
+          const otherRow = rows[+other.dataset.row];
+          if (otherRow && otherRow.disabled) {
+            other.disabled = otherRow.disabled(member);
+          }
+        });
+      }
     });
   });
   tbody.querySelectorAll('.meb-tr-sel').forEach(sel => {
@@ -6905,182 +6934,8 @@ function renderDeptEditTable() {
   });
 
   updateBulkToolbar();
-  return; // 旧コードに進まない
-
-  // 以下は旧コード（実行されない）
-  const orgCols = [];
-  ORG_DEPARTMENTS.forEach(d => {
-    getOrgPositions(d).forEach(pos => {
-      orgCols.push({ deptId: d.id, deptLabel: d.label, deptType: d.type, section: d.section, position: pos });
-    });
-  });
-
-  // ヘッダー: 3段構成
-  // row1: グループ大分類 (立場/所属部門/ポジション限定/組織表役職[section分割]/負荷)
-  // row2: 部門名（組織表役職のみ、それ以外はrowspan）
-  // row3: 詳細項目（立場コード、部門ラベル、ポジションラベル、役職position）
-  let row1 = '<tr>';
-  let row2 = '<tr>';
-  let row3 = '<tr>';
-
-  row1 += '<th class="meb-sticky-col" rowspan="3" style="min-width:110px">氏名</th>';
-
-  // 立場
-  row1 += `<th colspan="${ME_STATUS_OPTIONS.length}" rowspan="2" class="meb-grp-status">立場</th>`;
-  ME_STATUS_OPTIONS.forEach(opt => {
-    row3 += `<th class="meb-status-col" title="${esc(opt.label)}">${esc(opt.code)}</th>`;
-  });
-
-  // ポジション限定
-  row1 += `<th colspan="${ME_POSITION_DEFS.length}" rowspan="2" class="meb-grp-pos">ポジション限定</th>`;
-  ME_POSITION_DEFS.forEach(p => {
-    row3 += `<th class="meb-status-col" title="${esc(p.dept)}/${esc(p.pos)}">${esc(p.label)}</th>`;
-  });
-
-  // 組織表役職: section別の幅を計算してrow1のラベル幅を決める
-  const orgSections = [];
-  ORG_DEPARTMENTS.forEach(d => {
-    const cnt = getOrgPositions(d).length;
-    const last = orgSections[orgSections.length - 1];
-    if (last && last.section === d.section) last.count += cnt;
-    else orgSections.push({ section: d.section, count: cnt });
-  });
-  orgSections.forEach(s => {
-    const cls = s.section === '奉仕委員会' ? 'meb-grp-org-svc'
-              : s.section === '長老団'     ? 'meb-grp-org-elder'
-              : s.section === '開拓者'     ? 'meb-grp-org-pioneer'
-              : s.section === '野外宣教グループ' ? 'meb-grp-org-group'
-              : 'meb-grp-org';
-    row1 += `<th colspan="${s.count}" class="meb-grp-org ${cls}">${esc(s.section)}</th>`;
-  });
-  // row2: 部門名 (部門ごとに colspan=positions数)
-  ORG_DEPARTMENTS.forEach(d => {
-    const cnt = getOrgPositions(d).length;
-    const typeCls = d.type === 'supervisor' ? 'meb-org-dept-sup'
-                  : d.type === 'sub'        ? 'meb-org-dept-sub'
-                  : d.type === 'elder'      ? 'meb-org-dept-elder'
-                  : d.type === 'pioneer'    ? 'meb-org-dept-pioneer'
-                  : d.type === 'group'      ? 'meb-org-dept-group'
-                  : '';
-    row2 += `<th colspan="${cnt}" class="meb-org-dept-name ${typeCls}" title="${esc(d.label)}">${esc(d.label)}</th>`;
-  });
-  // row3: ポジション
-  orgCols.forEach(c => {
-    row3 += `<th class="meb-status-col" title="${esc(c.deptLabel)}/${esc(c.position)}">${esc(c.position.charAt(0))}</th>`;
-  });
-
-  // 負荷
-  row1 += '<th rowspan="3" style="min-width:50px">負荷</th>';
-
-  row1 += '</tr>';
-  row2 += '</tr>';
-  row3 += '</tr>';
-  thead.innerHTML = row1 + row2 + row3;
-
-  const sorted = _getFilteredSorted();
-  let html = '';
-  sorted.forEach((m, rowIdx) => {
-    const docId = m.docId;
-    html += `<tr data-id="${esc(docId)}">`;
-    // 氏名
-    html += `<td class="meb-sticky-col"><div class="meb-cell-wrap"><span class="meb-rownum">${rowIdx + 1}</span><span class="meb-name-readonly">${esc(m.name || '')}</span></div></td>`;
-    // 立場
-    const curStatus = meBulkCurrentValue(m, 'status');
-    ME_STATUS_OPTIONS.forEach(opt => {
-      const checked = curStatus.includes(opt.code) ? 'checked' : '';
-      html += `<td class="meb-status-col"><input type="checkbox" class="meb-status" data-id="${esc(docId)}" data-code="${esc(opt.code)}" ${checked}></td>`;
-    });
-    // ポジション限定: orgRoles から導出した「所属部門」で有効/無効を判定
-    const curOrgForDept = meBulkCurrentValue(m, 'orgRoles');
-    const derivedDepts = deriveDepartmentsFromOrgRoles(curOrgForDept);
-    const curPositions = meBulkCurrentValue(m, 'deptPositions');
-    const curPos = (curPositions && typeof curPositions === 'object') ? curPositions : {};
-    ME_POSITION_DEFS.forEach(p => {
-      const arr = Array.isArray(curPos[p.dept]) ? curPos[p.dept] : [];
-      const enabled = derivedDepts.includes(p.dept);
-      const checked = arr.includes(p.pos) ? 'checked' : '';
-      const dis = enabled ? '' : 'disabled';
-      html += `<td class="meb-status-col"><input type="checkbox" class="meb-pos-cb" data-id="${esc(docId)}" data-dept="${esc(p.dept)}" data-pos="${esc(p.pos)}" ${checked} ${dis}></td>`;
-    });
-    // 組織表役職（部門 × position の全組み合わせ）
-    const curOrg = meBulkCurrentValue(m, 'orgRoles');
-    const curOrgArr = Array.isArray(curOrg) ? curOrg : [];
-    orgCols.forEach(c => {
-      const checked = curOrgArr.some(r => r && r.department === c.deptId && r.position === c.position) ? 'checked' : '';
-      html += `<td class="meb-status-col"><input type="checkbox" class="meb-org-cb" data-id="${esc(docId)}" data-dept="${esc(c.deptId)}" data-pos="${esc(c.position)}" ${checked}></td>`;
-    });
-    // 負荷係数
-    const curWeight = meBulkCurrentValue(m, 'dutyWeight');
-    const wVal = (typeof curWeight === 'number') ? curWeight : 1.0;
-    html += `<td><select class="meb-weight" data-id="${esc(docId)}"><option value="0.5" ${wVal===0.5?'selected':''}>0.5</option><option value="1" ${wVal===1?'selected':''}>1.0</option><option value="1.5" ${wVal===1.5?'selected':''}>1.5</option><option value="2" ${wVal===2?'selected':''}>2.0</option></select></td>`;
-    html += '</tr>';
-  });
-  tbody.innerHTML = html;
-
-  // バインド: 立場
-  tbody.querySelectorAll('.meb-status').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const docId = cb.dataset.id;
-      const code = cb.dataset.code;
-      const member = meBulkOriginal(docId);
-      if (!member) return;
-      const cur = meBulkCurrentValue(member, 'status').slice();
-      const idx = cur.indexOf(code);
-      if (cb.checked && idx === -1) cur.push(code);
-      else if (!cb.checked && idx !== -1) cur.splice(idx, 1);
-      meBulkRecordChange(docId, 'status', cur);
-    });
-  });
-  // バインド: ポジション限定
-  tbody.querySelectorAll('.meb-pos-cb').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const docId = cb.dataset.id;
-      const dept = cb.dataset.dept;
-      const pos = cb.dataset.pos;
-      const member = meBulkOriginal(docId);
-      if (!member) return;
-      const cur = meBulkCurrentValue(member, 'deptPositions') || {};
-      const newObj = { ...cur };
-      const arr = Array.isArray(newObj[dept]) ? newObj[dept].slice() : [];
-      const idx = arr.indexOf(pos);
-      if (cb.checked && idx === -1) arr.push(pos);
-      else if (!cb.checked && idx !== -1) arr.splice(idx, 1);
-      if (arr.length === 0) delete newObj[dept];
-      else newObj[dept] = arr;
-      meBulkRecordChange(docId, 'deptPositions', newObj);
-    });
-  });
-  // バインド: 組織表役職（部門 × position）
-  tbody.querySelectorAll('.meb-org-cb').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const docId = cb.dataset.id;
-      const deptId = cb.dataset.dept;
-      const position = cb.dataset.pos;
-      const member = meBulkOriginal(docId);
-      if (!member) return;
-      const cur = (meBulkCurrentValue(member, 'orgRoles') || []).slice();
-      const idx = cur.findIndex(r => r && r.department === deptId && r.position === position);
-      if (cb.checked && idx === -1) {
-        cur.push({ department: deptId, position });
-      } else if (!cb.checked && idx !== -1) {
-        cur.splice(idx, 1);
-      }
-      meBulkRecordChange(docId, 'orgRoles', cur);
-      // 取決め部門に該当する変更ならポジション限定列の有効/無効を再描画
-      if (Object.values(DUTY_TO_ORG_DEPT).some(arr => arr.includes(deptId))) {
-        renderDeptEditTable();
-      }
-    });
-  });
-  // バインド: 負荷係数
-  tbody.querySelectorAll('.meb-weight').forEach(sel => {
-    sel.addEventListener('change', () => {
-      meBulkRecordChange(sel.dataset.id, 'dutyWeight', Number(sel.value));
-    });
-  });
-
-  updateBulkToolbar();
 }
+
 
 async function saveBulkChanges() {
   if (meBulkChanges.size === 0) return;
