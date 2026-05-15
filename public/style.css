@@ -2467,8 +2467,9 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .me-bulk-table .meb-status-col {
   text-align: center;
-  width: 32px;
-  min-width: 28px;
+  width: 20px;
+  min-width: 20px;
+  padding: 2px 0;
   white-space: nowrap;
   padding-left: 2px;
   padding-right: 2px;
@@ -2527,7 +2528,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 /* 部門情報モード: colgroup 列幅固定 */
 #me-dept-mode .me-bulk-table { width: auto; }
 .me-bulk-table col.meb-col-label { width: 180px; }
-.me-bulk-table col.meb-col-cell  { width: 30px; }
+.me-bulk-table col.meb-col-cell  { width: 20px; }
 
 /* 部門情報モード: 転置レイアウト（行=役職、列=成員） */
 .me-bulk-table thead .meb-row-label-head {
@@ -2535,8 +2536,8 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   text-align: left; padding-left: 12px;
 }
 .me-bulk-table thead .meb-name-vert {
-  background: #f5f5f5; padding: 4px 2px;
-  min-width: 28px; max-width: 32px;
+  background: #f5f5f5; padding: 2px 0;
+  min-width: 20px; max-width: 20px;
   vertical-align: bottom;
 }
 .meb-name-vert-inner {
