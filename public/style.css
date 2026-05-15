@@ -1116,6 +1116,29 @@ body {
   font-weight: 700; color: var(--primary); font-size: 13px;
 }
 
+/* ── 組織表 閲覧（プレビュー形式） ── */
+.org-pv-wrap { max-width: 800px; margin: 0 auto; padding: 16px; }
+.org-pv-title {
+  text-align: center; font-size: 18px; font-weight: bold;
+  margin: 0 0 16px; color: var(--text);
+}
+.org-pv-tbl {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  margin-bottom: 16px; background: #fff; box-shadow: var(--shadow); border-radius: 6px; overflow: hidden;
+}
+.org-pv-tbl th, .org-pv-tbl td {
+  border: 1px solid #ddd; padding: 8px 12px; text-align: left; vertical-align: top;
+}
+.org-pv-tbl thead th {
+  background: var(--primary); color: #fff; font-weight: bold; font-size: 13px;
+}
+.org-pv-tbl tbody td:first-child { font-weight: bold; white-space: nowrap; }
+@media (max-width: 700px) {
+  .org-pv-wrap { padding: 8px; }
+  .org-pv-tbl { font-size: 11px; }
+  .org-pv-tbl th, .org-pv-tbl td { padding: 4px 6px; }
+}
+
 /* ── 組織表 閲覧（Excel再現） ── */
 .org-xl-wrap { margin: 0 auto; }
 .org-xl-title {

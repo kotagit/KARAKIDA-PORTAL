@@ -3500,13 +3500,13 @@ function buildOrgChartFromUserList(userList) {
   ORG_DEPARTMENTS.forEach(d => {
     deptDataMap.set(d.id, { def: d, supervisor: '', assistant: '', responsible: '', members: [] });
   });
+  const orgIdToPosDept = { annai:'annai', stage_av:'avs', parking:'parking' };
   userList.forEach(u => {
     const name = String(u.name || '').trim();
     if (!name) return;
     const roles = Array.isArray(u.orgRoles) ? u.orgRoles : [];
     roles.forEach(r => {
       if (!r) return;
-      // 新形式 {department, position}
       const deptId = r.department;
       const pos = r.position;
       if (!deptId || !pos) return;
@@ -3517,115 +3517,72 @@ function buildOrgChartFromUserList(userList) {
       else if (pos === '責任者') d.responsible = name;
       else if (pos === '奉仕者') d.members.push(name);
     });
+    // deptPositions から奉仕者を導出
+    const dp = (u.deptPositions && typeof u.deptPositions === 'object') ? u.deptPositions : {};
+    Object.entries(orgIdToPosDept).forEach(([orgId, posDeptKey]) => {
+      if (Array.isArray(dp[posDeptKey]) && dp[posDeptKey].length > 0) {
+        const d = deptDataMap.get(orgId);
+        if (d && !d.members.includes(name)) d.members.push(name);
+      }
+    });
   });
+  // 奉仕者を50音順にソート
+  deptDataMap.forEach(d => d.members.sort((a, b) => a.localeCompare(b, 'ja')));
   return deptDataMap;
 }
 
 function renderOrgFromUserList(deptDataMap) {
-  const SUB_PER_ROW = 3; // 奉仕者列数
-
-  // 監督部門と配下部門を分類
   const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
+  const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
   const elders = ORG_DEPARTMENTS.filter(d => d.type === 'elder').sort((a,b) => a.order - b.order);
-  const pioneers = ORG_DEPARTMENTS.filter(d => d.type === 'pioneer').sort((a,b) => a.order - b.order);
-  const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
-  const subsByParent = {};
-  ORG_DEPARTMENTS.filter(d => d.type === 'sub').forEach(d => {
-    (subsByParent[d.parent] = subsByParent[d.parent] || []).push(d);
-  });
-  Object.values(subsByParent).forEach(arr => arr.sort((a,b) => a.order - b.order));
 
-  function toRows(members) { return Math.max(1, Math.ceil(members.length / SUB_PER_ROW)); }
-
-  let html = '<div class="org-xl-wrap">';
-  html += '<h3 class="org-xl-title">東京都多摩市唐木田会衆　組織表</h3>';
-  html += '<div class="org-xl-scroll"><table class="org-xl">';
-  html += '<thead><tr><th colspan="2"></th><th>監督</th><th>補佐</th><th>部門</th><th>責任者</th><th colspan="3">奉仕者</th></tr></thead><tbody>';
-
-  // ── 奉仕委員会 ──
-  const colors = ['#e8f5e9', '#fff3e0', '#e3f2fd'];
-  // 監督部門グループの合計行数
-  let committeeTotalRows = 0;
-  const supervisorGroups = supervisors.map((sup, idx) => {
-    const supData = deptDataMap.get(sup.id);
-    const children = subsByParent[sup.id] || [];
-    // 子がない場合は監督部門自身を1行表示
-    const allChildren = children.length > 0 ? children : [];
-    const childRowCount = allChildren.length > 0
-      ? allChildren.reduce((s, c) => s + toRows(deptDataMap.get(c.id).members), 0)
-      : 1;
-    committeeTotalRows += childRowCount;
-    return { sup, supData, children: allChildren, totalRows: childRowCount, color: colors[idx % colors.length] };
-  });
-
-  let firstSup = true;
-  supervisorGroups.forEach(g => {
-    if (g.children.length === 0) {
-      // 子なし: 監督部門のみ1行
-      html += '<tr>';
-      if (firstSup) html += '<td class="org-xl-sec" rowspan="' + committeeTotalRows + '">奉<br>仕<br>委<br>員<br>会</td>';
-      html += '<td class="org-xl-role" style="background:' + g.color + '">' + esc(g.sup.label) + '</td>';
-      html += '<td class="org-xl-sv" style="background:' + g.color + '">' + esc(g.supData.supervisor) + '</td>';
-      html += '<td style="background:' + g.color + '">' + esc(g.supData.assistant) + '</td>';
-      html += '<td class="org-xl-dept" colspan="' + (2 + SUB_PER_ROW) + '"></td>';
-      html += '</tr>';
-      firstSup = false;
-      return;
-    }
-    let firstChild = true;
-    g.children.forEach(child => {
-      const data = deptDataMap.get(child.id);
-      const rows = toRows(data.members);
-      for (let r = 0; r < rows; r++) {
-        html += '<tr>';
-        if (firstSup && firstChild && r === 0)
-          html += '<td class="org-xl-sec" rowspan="' + committeeTotalRows + '">奉<br>仕<br>委<br>員<br>会</td>';
-        if (firstChild && r === 0) {
-          html += '<td class="org-xl-role" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.sup.label) + '</td>';
-          html += '<td class="org-xl-sv" style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.supData.supervisor) + '</td>';
-          html += '<td style="background:' + g.color + '" rowspan="' + g.totalRows + '">' + esc(g.supData.assistant) + '</td>';
-        }
-        if (r === 0) {
-          html += '<td class="org-xl-dept"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(child.label) + '</td>';
-          html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(data.responsible) + '</td>';
-        }
-        for (let c = 0; c < SUB_PER_ROW; c++) {
-          const mi = r * SUB_PER_ROW + c;
-          html += '<td class="org-xl-m">' + (mi < data.members.length ? esc(data.members[mi]) : '') + '</td>';
-        }
-        html += '</tr>';
-      }
-      firstChild = false;
-    });
-    firstSup = false;
-  });
-
-  // ── 長老団（フラット） ──
-  if (elders.length > 0) {
-    const elderRowCount = elders.reduce((s, e) => s + toRows(deptDataMap.get(e.id).members), 0);
-    let firstElder = true;
-    elders.forEach(eDef => {
-      const data = deptDataMap.get(eDef.id);
-      const rows = toRows(data.members);
-      for (let r = 0; r < rows; r++) {
-        html += '<tr class="org-xl-bottom">';
-        if (firstElder && r === 0)
-          html += '<td class="org-xl-sec org-xl-sec-bottom" rowspan="' + elderRowCount + '">長<br>老<br>団</td>';
-        if (r === 0) {
-          html += '<td class="org-xl-dept" colspan="4"' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(eDef.label) + '</td>';
-          html += '<td' + (rows > 1 ? ' rowspan="' + rows + '"' : '') + '>' + esc(data.responsible) + '</td>';
-        }
-        for (let c = 0; c < SUB_PER_ROW; c++) {
-          const mi = r * SUB_PER_ROW + c;
-          html += '<td class="org-xl-m">' + (mi < data.members.length ? esc(data.members[mi]) : '') + '</td>';
-        }
-        html += '</tr>';
-      }
-      firstElder = false;
-    });
+  function getNames(deptId, pos) {
+    const d = deptDataMap.get(deptId);
+    if (!d) return '';
+    if (pos === '監督') return d.supervisor;
+    if (pos === '補佐') return d.assistant;
+    if (pos === '責任者') return d.responsible;
+    if (pos === '奉仕者') return d.members.join(', ');
+    return '';
   }
 
-  html += '</tbody></table></div></div>';
+  let html = '<div class="org-pv-wrap">';
+  html += '<h3 class="org-pv-title">東京都多摩市唐木田会衆　組織表</h3>';
+
+  // 奉仕委員会
+  html += '<table class="org-pv-tbl"><thead><tr><th>管轄</th><th>監督</th><th>補佐</th></tr></thead><tbody>';
+  supervisors.forEach(sup => {
+    html += '<tr><td><strong>' + esc(sup.label) + '</strong></td>';
+    html += '<td>' + esc(getNames(sup.id, '監督')) + '</td>';
+    html += '<td>' + esc(getNames(sup.id, '補佐')) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  // 管轄別
+  supervisors.forEach(sup => {
+    const children = subDepts.filter(d => d.parent === sup.id);
+    if (children.length === 0) return;
+    html += '<table class="org-pv-tbl"><thead><tr><th colspan="3">' + esc(sup.label) + '管轄</th></tr>';
+    html += '<tr><th>部門</th><th>責任者</th><th>奉仕者</th></tr></thead><tbody>';
+    children.forEach(child => {
+      html += '<tr><td>' + esc(child.label) + '</td>';
+      html += '<td>' + esc(getNames(child.id, '責任者')) + '</td>';
+      html += '<td>' + esc(getNames(child.id, '奉仕者')) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  });
+
+  // 長老団
+  html += '<table class="org-pv-tbl"><thead><tr><th colspan="3">長老団管轄</th></tr>';
+  html += '<tr><th>部門</th><th>責任者</th><th>奉仕者</th></tr></thead><tbody>';
+  elders.forEach(d => {
+    html += '<tr><td>' + esc(d.label) + '</td>';
+    html += '<td>' + esc(getNames(d.id, '責任者')) + '</td>';
+    html += '<td>' + esc(getNames(d.id, '奉仕者')) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  html += '</div>';
   return html;
 }
 
