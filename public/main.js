@@ -6268,6 +6268,8 @@ function openMemberEditModal(id) {
   document.getElementById('me-hascar').checked  = member?.hasCar === true;
   const apEl = document.getElementById('me-appointment');
   if (apEl) apEl.value = member?.appointment || '';
+  document.getElementById('me-is-wt-reader').checked = member?.isWtReader === true;
+  document.getElementById('me-is-public-speaker').checked = member?.isPublicSpeaker === true;
 
   const grid = document.getElementById('me-status-grid');
   const cur = new Set(member?.status || []);
@@ -6375,6 +6377,8 @@ async function saveMemberEdit(e) {
   const stability = document.getElementById('me-stability').value;
   const hasCar    = document.getElementById('me-hascar').checked;
   const appointment = document.getElementById('me-appointment')?.value || '';
+  const isWtReader = document.getElementById('me-is-wt-reader').checked;
+  const isPublicSpeaker = document.getElementById('me-is-public-speaker').checked;
   if (!name) { alert('氏名は必須です'); return; }
 
   const checks = document.querySelectorAll('#me-status-grid input[type="checkbox"]:checked');
@@ -6391,6 +6395,8 @@ async function saveMemberEdit(e) {
     stability, hasCar,
     status,
     appointment,
+    isWtReader,
+    isPublicSpeaker,
     orgRoles,
   };
 
@@ -6811,6 +6817,22 @@ function renderDeptEditTable() {
       get: m => (meBulkCurrentValue(m, 'appointment') || m.appointment || '') === code,
       set: (m, on) => meBulkRecordChange(m.docId, 'appointment', on ? code : '')
     });
+  });
+  // ものみの塔朗読者
+  rows.push({
+    kind: 'check',
+    label: 'ものみの塔朗読者',
+    sectionCls: 'meb-grp-dept',
+    get: m => !!(meBulkCurrentValue(m, 'isWtReader') ?? m.isWtReader),
+    set: (m, on) => meBulkRecordChange(m.docId, 'isWtReader', on)
+  });
+  // 公開講演者
+  rows.push({
+    kind: 'check',
+    label: '公開講演者',
+    sectionCls: 'meb-grp-dept',
+    get: m => !!(meBulkCurrentValue(m, 'isPublicSpeaker') ?? m.isPublicSpeaker),
+    set: (m, on) => meBulkRecordChange(m.docId, 'isPublicSpeaker', on)
   });
   // 正規開拓者
   rows.push({
