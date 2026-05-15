@@ -6903,23 +6903,31 @@ function renderDeptEditTable() {
     }
   });
 
-  // 長老団・野外宣教グループ（開拓者は資格セクションで管理）
-  ['長老団', '野外宣教グループ'].forEach(secName => {
-    const depts = ORG_DEPARTMENTS.filter(d => d.section === secName).sort((a,b) => a.order - b.order);
-    if (depts.length === 0) return;
-    const cls = secName === '長老団' ? 'meb-grp-org-elder'
-              : secName === '開拓者' ? 'meb-grp-org-pioneer'
-              : secName === '野外宣教グループ' ? 'meb-grp-org-group'
-              : 'meb-grp-org';
-    addSection(secName, cls);
-    depts.forEach(d => {
+  // 長老団管轄（駐車場は調整者管轄で管理）
+  const elderDepts = ORG_DEPARTMENTS.filter(d => d.section === '長老団' && d.id !== 'parking').sort((a,b) => a.order - b.order);
+  if (elderDepts.length > 0) {
+    addSection('長老団管轄', 'meb-grp-org-elder');
+    elderDepts.forEach(d => {
       let firstPos = true;
       getOrgPositions(d).forEach(pos => {
         addOrgRoleRow(d, pos, firstPos ? d.label : '', !firstPos, 'meb-grp-org');
         firstPos = false;
       });
     });
-  });
+  }
+
+  // 野外宣教グループ
+  const groupDepts = ORG_DEPARTMENTS.filter(d => d.section === '野外宣教グループ').sort((a,b) => a.order - b.order);
+  if (groupDepts.length > 0) {
+    addSection('野外宣教グループ', 'meb-grp-org-group');
+    groupDepts.forEach(d => {
+      let firstPos = true;
+      getOrgPositions(d).forEach(pos => {
+        addOrgRoleRow(d, pos, firstPos ? d.label : '', !firstPos, 'meb-grp-org');
+        firstPos = false;
+      });
+    });
+  }
 
   // 負荷係数（数値）
   addSection('負荷係数', 'meb-grp-status');
