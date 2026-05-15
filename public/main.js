@@ -6839,6 +6839,7 @@ function renderDeptEditTable() {
 
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
+  let lastDeptId = '';
   ORG_DEPARTMENTS.forEach(d => {
     if (d.section !== lastSection) {
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
@@ -6848,12 +6849,15 @@ function renderDeptEditTable() {
                 : 'meb-grp-org';
       addSection(d.section, cls);
       lastSection = d.section;
+      lastDeptId = '';
     }
     getOrgPositions(d).forEach(pos => {
+      const isFirst = d.id !== lastDeptId;
+      lastDeptId = d.id;
       rows.push({
         kind: 'check',
         label: pos,
-        deptLabel: d.label,
+        deptLabel: isFirst ? d.label : '',
         sectionCls: 'meb-grp-org',
         get: m => {
           const arr = meBulkCurrentValue(m, 'orgRoles') || [];

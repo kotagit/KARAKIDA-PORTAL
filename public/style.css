@@ -2554,6 +2554,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   text-align: left; padding: 6px 10px;
   background: #fafafa;
   font-size: 13px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   border-right: 1px solid #ddd;
