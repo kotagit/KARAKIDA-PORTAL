@@ -7096,11 +7096,23 @@ function renderDeptPreview() {
   const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
   const elders = ORG_DEPARTMENTS.filter(d => d.type === 'elder').sort((a,b) => a.order - b.order);
 
+  const _sortByFurigana = (a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
+  const _orgIdToPosDeptPv = { annai:'annai', stage_av:'avs' };
+
   function findMembers(deptId, pos) {
     return members.filter(m => {
       const roles = meBulkCurrentValue(m, 'orgRoles') || [];
       return roles.some(r => r && r.department === deptId && r.position === pos);
-    }).map(m => m.name);
+    }).sort(_sortByFurigana).map(m => m.name);
+  }
+
+  function findServiceMembers(deptId) {
+    const posDeptKey = _orgIdToPosDeptPv[deptId];
+    if (!posDeptKey) return findMembers(deptId, '奉仕者');
+    return members.filter(m => {
+      const dp = meBulkCurrentValue(m, 'deptPositions') || {};
+      return Array.isArray(dp[posDeptKey]) && dp[posDeptKey].length > 0;
+    }).sort(_sortByFurigana).map(m => m.name);
   }
 
   // 奉仕委員会
@@ -7121,7 +7133,7 @@ function renderDeptPreview() {
     children.forEach(child => {
       html += '<tr><td>' + esc(child.label) + '</td>';
       html += '<td>' + esc(findMembers(child.id, '責任者').join(', ')) + '</td>';
-      html += '<td>' + esc(findMembers(child.id, '奉仕者').join(', ')) + '</td></tr>';
+      html += '<td>' + esc(findServiceMembers(child.id).join(', ')) + '</td></tr>';
     });
     html += '</tbody></table>';
   });
@@ -7132,7 +7144,7 @@ function renderDeptPreview() {
   elders.forEach(d => {
     html += '<tr><td>' + esc(d.label) + '</td>';
     html += '<td>' + esc(findMembers(d.id, '責任者').join(', ')) + '</td>';
-    html += '<td>' + esc(findMembers(d.id, '奉仕者').join(', ')) + '</td></tr>';
+    html += '<td>' + esc(findServiceMembers(d.id).join(', ')) + '</td></tr>';
   });
   html += '</tbody></table>';
 
