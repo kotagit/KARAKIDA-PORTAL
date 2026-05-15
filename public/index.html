@@ -1349,11 +1349,10 @@
               <option value="EL">長老</option>
               <option value="MS">援助奉仕者</option>
               <option value="RP">正規開拓者</option>
-              <option value="AP">補助開拓者</option>
               <option value="AT">案内係</option>
               <option value="WEB">WEB管理者</option>
               <option value="ADMIN">ADMIN</option>
-              <option value="inactive">無効</option>
+              <option value="inactive">資格停止</option>
             </optgroup>
           </select>
           <span id="me-bulk-status" class="me-bulk-status">変更なし</span>
@@ -1436,7 +1435,7 @@
         <label><input type="checkbox" id="me-hascar" style="margin-right:6px;vertical-align:middle"> 車を所有している</label>
       </div>
       <div class="form-group">
-        <label>任命 (appointment)</label>
+        <label>資格</label>
         <select id="me-appointment">
           <option value="">伝道者</option>
           <option value="elder">長老</option>
@@ -1458,6 +1457,9 @@
       </div>
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="me-cancel">キャンセル</button>
+        <button type="button" class="btn-danger hidden" id="me-delete" style="background:#d32f2f;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle">delete</span> 削除
+        </button>
         <button type="submit" class="btn-primary">保存</button>
       </div>
     </form>

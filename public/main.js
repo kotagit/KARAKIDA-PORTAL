@@ -6108,7 +6108,7 @@ async function deleteAccessLogsOlderThan(days) {
 const ME_STATUS_OPTIONS = [
   { code: 'WEB',      label: 'WEB管理者' },
   { code: 'ADMIN',    label: 'ADMIN' },
-  { code: 'inactive', label: '無効化' },
+  { code: 'inactive', label: 'ユーザ資格停止' },
 ];
 
 // 任命（長老/援助奉仕者）
@@ -6148,6 +6148,7 @@ async function initMemberEditPage() {
     document.getElementById('me-bulk-save')?.addEventListener('click', saveBulkChanges);
     document.getElementById('me-bulk-discard')?.addEventListener('click', discardBulkChanges);
     document.getElementById('me-add-btn')?.addEventListener('click', () => openMemberEditModal(null));
+    document.getElementById('me-delete')?.addEventListener('click', deleteMemberEdit);
     document.getElementById('me-bulk-search')?.addEventListener('input', renderBulkEditTable);
     document.getElementById('me-bulk-filter')?.addEventListener('change', renderBulkEditTable);
     document.getElementById('me-orgrole-add')?.addEventListener('click', () => {
@@ -6266,6 +6267,8 @@ function openMemberEditModal(id) {
   _meOrgRolesState = Array.isArray(member?.orgRoles) ? JSON.parse(JSON.stringify(member.orgRoles)) : [];
   _renderMeOrgRoles();
 
+  const delBtn = document.getElementById('me-delete');
+  if (delBtn) delBtn.classList.toggle('hidden', !id);
   document.getElementById('me-modal').classList.remove('hidden');
 }
 
@@ -6322,6 +6325,22 @@ function _renderMeOrgRoles() {
 }
 
 // 「追加」ボタンのハンドラは initMemberEditPage 内でバインド
+
+async function deleteMemberEdit() {
+  if (!meEditingId) return;
+  const member = meAllMembers.find(m => m.docId === meEditingId);
+  const name = member?.name || meEditingId;
+  if (!confirm(`「${name}」をUSER_LISTから削除しますか？\nこの操作は取り消せません。`)) return;
+  try {
+    await db.collection('USER_LIST').doc(meEditingId).delete();
+    invalidateUserListCache();
+    closeMemberEditModal();
+    await loadMemberEditList();
+    alert(`「${name}」を削除しました`);
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  }
+}
 
 function closeMemberEditModal() {
   document.getElementById('me-modal').classList.add('hidden');
@@ -6454,7 +6473,6 @@ const ORG_DEPARTMENTS = [
 
   // === 開拓者 ===
   { id:'pioneer_regular', label:'正規開拓者', section:'開拓者', type:'pioneer', order:1 },
-  { id:'pioneer_aux',     label:'補助開拓者', section:'開拓者', type:'pioneer', order:2 },
 
   // === 野外宣教グループ ===
   { id:'group_poplar',      label:'ポプラ',      section:'野外宣教グループ', type:'group', order:1 },
@@ -6755,8 +6773,8 @@ function renderDeptEditTable() {
     });
   });
 
-  // 任命
-  addSection('任命', 'meb-grp-dept');
+  // 資格
+  addSection('資格', 'meb-grp-dept');
   ['elder', 'ministerial'].forEach(code => {
     const label = code === 'elder' ? '長老' : '援助奉仕者';
     rows.push({
@@ -6767,6 +6785,23 @@ function renderDeptEditTable() {
       get: m => (meBulkCurrentValue(m, 'appointment') || m.appointment || '') === code,
       set: (m, on) => meBulkRecordChange(m.docId, 'appointment', on ? code : '')
     });
+  });
+  // 正規開拓者
+  rows.push({
+    kind: 'check',
+    label: '正規開拓者',
+    sectionCls: 'meb-grp-dept',
+    get: m => {
+      const arr = meBulkCurrentValue(m, 'orgRoles') || [];
+      return arr.some(r => r && r.department === 'pioneer_regular');
+    },
+    set: (m, on) => {
+      const cur = (meBulkCurrentValue(m, 'orgRoles') || []).slice();
+      const idx = cur.findIndex(r => r && r.department === 'pioneer_regular');
+      if (on && idx === -1) cur.push({ department: 'pioneer_regular', position: '本人' });
+      else if (!on && idx !== -1) cur.splice(idx, 1);
+      meBulkRecordChange(m.docId, 'orgRoles', cur);
+    }
   });
 
   // ポジション限定
