@@ -6853,9 +6853,18 @@ function renderDeptEditTable() {
     set: (m, val) => meBulkRecordChange(m.docId, 'dutyWeight', Number(val))
   });
 
+  // colgroup で列幅を固定（colspan によるずれを防止）
+  const table = thead.closest('table');
+  let existingCg = table.querySelector('colgroup');
+  if (existingCg) existingCg.remove();
+  let cgHtml = '<colgroup><col class="meb-col-label">';
+  for (let i = 0; i < members.length; i++) cgHtml += '<col class="meb-col-cell">';
+  cgHtml += '</colgroup>';
+  table.insertAdjacentHTML('afterbegin', cgHtml);
+
   // ヘッダー: 1列目=役職ラベル / 2列目以降=成員氏名（縦書き）
   let theadHtml = '<tr>';
-  theadHtml += '<th class="meb-sticky-col meb-row-label-head" style="min-width:180px">役職</th>';
+  theadHtml += '<th class="meb-sticky-col meb-row-label-head">役職</th>';
   members.forEach(m => {
     theadHtml += `<th class="meb-name-vert" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;
   });
@@ -6866,9 +6875,7 @@ function renderDeptEditTable() {
   let html = '';
   rows.forEach(row => {
     if (row.kind === 'section') {
-      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col"><strong>${esc(row.label)}</strong></td>`;
-      for (let i = 0; i < members.length; i++) html += '<td></td>';
-      html += '</tr>';
+      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col" colspan="${members.length + 1}"><strong>${esc(row.label)}</strong></td></tr>`;
       return;
     }
     // ラベルセル
