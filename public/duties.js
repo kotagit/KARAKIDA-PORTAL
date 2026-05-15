@@ -90,14 +90,15 @@ async function loadDeptDuties(dept, monthDate) {
   try {
     const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
     const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+    // 複合インデックス不要: dateだけでフィルタし、deptはクライアント側で絞る
     const snap = await db.collection('DEPT_DUTY')
-      .where('dept', '==', dept)
       .where('date', '>=', start)
       .where('date', '<=', end)
       .get();
     const map = {};
     snap.forEach(doc => {
       const d = doc.data();
+      if (d.dept !== dept) return; // クライアント側フィルタ
       map[`${d.dept}_${d.position}_${d.date}`] = { id: doc.id, ...d };
     });
     return map;
