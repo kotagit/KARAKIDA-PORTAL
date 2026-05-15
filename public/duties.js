@@ -85,47 +85,53 @@ const DUTY_DOW_JP = ['日','月','火','水','木','金','土'];
 
 // ── データロード ──────────────────────────
 async function loadDeptDuties(dept, monthDate) {
-  const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
-  const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
-  const snap = await db.collection('DEPT_DUTY')
-    .where('dept', '==', dept)
-    .where('date', '>=', start)
-    .where('date', '<=', end)
-    .get();
-  const map = {};
-  snap.forEach(doc => {
-    const d = doc.data();
-    map[`${d.dept}_${d.position}_${d.date}`] = { id: doc.id, ...d };
-  });
-  return map;
-}
-
-// ── 衝突チェック：他部門 ──────────────────────────
-async function loadOtherDeptConflicts(currentDept, monthDate) {
-  const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
-  const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
-  const conflicts = {}; // key=`${name}_${date}` → [{dept, position, label}]
-
-  const otherDepts = Object.keys(DEPT_CONFIG).filter(d => d !== currentDept);
-  for (const dept of otherDepts) {
+  try {
+    const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
+    const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
     const snap = await db.collection('DEPT_DUTY')
       .where('dept', '==', dept)
       .where('date', '>=', start)
       .where('date', '<=', end)
       .get();
+    const map = {};
     snap.forEach(doc => {
       const d = doc.data();
-      if (!d.assignee) return;
+      map[`${d.dept}_${d.position}_${d.date}`] = { id: doc.id, ...d };
+    });
+    return map;
+  } catch (e) {
+    console.warn('loadDeptDuties error:', e);
+    return {};
+  }
+}
+
+// ── 衝突チェック：他部門 ──────────────────────────
+async function loadOtherDeptConflicts(currentDept, monthDate) {
+  const conflicts = {}; // key=`${name}_${date}` → [{dept, position, label}]
+  try {
+    const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
+    const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+
+    // 全DEPT_DUTYを一回のクエリで取得（複合インデックス不要）
+    const snap = await db.collection('DEPT_DUTY')
+      .where('date', '>=', start)
+      .where('date', '<=', end)
+      .get();
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (!d.assignee || d.dept === currentDept) return;
       const key = `${d.assignee}_${d.date}`;
       if (!conflicts[key]) conflicts[key] = [];
-      const posDef = DEPT_CONFIG[dept]?.positions.find(p => p.id === d.position);
+      const posDef = DEPT_CONFIG[d.dept]?.positions.find(p => p.id === d.position);
       conflicts[key].push({
-        dept,
-        deptLabel: DEPT_CONFIG[dept]?.label || dept,
+        dept: d.dept,
+        deptLabel: DEPT_CONFIG[d.dept]?.label || d.dept,
         position: d.position,
         posLabel: posDef?.label || d.position,
       });
     });
+  } catch (e) {
+    console.warn('loadOtherDeptConflicts error:', e);
   }
   return conflicts;
 }
@@ -299,17 +305,25 @@ async function renderDeptAdmin() {
   if (!container) return;
   container.innerHTML = '<div class="loading">読み込み中...</div>';
 
+  try {
   const monthDate = _dutyCurMonth;
   const monthLabel = fmtMonthLabel(monthDate);
   const meetCfg = await getMeetingConfig();
   const dates = listMeetingDatesInMonth(monthDate.getFullYear(), monthDate.getMonth(), meetCfg);
 
-  // データ並行ロード
-  const [dutyDocs, otherConflicts, progConflicts] = await Promise.all([
-    loadDeptDuties(dept, monthDate),
-    loadOtherDeptConflicts(dept, monthDate),
-    loadProgramConflicts(monthDate),
-  ]);
+  // データ並行ロード（衝突チェックが失敗してもテーブルは表示する）
+  let dutyDocs = {}, otherConflicts = {}, progConflicts = {};
+  try {
+    [dutyDocs, otherConflicts, progConflicts] = await Promise.all([
+      loadDeptDuties(dept, monthDate),
+      loadOtherDeptConflicts(dept, monthDate),
+      loadProgramConflicts(monthDate),
+    ]);
+  } catch (e) {
+    console.warn('データロードエラー（部分的に続行）:', e);
+    // dutyDocsだけでも取得を試みる
+    try { dutyDocs = await loadDeptDuties(dept, monthDate); } catch (e2) { /* ignore */ }
+  }
   _dutyDocs = dutyDocs;
   _dutyConflicts = otherConflicts;
   _dutyProgramConflicts = progConflicts;
@@ -399,6 +413,11 @@ async function renderDeptAdmin() {
     inp.addEventListener('focus', () => { container._lastDutyInput = inp; });
     inp.addEventListener('dblclick', () => { container._lastDutyInput = inp; openDutyMemberPicker(); });
   });
+
+  } catch (e) {
+    console.error('renderDeptAdmin error:', e);
+    container.innerHTML = `<div class="loading">エラーが発生しました: ${esc(e.message)}</div>`;
+  }
 }
 window.renderDeptAdmin = renderDeptAdmin;
 
