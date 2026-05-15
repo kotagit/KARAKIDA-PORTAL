@@ -6502,12 +6502,7 @@ window.getOrgDept = getOrgDept;
 
 // ─── 派生関数（status配列を使わず orgRoles + appointment から判定）───
 function deriveIsElder(user) {
-  if (!user) return false;
-  if (user.appointment === 'elder') return true;
-  return Array.isArray(user.orgRoles) && user.orgRoles.some(r => {
-    const d = getOrgDept(r?.department);
-    return d && (d.section === '奉仕委員会' || d.section === '長老団');
-  });
+  return user?.appointment === 'elder';
 }
 function deriveIsMS(user) {
   return user?.appointment === 'ministerial';
