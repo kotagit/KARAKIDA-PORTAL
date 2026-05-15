@@ -255,6 +255,32 @@ async function renderPublicTalkAdmin() {
         });
       });
 
+      // 巡/地/記チェックで行のグレーアウト切替（ページ再描画）
+      container.querySelectorAll('.pt-sp-off').forEach(chk => {
+        chk.addEventListener('change', function() {
+          // 地/記がチェックされたら即保存してから再描画
+          // →まず_ptDocsに反映してから再描画
+          const ymd = this.dataset.date;
+          const field = this.dataset.field;
+          if (!_ptDocs[ymd]) _ptDocs[ymd] = { date: ymd };
+          _ptDocs[ymd][field] = this.checked;
+          // 地と記は排他
+          if (this.checked) {
+            const other = field === 'isConvention' ? 'isMemorial' : 'isConvention';
+            _ptDocs[ymd][other] = false;
+          }
+          renderPublicTalkAdmin();
+        });
+      });
+      // 巡チェックは_ptDocsに即反映のみ（グレーアウトなし）
+      container.querySelectorAll('.pt-sp-chk:not(.pt-sp-off)').forEach(chk => {
+        chk.addEventListener('change', function() {
+          const ymd = this.dataset.date;
+          if (!_ptDocs[ymd]) _ptDocs[ymd] = { date: ymd };
+          _ptDocs[ymd][this.dataset.field] = this.checked;
+        });
+      });
+
       // 訪問講演チェックで講演者入力モード切替
       container.querySelectorAll('.pt-visit-chk').forEach(chk => {
         chk.addEventListener('change', function() {
@@ -353,13 +379,13 @@ function buildTalkOpts(selectedNum, prefNums) {
     html += '<optgroup label="★ 希望講演">';
     (_ptTalkList || []).filter(t => prefSet.has(t.number)).forEach(t => {
       const sel = t.number === selectedNum ? ' selected' : '';
-      html += `<option value="${t.number}"${sel}>★ ${esc(t.title)}</option>`;
+      html += `<option value="${t.number}"${sel}>★${t.number}. ${esc(t.title)}</option>`;
     });
     html += '</optgroup><optgroup label="全講演">';
   }
   (_ptTalkList || []).forEach(t => {
     const sel = t.number === selectedNum ? ' selected' : '';
-    html += `<option value="${t.number}"${sel}>${esc(t.title)}</option>`;
+    html += `<option value="${t.number}"${sel}>${t.number}. ${esc(t.title)}</option>`;
   });
   if (prefSet.size > 0) html += '</optgroup>';
   return html;
@@ -367,7 +393,7 @@ function buildTalkOpts(selectedNum, prefNums) {
 
 function renderPTDraftTable(dates) {
   let html = '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-  html += '<th>日付</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+  html += '<th>日付</th><th class="pt-special-th">巡/地/記</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
   let prevMonth = -1;
@@ -378,35 +404,49 @@ function renderPTDraftTable(dates) {
     const speakerName = d.speaker || '';
     const prefNums = _ptSpeakerPrefs[speakerName] || [];
     const isVisit = !!(d.speakerCong);
+    const isCircuit = !!(d.isCircuit);
+    const isConvention = !!(d.isConvention);
+    const isMemorial = !!(d.isMemorial);
+    const isOff = isConvention || isMemorial; // 大会・記念式はグレーアウト
 
     // 月区切りヘッダー
     const curMonth = date.getFullYear() * 100 + date.getMonth();
     if (curMonth !== prevMonth) {
-      html += `<tr class="pt-month-sep"><td colspan="7">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+      html += `<tr class="pt-month-sep"><td colspan="8">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
       prevMonth = curMonth;
     }
 
-    html += `<tr>`;
+    html += `<tr class="${isOff ? 'pt-row-off' : ''}">`;
     // 日付
     html += `<td class="duty-date-cell duty-weekend">
       <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
     </td>`;
 
-    // 番号（主題選択から自動表示）
-    html += `<td class="pt-num-cell" data-date="${ymd}">${d.talkNumber || '—'}</td>`;
-
-    // 主題（プルダウン選択）
-    html += `<td><select class="duty-select pt-talk-select" data-date="${ymd}" data-field="talkNumber">
-      <option value="">—</option>${buildTalkOpts(d.talkNumber || 0, prefNums)}
-    </select></td>`;
-
-    // 訪問講演チェック
-    html += `<td class="pt-visit-chk-cell">
-      <input type="checkbox" class="pt-visit-chk" data-date="${ymd}"${isVisit ? ' checked' : ''}>
+    // 巡/地/記 チェックボックス
+    html += `<td class="pt-special-cell">
+      <label class="pt-sp-label" title="巡回訪問"><input type="checkbox" class="pt-sp-chk" data-date="${ymd}" data-field="isCircuit"${isCircuit ? ' checked' : ''}><span>巡</span></label>
+      <label class="pt-sp-label" title="大会"><input type="checkbox" class="pt-sp-chk pt-sp-off" data-date="${ymd}" data-field="isConvention"${isConvention ? ' checked' : ''}><span>地</span></label>
+      <label class="pt-sp-label" title="記念式"><input type="checkbox" class="pt-sp-chk pt-sp-off" data-date="${ymd}" data-field="isMemorial"${isMemorial ? ' checked' : ''}><span>記</span></label>
     </td>`;
 
-    // 講演者 — 訪問:テキスト手入力+会衆名 / 通常:候補者select
-    html += `<td class="pt-speaker-cell" data-date="${ymd}">
+    // 番号（主題選択から自動表示）
+    html += `<td class="pt-num-cell pt-offable" data-date="${ymd}">${isOff ? '' : (d.talkNumber || '—')}</td>`;
+
+    // 主題（プルダウン選択）
+    html += `<td class="pt-offable">${isOff
+      ? `<span class="pt-off-label">${isConvention ? '大会' : '記念式'}</span>`
+      : `<select class="duty-select pt-talk-select" data-date="${ymd}" data-field="talkNumber">
+          <option value="">—</option>${buildTalkOpts(d.talkNumber || 0, prefNums)}
+        </select>`
+    }</td>`;
+
+    // 訪問講演チェック
+    html += `<td class="pt-visit-chk-cell pt-offable">${isOff ? '' :
+      `<input type="checkbox" class="pt-visit-chk" data-date="${ymd}"${isVisit ? ' checked' : ''}>`
+    }</td>`;
+
+    // 講演者
+    html += `<td class="pt-speaker-cell pt-offable" data-date="${ymd}">${isOff ? '' : `
       <div class="pt-speaker-local" style="display:${isVisit ? 'none' : 'block'}">
         <select class="duty-select pt-field pt-speaker-select" data-date="${ymd}" data-field="speaker">
           <option value="">—</option>${buildElderOpts(isVisit ? '' : speakerName)}
@@ -418,18 +458,22 @@ function renderPTDraftTable(dates) {
       <div class="pt-speaker-visit" style="display:${isVisit ? 'block' : 'none'}">
         <input type="text" class="duty-input pt-field pt-speaker-input" data-date="${ymd}" data-field="speaker" value="${esc(isVisit ? speakerName : '')}" placeholder="講演者名">
         <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
-      </div>
+      </div>`}
     </td>`;
 
     // 司会者
-    html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="chairman">
-      <option value="">—</option>${buildElderOpts(d.chairman || '')}
-    </select></td>`;
+    html += `<td class="pt-offable">${isOff ? '' :
+      `<select class="duty-select pt-field" data-date="${ymd}" data-field="chairman">
+        <option value="">—</option>${buildElderOpts(d.chairman || '')}
+      </select>`
+    }</td>`;
 
     // 朗読者
-    html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="reader">
-      <option value="">—</option>${buildElderOpts(d.reader || '')}
-    </select></td>`;
+    html += `<td class="pt-offable">${isOff ? '' :
+      `<select class="duty-select pt-field" data-date="${ymd}" data-field="reader">
+        <option value="">—</option>${buildElderOpts(d.reader || '')}
+      </select>`
+    }</td>`;
 
     html += '</tr>';
   }
@@ -519,6 +563,9 @@ async function autoGeneratePTSchedule() {
   // ── 日付ごとに割当 ──
   for (const ymd of allDates) {
     const row = dateRows[ymd];
+    // 大会・記念式はスキップ
+    const docCache = _ptDocs[ymd] || {};
+    if (docCache.isConvention || docCache.isMemorial) continue;
     if (!overwrite && row.speaker && row.talkNumber && row.chairman && row.reader) continue;
 
     const usedThisDay = new Set();
@@ -627,7 +674,7 @@ function renderPTPublishedTable(dates) {
   let hasAny = false;
 
   html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-  html += '<th>日付</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+  html += '<th>日付</th><th class="pt-special-th">区分</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
   let prevMonth2 = -1;
@@ -635,29 +682,36 @@ function renderPTPublishedTable(dates) {
     const ymd = fmtPtYmd(date);
     const dowJp = PT_DOW_JP[date.getDay()];
     const d = _ptDocs[ymd] || {};
-    const num = d.publishedTalkNumber || '';
+    const isOff = !!(d.isConvention || d.isMemorial);
+    const num = isOff ? '' : (d.publishedTalkNumber || '');
     const title = num ? (_ptTalkMap[num] || '') : '';
-    const speaker = d.publishedSpeaker || '';
+    const speaker = isOff ? '' : (d.publishedSpeaker || '');
     const cong = d.publishedSpeakerCong || '';
-    const chairman = d.publishedChairman || '';
-    const reader = d.publishedReader || '';
+    const chairman = isOff ? '' : (d.publishedChairman || '');
+    const reader = isOff ? '' : (d.publishedReader || '');
     const isVisit = !!(cong && cong !== '唐木田');
     if (speaker || chairman || reader) hasAny = true;
+    // 区分ラベル
+    let spLabel = '';
+    if (d.isConvention) spLabel = '大会';
+    else if (d.isMemorial) spLabel = '記念式';
+    else if (d.isCircuit) spLabel = '巡回';
 
     const curMonth2 = date.getFullYear() * 100 + date.getMonth();
     if (curMonth2 !== prevMonth2) {
-      html += `<tr class="pt-month-sep"><td colspan="7">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+      html += `<tr class="pt-month-sep"><td colspan="8">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
       prevMonth2 = curMonth2;
     }
 
-    html += `<tr>
+    html += `<tr class="${isOff ? 'pt-row-off' : ''}">
       <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
-      <td class="duty-pub-cell pt-num-cell">${num || '—'}</td>
-      <td class="duty-pub-cell" style="text-align:left;font-size:12px">${esc(title) || '—'}</td>
-      <td class="duty-pub-cell" style="text-align:center">${isVisit ? '<span class="material-icons" style="font-size:16px;color:#1565c0">check</span>' : ''}</td>
-      <td class="duty-pub-cell">${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : '—'}</td>
-      <td class="duty-pub-cell">${esc(chairman) || '—'}</td>
-      <td class="duty-pub-cell">${esc(reader) || '—'}</td>
+      <td class="duty-pub-cell" style="text-align:center;font-size:11px">${spLabel ? `<span class="pt-sp-badge">${spLabel}</span>` : ''}</td>
+      <td class="duty-pub-cell pt-num-cell">${num || (isOff ? '' : '—')}</td>
+      <td class="duty-pub-cell" style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
+      <td class="duty-pub-cell" style="text-align:center">${isVisit && !isOff ? '<span class="material-icons" style="font-size:16px;color:#1565c0">check</span>' : ''}</td>
+      <td class="duty-pub-cell">${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
+      <td class="duty-pub-cell">${isOff ? '' : (esc(chairman) || '—')}</td>
+      <td class="duty-pub-cell">${isOff ? '' : (esc(reader) || '—')}</td>
     </tr>`;
   }
   html += '</tbody></table></div>';
@@ -689,7 +743,12 @@ async function savePTSchedule() {
     dateData[ymd][field] = el.value.trim();
   });
 
-  for (const [ymd, fields] of Object.entries(dateData)) {
+  // _ptDocsに保持された特殊フラグも含めて全日付を対象にする
+  const allYmds = new Set([...Object.keys(dateData), ...Object.keys(_ptDocs).filter(k => _ptDocs[k].isCircuit || _ptDocs[k].isConvention || _ptDocs[k].isMemorial)]);
+
+  for (const ymd of allYmds) {
+    const fields = dateData[ymd] || {};
+    const docCache = _ptDocs[ymd] || {};
     const talkNumber = parseInt(fields.talkNumber, 10) || 0;
     const data = {
       date: ymd,
@@ -698,23 +757,29 @@ async function savePTSchedule() {
       speakerCong: fields.speakerCong || '',
       chairman: fields.chairman || '',
       reader: fields.reader || '',
+      isCircuit: !!(docCache.isCircuit),
+      isConvention: !!(docCache.isConvention),
+      isMemorial: !!(docCache.isMemorial),
       updatedAt: firebase.firestore.Timestamp.now(),
     };
 
     const existing = _ptDocs[ymd];
-    if (existing) {
+    if (existing && existing.id) {
       // 変更があれば更新
       let changed = false;
       ['talkNumber','speaker','speakerCong','chairman','reader'].forEach(f => {
         if ((existing[f] || '') !== (data[f] || '')) changed = true;
       });
       if (existing.talkNumber !== data.talkNumber) changed = true;
+      ['isCircuit','isConvention','isMemorial'].forEach(f => {
+        if (!!(existing[f]) !== !!(data[f])) changed = true;
+      });
       if (!changed) continue;
       batch.update(db.collection('PUBLIC_TALK_SCHEDULE').doc(existing.id), data);
       writes++;
     } else {
       // 何か入力されていれば新規作成
-      const hasContent = data.talkNumber || data.speaker || data.chairman || data.reader;
+      const hasContent = data.talkNumber || data.speaker || data.chairman || data.reader || data.isCircuit || data.isConvention || data.isMemorial;
       if (hasContent) {
         data.publishedSpeaker = '';
         data.publishedSpeakerCong = '';
