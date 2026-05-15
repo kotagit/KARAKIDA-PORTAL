@@ -6912,7 +6912,7 @@ function renderDeptEditTable() {
   let theadHtml = '<tr>';
   theadHtml += '<th class="meb-sticky-col meb-row-label-head"></th>';
   members.forEach((m, i) => {
-    theadHtml += `<th class="meb-num-cell">${i + 1}</th>`;
+    theadHtml += `<th class="meb-num-cell" data-col="${i}">${i + 1}</th>`;
   });
   theadHtml += '</tr><tr>';
   theadHtml += '<th class="meb-sticky-col meb-row-label-head">役職</th>';
@@ -6997,31 +6997,27 @@ function renderDeptEditTable() {
 
   // 列・行ハイライト（マウス位置追従）
   const tbl = thead.closest('table');
-  let hlCol = -1;
+  let hlCol = -1, hlRow = null;
   function clearHL() {
     tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
-    tbl.querySelectorAll('.meb-hl-row').forEach(el => el.classList.remove('meb-hl-row'));
-    hlCol = -1;
+    if (hlRow) hlRow.classList.remove('meb-hl-row');
+    hlCol = -1; hlRow = null;
   }
-  function applyColHL(col) {
-    if (col === hlCol) return;
-    tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
-    hlCol = col;
-    if (col >= 0) tbl.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add('meb-hl-col'));
-  }
-  tbl.addEventListener('mouseover', e => {
+  tbl.addEventListener('mousemove', e => {
     const cell = e.target.closest('td, th');
     if (!cell) return;
     const col = cell.dataset.col !== undefined ? +cell.dataset.col : -1;
-    applyColHL(col);
-    const tr = cell.closest('tr');
-    if (tr && cell.closest('tbody')) tr.classList.add('meb-hl-row');
-  });
-  tbl.addEventListener('mouseout', e => {
-    const cell = e.target.closest('td, th');
-    if (!cell) return;
-    const tr = cell.closest('tr');
-    if (tr) tr.classList.remove('meb-hl-row');
+    if (col !== hlCol) {
+      tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
+      hlCol = col;
+      if (col >= 0) tbl.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add('meb-hl-col'));
+    }
+    const tr = cell.closest('tbody tr');
+    if (tr !== hlRow) {
+      if (hlRow) hlRow.classList.remove('meb-hl-row');
+      hlRow = tr;
+      if (tr) tr.classList.add('meb-hl-row');
+    }
   });
   tbl.addEventListener('mouseleave', clearHL);
 
