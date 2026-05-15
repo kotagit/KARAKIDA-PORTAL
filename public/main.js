@@ -6451,7 +6451,7 @@ const ORG_DEPARTMENTS = [
 
   // === 奉仕委員会・配下部門 ===
   { id:'annai',          label:'案内',                section:'奉仕委員会', type:'sub', parent:'coord',     order:1 },
-  { id:'stage_av',       label:'ステージ・音響・ビデオ', section:'奉仕委員会', type:'sub', parent:'coord',     order:2 },
+  { id:'stage_av',       label:'AVS', section:'奉仕委員会', type:'sub', parent:'coord',     order:2 },
   { id:'public_talk',    label:'公開講演調整者',         section:'奉仕委員会', type:'sub', parent:'coord',     order:3 },
   { id:'account',        label:'会計',                section:'奉仕委員会', type:'sub', parent:'secretary', order:1 },
   { id:'donate_support', label:'donate.jw.orgサポート', section:'奉仕委員会', type:'sub', parent:'secretary', order:2 },
