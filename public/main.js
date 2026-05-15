@@ -6452,7 +6452,7 @@ const ORG_DEPARTMENTS = [
   // === 奉仕委員会・配下部門 ===
   { id:'annai',          label:'案内',                section:'奉仕委員会', type:'sub', parent:'coord',     order:1 },
   { id:'stage_av',       label:'AVS', section:'奉仕委員会', type:'sub', parent:'coord',     order:2 },
-  { id:'public_talk',    label:'公開講演調整者',         section:'奉仕委員会', type:'sub', parent:'coord',     order:3 },
+  { id:'public_talk',    label:'公開講演調整者',         section:'長老団', type:'elder', order:10 },
   { id:'account',        label:'会計',                section:'奉仕委員会', type:'sub', parent:'secretary', order:1 },
   { id:'donate_support', label:'donate.jw.orgサポート', section:'奉仕委員会', type:'sub', parent:'secretary', order:2 },
   { id:'territory',      label:'区域',                section:'奉仕委員会', type:'sub', parent:'svc_ov',    order:1 },
@@ -7154,19 +7154,24 @@ function renderDeptPreview() {
   });
   html += '</tbody></table>';
 
-  // グループ成員表プレビュー
+  // グループ成員表プレビュー（横4列）
   html += '<h4>グループ成員表</h4>';
+  html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
   const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
   groups.forEach(g => {
     const go = findMembers(g.id, '監督');
     const ga = findMembers(g.id, '補佐');
     const gm = findMembers(g.id, '成員');
-    html += '<table><thead><tr><th colspan="2">' + esc(g.label) + ' (' + (go.length + ga.length + gm.length) + '名)</th></tr></thead><tbody>';
-    if (go.length) html += '<tr><td>監督</td><td>' + esc(go.join(', ')) + '</td></tr>';
-    if (ga.length) html += '<tr><td>補佐</td><td>' + esc(ga.join(', ')) + '</td></tr>';
-    if (gm.length) html += '<tr><td>成員</td><td>' + esc(gm.join(', ')) + '</td></tr>';
-    html += '</tbody></table>';
+    html += '<div style="border:1px solid #ddd;border-radius:4px;padding:6px;">';
+    html += '<div style="font-weight:bold;font-size:12px;border-bottom:1px solid #eee;padding-bottom:4px;margin-bottom:4px;">' + esc(g.label) + ' (' + (go.length + ga.length + gm.length) + ')</div>';
+    const allNames = [];
+    go.forEach(n => allNames.push('◆ ' + n));
+    ga.forEach(n => allNames.push('◇ ' + n));
+    gm.forEach(n => allNames.push(n));
+    allNames.forEach(n => { html += '<div style="font-size:11px;line-height:1.6;">' + esc(n) + '</div>'; });
+    html += '</div>';
   });
+  html += '</div>';
 
   el.innerHTML = html;
 }
