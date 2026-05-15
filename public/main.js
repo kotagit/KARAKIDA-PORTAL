@@ -3723,65 +3723,32 @@ async function _loadOrgViewLegacy(chartView) {
 
 async function _renderGroupMemberSection(groupView, userList) {
   if (!groupView) return;
-  const users = [];
-  userList.forEach(data => {
-    const name = String(data.name || '').trim();
-    if (!name) return;
-    const arr = _parseStatus(data.status);
-    // appointment + orgRoles 派生（旧status fallback付き）
-    let roleLabel = '伝道者';
-    if (data.appointment === 'elder' || arr.includes('EL') || deriveIsElder(data)) roleLabel = '長老';
-    else if (data.appointment === 'ministerial' || arr.includes('MS')) roleLabel = '援助奉仕者';
-    if (deriveIsPioneer(data) || arr.includes('RP') || arr.includes('AP')) roleLabel += ' / 開拓者';
-    users.push({
-      name,
-      furigana: String(data.furigana || '').trim(),
-      group: String(data.group || '').trim(),
-      gender: String(data.gender || '').trim(),
-      roleLabel,
-    });
-  });
-  users.sort((a, b) => a.group.localeCompare(b.group) || (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
-  const groupMap = {};
-  users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
+  const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
+  const sortFn = (a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
 
-  const KANA_ROWS = [
-    { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
-    { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
-    { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
-    { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
-    { tag: 'な', chars: 'ナニヌネノなにぬねの' },
-    { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
-    { tag: 'ま', chars: 'マミムメモまみむめも' },
-    { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
-    { tag: 'ら', chars: 'ラリルレロらりるれろ' },
-    { tag: 'わ', chars: 'ワヰヱヲンわをん' },
-  ];
-  function getKanaTag(s) {
-    if (!s) return '';
-    const ch = s.charAt(0);
-    for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
-    return '';
+  function findGrpMembers(gId, pos) {
+    return userList.filter(u => {
+      const roles = Array.isArray(u.orgRoles) ? u.orgRoles : [];
+      return roles.some(r => r && r.department === gId && r.position === pos);
+    }).sort(sortFn).map(u => u.name);
   }
 
-  let gHtml = '';
-  Object.keys(groupMap).sort((a, b) => a.localeCompare(b, 'ja')).forEach(gName => {
-    const members = groupMap[gName];
-    gHtml += '<div class="group-member-card">';
-    gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
-    gHtml += '<div class="group-member-list">';
-    let prevTag = '';
-    members.forEach(m => {
-      const tag = getKanaTag(m.furigana || m.name);
-      if (tag && tag !== prevTag) {
-        gHtml += '<div class="group-member-kana-tag">' + esc(tag) + '</div>';
-        prevTag = tag;
-      }
-      const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-      gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
-    });
-    gHtml += '</div></div>';
+  let gHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">';
+  groups.forEach(g => {
+    const go = findGrpMembers(g.id, '監督');
+    const ga = findGrpMembers(g.id, '補佐');
+    const gm = findGrpMembers(g.id, '成員');
+    const total = go.length + ga.length + gm.length;
+    gHtml += '<div style="border:1px solid #ddd;border-radius:6px;padding:10px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.08);">';
+    gHtml += '<div style="font-weight:bold;font-size:14px;border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:6px;">' + esc(g.label) + ' (' + total + ')</div>';
+    const allNames = [];
+    go.forEach(n => allNames.push(n));
+    ga.forEach(n => allNames.push(n));
+    gm.forEach(n => allNames.push(n));
+    allNames.forEach(n => { gHtml += '<div style="font-size:12px;line-height:1.8;">' + esc(n) + '</div>'; });
+    gHtml += '</div>';
   });
+  gHtml += '</div>';
   groupView.innerHTML = gHtml;
 }
 
@@ -7117,8 +7084,8 @@ function renderDeptPreview() {
     html += '<div style="border:1px solid #ddd;border-radius:4px;padding:6px;">';
     html += '<div style="font-weight:bold;font-size:12px;border-bottom:1px solid #eee;padding-bottom:4px;margin-bottom:4px;">' + esc(g.label) + ' (' + (go.length + ga.length + gm.length) + ')</div>';
     const allNames = [];
-    go.forEach(n => allNames.push('◆ ' + n));
-    ga.forEach(n => allNames.push('◇ ' + n));
+    go.forEach(n => allNames.push(n));
+    ga.forEach(n => allNames.push(n));
     gm.forEach(n => allNames.push(n));
     allNames.forEach(n => { html += '<div style="font-size:11px;line-height:1.6;">' + esc(n) + '</div>'; });
     html += '</div>';
