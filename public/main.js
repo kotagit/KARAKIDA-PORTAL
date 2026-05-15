@@ -6653,10 +6653,8 @@ function _getFilteredSorted() {
       const bv = (b[meBulkSortKey] || '').toString();
       cmp = av.localeCompare(bv, 'ja');
     } else {
-      const ga = (a.group || '￿').toString();
-      const gb = (b.group || '￿').toString();
-      cmp = ga.localeCompare(gb, 'ja');
-      if (cmp === 0) cmp = meGroupRank(a) - meGroupRank(b);
+      const apptRank = m => m.appointment === 'elder' ? 0 : m.appointment === 'ministerial' ? 1 : 2;
+      cmp = apptRank(a) - apptRank(b);
       if (cmp === 0) cmp = (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
       return cmp;
     }
