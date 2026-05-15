@@ -96,7 +96,7 @@ const PAGE_TITLES = {
   'admin-s13': '区域割当ての記録',
   'admin-group-members': 'グループ成員表',
   'admin-group-emergency': 'グループ成員緊急連絡先',
-  'admin-member-edit': 'グループ成員編集',
+  'admin-member-edit': '成員情報編集',
   'admin-org': '組織表管理',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
