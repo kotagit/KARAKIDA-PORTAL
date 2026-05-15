@@ -7054,6 +7054,77 @@ function renderDeptEditTable() {
   }
 }
 
+function renderDeptPreview() {
+  const el = document.getElementById('me-dept-preview-content');
+  if (!el) return;
+  const members = meAllMembers;
+  if (!members || members.length === 0) { el.innerHTML = ''; return; }
+
+  let html = '';
+
+  // 組織表プレビュー
+  html += '<h4>組織表</h4>';
+  const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
+  const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
+  const elders = ORG_DEPARTMENTS.filter(d => d.type === 'elder').sort((a,b) => a.order - b.order);
+
+  function findMembers(deptId, pos) {
+    return members.filter(m => {
+      const roles = meBulkCurrentValue(m, 'orgRoles') || [];
+      return roles.some(r => r && r.department === deptId && r.position === pos);
+    }).map(m => m.name);
+  }
+
+  // 奉仕委員会
+  html += '<table><thead><tr><th>管轄</th><th>監督</th><th>補佐</th></tr></thead><tbody>';
+  supervisors.forEach(sup => {
+    html += '<tr><td><strong>' + esc(sup.label) + '</strong></td>';
+    html += '<td>' + esc(findMembers(sup.id, '監督').join(', ')) + '</td>';
+    html += '<td>' + esc(findMembers(sup.id, '補佐').join(', ')) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  // 管轄別
+  supervisors.forEach(sup => {
+    const children = subDepts.filter(d => d.parent === sup.id);
+    if (children.length === 0) return;
+    html += '<table><thead><tr><th colspan="3">' + esc(sup.label) + '管轄</th></tr>';
+    html += '<tr><th>部門</th><th>責任者</th><th>奉仕者</th></tr></thead><tbody>';
+    children.forEach(child => {
+      html += '<tr><td>' + esc(child.label) + '</td>';
+      html += '<td>' + esc(findMembers(child.id, '責任者').join(', ')) + '</td>';
+      html += '<td>' + esc(findMembers(child.id, '奉仕者').join(', ')) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  });
+
+  // 長老団
+  html += '<table><thead><tr><th colspan="3">長老団管轄</th></tr>';
+  html += '<tr><th>部門</th><th>責任者</th><th>奉仕者</th></tr></thead><tbody>';
+  elders.forEach(d => {
+    html += '<tr><td>' + esc(d.label) + '</td>';
+    html += '<td>' + esc(findMembers(d.id, '責任者').join(', ')) + '</td>';
+    html += '<td>' + esc(findMembers(d.id, '奉仕者').join(', ')) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+
+  // グループ成員表プレビュー
+  html += '<h4>グループ成員表</h4>';
+  const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
+  groups.forEach(g => {
+    const go = findMembers(g.id, '監督');
+    const ga = findMembers(g.id, '補佐');
+    const gm = findMembers(g.id, '成員');
+    html += '<table><thead><tr><th colspan="2">' + esc(g.label) + ' (' + (go.length + ga.length + gm.length) + '名)</th></tr></thead><tbody>';
+    if (go.length) html += '<tr><td>監督</td><td>' + esc(go.join(', ')) + '</td></tr>';
+    if (ga.length) html += '<tr><td>補佐</td><td>' + esc(ga.join(', ')) + '</td></tr>';
+    if (gm.length) html += '<tr><td>成員</td><td>' + esc(gm.join(', ')) + '</td></tr>';
+    html += '</tbody></table>';
+  });
+
+  el.innerHTML = html;
+}
+
 async function saveBulkChanges() {
   if (meBulkChanges.size === 0) return;
   const saveBtn = document.getElementById('me-bulk-save');
