@@ -6907,8 +6907,13 @@ function renderDeptEditTable() {
   cgHtml += '</colgroup>';
   table.insertAdjacentHTML('afterbegin', cgHtml);
 
-  // ヘッダー: 1列目=役職ラベル / 2列目以降=成員氏名（縦書き）
+  // ヘッダー: 番号行 + 氏名行
   let theadHtml = '<tr>';
+  theadHtml += '<th class="meb-sticky-col meb-row-label-head"></th>';
+  members.forEach((m, i) => {
+    theadHtml += `<th class="meb-num-cell">${i + 1}</th>`;
+  });
+  theadHtml += '</tr><tr>';
   theadHtml += '<th class="meb-sticky-col meb-row-label-head">役職</th>';
   members.forEach((m, i) => {
     theadHtml += `<th class="meb-name-vert" data-col="${i}" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;

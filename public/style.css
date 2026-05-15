@@ -2535,6 +2535,13 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   background: var(--primary, #047CBC); color: #fff;
   text-align: left; padding-left: 12px;
 }
+.me-bulk-table thead .meb-num-cell {
+  background: var(--primary, #047CBC); color: #fff;
+  font-size: 9px; font-weight: 400;
+  text-align: center; padding: 1px 0;
+  min-width: 20px; max-width: 20px;
+  border-left: 1px solid rgba(255,255,255,0.3);
+}
 .me-bulk-table thead .meb-name-vert {
   background: #f5f5f5; padding: 2px 0;
   min-width: 20px; max-width: 20px;
@@ -2558,16 +2565,16 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   border-right: 1px solid #ddd;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-inner {
-  display: flex; align-items: center;
+  display: flex; align-items: center; justify-content: space-between;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-dept {
   font-size: 13px; font-weight: 600; color: #333;
   flex: 0 0 auto;
-  min-width: 140px;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos {
   font-size: 12px; font-weight: 400; color: #888;
   flex: 0 0 auto;
+  margin-left: auto;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos.meb-row-pos-main {
   font-size: 13px; font-weight: 600; color: #333;
