@@ -1348,7 +1348,7 @@ async function renderPublicTalkView() {
         <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
         <td class="pt-num-cell">${isOff ? '' : (num || '—')}</td>
         <td style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
-        <td>${speaker ? esc(speaker) + (cong ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
+        <td>${speaker ? `<b>${esc(speaker)}</b>` + (cong ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
         <td>${isOff ? '' : (esc(chairman) || '—')}</td>
         <td>${isOff ? '' : (esc(reader) || '—')}</td>
       </tr>`;
