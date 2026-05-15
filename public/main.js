@@ -6866,7 +6866,9 @@ function renderDeptEditTable() {
   let html = '';
   rows.forEach(row => {
     if (row.kind === 'section') {
-      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col" colspan="${members.length + 1}"><strong>${esc(row.label)}</strong></td></tr>`;
+      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col"><strong>${esc(row.label)}</strong></td>`;
+      for (let i = 0; i < members.length; i++) html += '<td></td>';
+      html += '</tr>';
       return;
     }
     // ラベルセル
