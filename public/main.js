@@ -352,7 +352,7 @@ function navigate(page, pushHistory) {
   if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
   if (page === 'senkyo-public')    loadSenkyoPublic();
-  if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
+  if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); if (typeof renderPublicTalkView === 'function') renderPublicTalkView(); }
   if (page === 'talk-pref') { if (typeof renderTalkPrefForm === 'function') renderTalkPrefForm(); }
   if (page === 'shinsei')  loadLinks('shinsei');
   if (page === 'soshiki')  loadOrgView();

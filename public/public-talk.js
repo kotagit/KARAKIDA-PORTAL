@@ -1299,3 +1299,78 @@ document.getElementById('admin-manage-s99')?.addEventListener('click', () => {
   navigate('admin-s99');
   renderS99List();
 });
+
+// ── 一般ユーザー向け 公開講演予定表示（集会ページ内） ──────────────────────────
+async function renderPublicTalkView() {
+  const container = document.getElementById('shukai-public-talk-display');
+  if (!container) return;
+  container.innerHTML = '';
+
+  try {
+    const talkList = await loadTalkList();
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const PT_VIEW_MONTHS = 3;
+    const docs = await loadPTSchedule(startMonth, PT_VIEW_MONTHS);
+    const weekendDow = await getWeekendDow();
+    const dates = listWeekendDatesForRange(startMonth.getFullYear(), startMonth.getMonth(), PT_VIEW_MONTHS, weekendDow);
+
+    // 公開済みデータがあるかチェック
+    let hasAny = false;
+    for (const date of dates) {
+      const ymd = fmtPtYmd(date);
+      const d = docs[ymd];
+      if (d && (d.publishedSpeaker || d.publishedChairman || d.publishedTalkNumber)) {
+        hasAny = true;
+        break;
+      }
+    }
+    if (!hasAny) return; // 公開データなし → 何も表示しない
+
+    let html = '<div style="margin-top:20px">';
+    html += '<h3 style="margin:0 0 10px;font-size:16px;color:#333"><span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:4px">campaign</span>公開講演予定</h3>';
+    html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
+    html += '<th>日付</th><th>区分</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+    html += '</tr></thead><tbody>';
+
+    let prevMonth = -1;
+    for (const date of dates) {
+      const ymd = fmtPtYmd(date);
+      const dowJp = PT_DOW_JP[date.getDay()];
+      const d = docs[ymd] || {};
+      const isOff = !!(d.isConvention || d.isMemorial);
+      const num = isOff ? 0 : (d.publishedTalkNumber || 0);
+      const title = num ? (_ptTalkMap[num] || '') : '';
+      const speaker = isOff ? '' : (d.publishedSpeaker || '');
+      const cong = d.publishedSpeakerCong || '';
+      const chairman = isOff ? '' : (d.publishedChairman || '');
+      const reader = isOff ? '' : (d.publishedReader || '');
+      const isVisit = !!(cong);
+
+      let spLabel = '';
+      if (d.isConvention) spLabel = '大会';
+      else if (d.isMemorial) spLabel = '記念式';
+      else if (d.isCircuit) spLabel = '巡回';
+
+      const curMonth = date.getFullYear() * 100 + date.getMonth();
+      if (curMonth !== prevMonth) {
+        html += `<tr class="pt-month-sep"><td colspan="6">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+        prevMonth = curMonth;
+      }
+
+      html += `<tr class="${isOff ? 'pt-row-off' : ''}">
+        <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
+        <td style="text-align:center;font-size:11px">${spLabel ? `<span class="pt-sp-badge">${spLabel}</span>` : ''}</td>
+        <td style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
+        <td>${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
+        <td>${isOff ? '' : (esc(chairman) || '—')}</td>
+        <td>${isOff ? '' : (esc(reader) || '—')}</td>
+      </tr>`;
+    }
+    html += '</tbody></table></div></div>';
+    container.innerHTML = html;
+  } catch (e) {
+    console.warn('renderPublicTalkView error:', e);
+  }
+}
+window.renderPublicTalkView = renderPublicTalkView;
