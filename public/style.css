@@ -2561,14 +2561,16 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   display: flex; align-items: center;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-dept {
-  font-size: 11px; color: #888;
+  font-size: 13px; font-weight: 600; color: #333;
   flex: 0 0 auto;
   min-width: 140px;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos {
-  font-weight: 600; color: #333;
+  font-size: 12px; font-weight: 400; color: #888;
   flex: 0 0 auto;
-  text-align: right;
+}
+.me-bulk-table tbody td.meb-row-label .meb-row-pos.meb-row-pos-main {
+  font-size: 13px; font-weight: 600; color: #333;
 }
 .me-bulk-table tbody tr.meb-section-row td {
   background: #e3f2fd; color: var(--primary-dark, #035d9a);

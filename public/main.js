@@ -6926,9 +6926,11 @@ function renderDeptEditTable() {
     // ラベルセル
     const subText = row.deptLabel || row.subLabel || '';
     html += `<tr>`;
+    const hasDept = !!subText;
     html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner">`
-         +  `<span class="meb-row-dept">${esc(subText)}</span>`
-         +  `<span class="meb-row-pos">${esc(row.label)}</span></div></td>`;
+         +  (hasDept ? `<span class="meb-row-dept">${esc(subText)}</span><span class="meb-row-pos">${esc(row.label)}</span>`
+                     : `<span class="meb-row-pos meb-row-pos-main">${esc(row.label)}</span>`)
+         +  `</div></td>`;
     // 各成員のセル
     const rowIdx = rows.indexOf(row);
     members.forEach((m, i) => {
