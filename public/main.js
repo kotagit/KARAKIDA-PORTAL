@@ -6989,18 +6989,25 @@ async function migrateGroupToOrgRoles() {
   const snap = await db.collection('USER_LIST').get();
   const batch = db.batch();
   let count = 0;
+  const details = [];
   snap.forEach(doc => {
     const data = doc.data();
     const gid = GROUP_NAME_TO_ID[data.group];
     if (!gid) return;
     const orgRoles = Array.isArray(data.orgRoles) ? data.orgRoles : [];
-    if (orgRoles.some(r => r && r.department === gid)) return;
-    const updated = [...orgRoles, { department: gid, position: '成員' }];
+    const status = Array.isArray(data.status) ? data.status
+                 : (typeof data.status === 'string' ? data.status.split(',').map(s => s.trim()) : []);
+    const existing = orgRoles.find(r => r && r.department === gid);
+    if (existing) return;
+    const pos = status.includes('GO') ? '監督' : status.includes('GA') ? '補佐' : '成員';
+    const updated = [...orgRoles, { department: gid, position: pos }];
     batch.update(doc.ref, { orgRoles: updated });
+    details.push(`${data.name}: ${data.group}/${pos}`);
     count++;
   });
   if (count === 0) { alert('反映対象なし（全員設定済み）'); return; }
-  if (!confirm(`${count}件の成員にグループ所属を追加します。実行しますか？`)) return;
+  console.log('反映内容:\n' + details.join('\n'));
+  if (!confirm(`${count}件の成員にグループ所属を追加します。\n(詳細はコンソール参照)\n実行しますか？`)) return;
   await batch.commit();
   alert(`${count}件更新しました`);
   await loadMemberEditList();
