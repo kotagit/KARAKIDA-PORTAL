@@ -6527,13 +6527,19 @@ function deriveIsAnnaigakari(user) {
   return Array.isArray(user?.orgRoles) && user.orgRoles.some(r => r?.department === 'annai');
 }
 function deriveGroupRole(user) {
-  if (!user || !Array.isArray(user.orgRoles)) return null;
-  const r = user.orgRoles.find(r => {
-    const d = getOrgDept(r?.department);
-    return d && d.type === 'group';
-  });
-  if (!r) return null;
-  return { group: getOrgDept(r.department).label, position: r.position };
+  if (!user) return null;
+  if (Array.isArray(user.orgRoles)) {
+    const r = user.orgRoles.find(r => {
+      const d = getOrgDept(r?.department);
+      return d && d.type === 'group';
+    });
+    if (r) return { group: getOrgDept(r.department).label, position: r.position };
+  }
+  const gid = GROUP_NAME_TO_ID[user.group];
+  if (!gid) return null;
+  const status = Array.isArray(user.status) ? user.status : [];
+  const pos = status.includes('GO') ? '監督' : status.includes('GA') ? '補佐' : '成員';
+  return { group: getOrgDept(gid)?.label || user.group, position: pos };
 }
 window.deriveIsElder = deriveIsElder;
 window.deriveIsMS = deriveIsMS;
@@ -7053,3 +7059,30 @@ async function migrateGroupToOrgRoles() {
   renderBulkEditTable();
 }
 window.migrateGroupToOrgRoles = migrateGroupToOrgRoles;
+
+async function migratePioneerToOrgRoles() {
+  const snap = await db.collection('USER_LIST').get();
+  const batch = db.batch();
+  let count = 0;
+  const details = [];
+  snap.forEach(doc => {
+    const data = doc.data();
+    const status = Array.isArray(data.status) ? data.status
+                 : (typeof data.status === 'string' ? data.status.split(',').map(s => s.trim()) : []);
+    if (!status.includes('RP')) return;
+    const orgRoles = Array.isArray(data.orgRoles) ? data.orgRoles : [];
+    if (orgRoles.some(r => r?.department === 'pioneer_regular')) return;
+    const updated = [...orgRoles, { department: 'pioneer_regular', position: '本人' }];
+    batch.update(doc.ref, { orgRoles: updated });
+    details.push(`${data.name}: 正規開拓者追加`);
+    count++;
+  });
+  if (count === 0) { alert('反映対象なし（全員設定済み）'); return; }
+  console.log('反映内容:\n' + details.join('\n'));
+  if (!confirm(`${count}件の成員に正規開拓者を追加します。\n(詳細はコンソール参照)\n実行しますか？`)) return;
+  await batch.commit();
+  alert(`${count}件更新しました`);
+  await loadMemberEditList();
+  renderBulkEditTable();
+}
+window.migratePioneerToOrgRoles = migratePioneerToOrgRoles;
