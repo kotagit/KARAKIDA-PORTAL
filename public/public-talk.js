@@ -416,7 +416,10 @@ function renderPTDraftTable(dates) {
     `<option value="${esc(u.name)}">`
   ).join('')}</datalist>`;
 
-  html += `<div class="duty-actions">
+  html += `<div class="duty-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn-primary" onclick="autoGeneratePTSchedule()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">auto_fix_high</span> 自動生成（司会・朗読）
+    </button>
     <button class="btn-primary" onclick="savePTSchedule()">
       <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存（下書き）
     </button>
@@ -424,6 +427,105 @@ function renderPTDraftTable(dates) {
 
   return html;
 }
+
+// ── 自動生成（司会者・朗読者） ──────────────────────────
+async function autoGeneratePTSchedule() {
+  if (_ptElderList.length < 2) {
+    alert('候補者が2人以上必要です');
+    return;
+  }
+
+  const container = document.getElementById('public-talk-body');
+  if (!container) return;
+
+  // 現在のフォーム値を収集して既存割当を把握
+  const dateRows = {};
+  container.querySelectorAll('.pt-field, .pt-talk-select').forEach(el => {
+    const ymd = el.dataset.date;
+    const field = el.dataset.field;
+    if (!dateRows[ymd]) dateRows[ymd] = {};
+    dateRows[ymd][field] = el.value.trim();
+  });
+
+  const allDates = Object.keys(dateRows).sort();
+  if (allDates.length === 0) return;
+
+  // 空の司会者・朗読者だけ自動生成するか、全上書きするか
+  const hasExisting = allDates.some(ymd => dateRows[ymd].chairman || dateRows[ymd].reader);
+  let overwrite = false;
+  if (hasExisting) {
+    if (!(await customConfirm('既に司会者・朗読者が入力されている日があります。\n上書きしますか？\n\n「OK」→ 全日上書き\n（入力済みを残したい場合はキャンセルして空欄のみ手動入力してください）'))) {
+      return;
+    }
+    overwrite = true;
+  }
+
+  const elderNames = _ptElderList.map(u => u.name);
+
+  // 既存の割当から負荷カウントを初期化（上書き時は0スタート）
+  const chairLoad = {};
+  const readerLoad = {};
+  elderNames.forEach(n => { chairLoad[n] = 0; readerLoad[n] = 0; });
+
+  if (!overwrite) {
+    // 既存割当をカウント
+    allDates.forEach(ymd => {
+      const ch = dateRows[ymd].chairman;
+      const rd = dateRows[ymd].reader;
+      if (ch && chairLoad[ch] !== undefined) chairLoad[ch]++;
+      if (rd && readerLoad[rd] !== undefined) readerLoad[rd]++;
+    });
+  }
+
+  // 日付ごとに割当
+  for (const ymd of allDates) {
+    const row = dateRows[ymd];
+
+    // 上書きしない場合、既に両方入っていればスキップ
+    if (!overwrite && row.chairman && row.reader) continue;
+
+    const usedThisDay = new Set();
+    // 講演者が自会衆の人なら除外
+    const speaker = row.speaker || '';
+    if (speaker && elderNames.includes(speaker)) usedThisDay.add(speaker);
+
+    // 司会者割当
+    if (overwrite || !row.chairman) {
+      const available = elderNames.filter(n => !usedThisDay.has(n))
+        .sort((a, b) => (chairLoad[a] || 0) - (chairLoad[b] || 0));
+      if (available.length > 0) {
+        const pick = available[0];
+        row.chairman = pick;
+        chairLoad[pick] = (chairLoad[pick] || 0) + 1;
+        usedThisDay.add(pick);
+      }
+    } else {
+      usedThisDay.add(row.chairman);
+    }
+
+    // 朗読者割当
+    if (overwrite || !row.reader) {
+      const available = elderNames.filter(n => !usedThisDay.has(n))
+        .sort((a, b) => (readerLoad[a] || 0) - (readerLoad[b] || 0));
+      if (available.length > 0) {
+        const pick = available[0];
+        row.reader = pick;
+        readerLoad[pick] = (readerLoad[pick] || 0) + 1;
+      }
+    }
+  }
+
+  // UIに反映
+  allDates.forEach(ymd => {
+    const chSel = container.querySelector(`.pt-field[data-date="${ymd}"][data-field="chairman"]`);
+    const rdSel = container.querySelector(`.pt-field[data-date="${ymd}"][data-field="reader"]`);
+    if (chSel) chSel.value = dateRows[ymd].chairman || '';
+    if (rdSel) rdSel.value = dateRows[ymd].reader || '';
+  });
+
+  alert('司会者・朗読者を自動生成しました。内容を確認して「保存」してください。');
+}
+window.autoGeneratePTSchedule = autoGeneratePTSchedule;
 
 // ── 公開中テーブル ──────────────────────────
 function renderPTPublishedTable(dates) {
