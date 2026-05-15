@@ -721,7 +721,7 @@ function renderPTPublishedTable(dates) {
   let hasAny = false;
 
   html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-  html += '<th>日付</th><th class="pt-special-th">区分</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+  html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
   let prevMonth2 = -1;
@@ -736,27 +736,19 @@ function renderPTPublishedTable(dates) {
     const cong = d.publishedSpeakerCong || '';
     const chairman = isOff ? '' : (d.publishedChairman || '');
     const reader = isOff ? '' : (d.publishedReader || '');
-    const isVisit = !!(cong && cong !== '唐木田');
     if (speaker || chairman || reader) hasAny = true;
-    // 区分ラベル
-    let spLabel = '';
-    if (d.isConvention) spLabel = '大会';
-    else if (d.isMemorial) spLabel = '記念式';
-    else if (d.isCircuit) spLabel = '巡回';
 
     const curMonth2 = date.getFullYear() * 100 + date.getMonth();
     if (curMonth2 !== prevMonth2) {
-      html += `<tr class="pt-month-sep"><td colspan="8">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+      html += `<tr class="pt-month-sep"><td colspan="6">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
       prevMonth2 = curMonth2;
     }
 
     html += `<tr class="${isOff ? 'pt-row-off' : ''}">
       <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
-      <td class="duty-pub-cell" style="text-align:center;font-size:11px">${spLabel ? `<span class="pt-sp-badge">${spLabel}</span>` : ''}</td>
       <td class="duty-pub-cell pt-num-cell">${num || (isOff ? '' : '—')}</td>
       <td class="duty-pub-cell" style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
-      <td class="duty-pub-cell" style="text-align:center">${isVisit && !isOff ? '<span class="material-icons" style="font-size:16px;color:#1565c0">check</span>' : ''}</td>
-      <td class="duty-pub-cell">${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
+      <td class="duty-pub-cell">${speaker ? esc(speaker) + (cong ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
       <td class="duty-pub-cell">${isOff ? '' : (esc(chairman) || '—')}</td>
       <td class="duty-pub-cell">${isOff ? '' : (esc(reader) || '—')}</td>
     </tr>`;
@@ -1330,7 +1322,7 @@ async function renderPublicTalkView() {
     let html = '<div style="margin-top:20px">';
     html += '<h3 style="margin:0 0 10px;font-size:16px;color:#333"><span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:4px">campaign</span>公開講演予定</h3>';
     html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-    html += '<th>日付</th><th>区分</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+    html += '<th>日付</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
     html += '</tr></thead><tbody>';
 
     let prevMonth = -1;
@@ -1345,24 +1337,17 @@ async function renderPublicTalkView() {
       const cong = d.publishedSpeakerCong || '';
       const chairman = isOff ? '' : (d.publishedChairman || '');
       const reader = isOff ? '' : (d.publishedReader || '');
-      const isVisit = !!(cong);
-
-      let spLabel = '';
-      if (d.isConvention) spLabel = '大会';
-      else if (d.isMemorial) spLabel = '記念式';
-      else if (d.isCircuit) spLabel = '巡回';
 
       const curMonth = date.getFullYear() * 100 + date.getMonth();
       if (curMonth !== prevMonth) {
-        html += `<tr class="pt-month-sep"><td colspan="6">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+        html += `<tr class="pt-month-sep"><td colspan="5">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
         prevMonth = curMonth;
       }
 
       html += `<tr class="${isOff ? 'pt-row-off' : ''}">
         <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
-        <td style="text-align:center;font-size:11px">${spLabel ? `<span class="pt-sp-badge">${spLabel}</span>` : ''}</td>
         <td style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
-        <td>${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
+        <td>${speaker ? esc(speaker) + (cong ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
         <td>${isOff ? '' : (esc(chairman) || '—')}</td>
         <td>${isOff ? '' : (esc(reader) || '—')}</td>
       </tr>`;
