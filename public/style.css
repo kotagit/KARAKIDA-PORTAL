@@ -3035,6 +3035,17 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   min-width: 120px;
   font-size: 11px;
 }
+.pt-month-sep td {
+  background: #e3f2fd !important;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1565c0;
+  padding: 6px 10px;
+  border-bottom: 2px solid #90caf9;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
 
 /* ── S-99 講演一覧 ── */
 .s99-table { min-width: 320px; }

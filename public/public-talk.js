@@ -44,10 +44,11 @@ let _ptElderList = [];    // 長老・奉仕の僕リスト
 let _ptSpeakerPrefs = {}; // name → [talkNumbers]
 
 // ── データロード ──────────────────────────
-async function loadPTSchedule(monthDate) {
+async function loadPTSchedule(startDate, months) {
   try {
-    const start = fmtPtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
-    const end   = fmtPtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+    const mo = months || 1;
+    const start = fmtPtYmd(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
+    const end   = fmtPtYmd(new Date(startDate.getFullYear(), startDate.getMonth() + mo, 0));
     const snap = await db.collection('PUBLIC_TALK_SCHEDULE')
       .where('date', '>=', start)
       .where('date', '<=', end)
@@ -121,21 +122,28 @@ function listWeekendDatesInMonth(year, monthIdx) {
   return result;
 }
 
-async function listWeekendDatesInMonthAsync(year, monthIdx) {
-  let weekendDow = 0;
+async function getWeekendDow() {
   try {
     if (typeof getAppConfig === 'function') {
       const cfg = await getAppConfig();
       const days = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 1
         ? cfg.meetingDays : [4, 0];
-      weekendDow = days[1];
+      return days[1];
     }
   } catch (e) {}
+  return 0;
+}
+
+function listWeekendDatesForRange(startYear, startMonth, months, weekendDow) {
   const result = [];
-  const last = new Date(year, monthIdx + 1, 0).getDate();
-  for (let d = 1; d <= last; d++) {
-    const dt = new Date(year, monthIdx, d);
-    if (dt.getDay() === weekendDow) result.push(dt);
+  for (let m = 0; m < months; m++) {
+    const y = startYear + Math.floor((startMonth + m) / 12);
+    const mi = (startMonth + m) % 12;
+    const last = new Date(y, mi + 1, 0).getDate();
+    for (let d = 1; d <= last; d++) {
+      const dt = new Date(y, mi, d);
+      if (dt.getDay() === weekendDow) result.push(dt);
+    }
   }
   return result;
 }
@@ -149,17 +157,20 @@ async function renderPublicTalkAdmin() {
   try {
     if (!_ptCurMonth) _ptCurMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const monthDate = _ptCurMonth;
-    const monthLabel = fmtPtMonthLabel(monthDate);
+    const PT_MONTHS = 12;
+    const endMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + PT_MONTHS - 1, 1);
+    const rangeLabel = `${fmtPtMonthLabel(monthDate)} 〜 ${fmtPtMonthLabel(endMonth)}`;
 
     const [talkList, docs] = await Promise.all([
       loadTalkList(),
-      loadPTSchedule(monthDate),
+      loadPTSchedule(monthDate, PT_MONTHS),
       loadElderList(),
       loadSpeakerPrefs(),
     ]);
     _ptDocs = docs;
 
-    const dates = await listWeekendDatesInMonthAsync(monthDate.getFullYear(), monthDate.getMonth());
+    const weekendDow = await getWeekendDow();
+    const dates = listWeekendDatesForRange(monthDate.getFullYear(), monthDate.getMonth(), PT_MONTHS, weekendDow);
 
     // 講演マスタ未インポートチェック
     if (talkList.length === 0) {
@@ -194,13 +205,15 @@ async function renderPublicTalkAdmin() {
 
     const isDraft = _ptViewMode === 'draft';
 
-    // 月切替
+    // 期間切替（12ヶ月単位）
     let html = `
       <div class="duty-month-nav">
-        <button class="icon-btn" onclick="changePTMonth(-1)" title="前月"><span class="material-icons">chevron_left</span></button>
-        <span class="duty-month-label">${esc(monthLabel)}</span>
-        <button class="icon-btn" onclick="changePTMonth(1)" title="次月"><span class="material-icons">chevron_right</span></button>
-        <button class="icon-btn" onclick="changePTMonth(0)" title="今月"><span class="material-icons">today</span></button>
+        <button class="icon-btn" onclick="changePTMonth(-12)" title="前年"><span class="material-icons">keyboard_double_arrow_left</span></button>
+        <button class="icon-btn" onclick="changePTMonth(-1)" title="1ヶ月前へ"><span class="material-icons">chevron_left</span></button>
+        <span class="duty-month-label">${esc(rangeLabel)}</span>
+        <button class="icon-btn" onclick="changePTMonth(1)" title="1ヶ月先へ"><span class="material-icons">chevron_right</span></button>
+        <button class="icon-btn" onclick="changePTMonth(12)" title="翌年"><span class="material-icons">keyboard_double_arrow_right</span></button>
+        <button class="icon-btn" onclick="changePTMonth(0)" title="今月から"><span class="material-icons">today</span></button>
       </div>
     `;
 
@@ -339,12 +352,20 @@ function renderPTDraftTable(dates) {
   html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
   html += '</tr></thead><tbody>';
 
+  let prevMonth = -1;
   for (const date of dates) {
     const ymd = fmtPtYmd(date);
     const dowJp = PT_DOW_JP[date.getDay()];
     const d = _ptDocs[ymd] || {};
     const speakerName = d.speaker || '';
     const prefNums = _ptSpeakerPrefs[speakerName] || [];
+
+    // 月区切りヘッダー
+    const curMonth = date.getFullYear() * 100 + date.getMonth();
+    if (curMonth !== prevMonth) {
+      html += `<tr class="pt-month-sep"><td colspan="7">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+      prevMonth = curMonth;
+    }
 
     html += `<tr>`;
     // 日付
@@ -413,6 +434,7 @@ function renderPTPublishedTable(dates) {
   html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
   html += '</tr></thead><tbody>';
 
+  let prevMonth2 = -1;
   for (const date of dates) {
     const ymd = fmtPtYmd(date);
     const dowJp = PT_DOW_JP[date.getDay()];
@@ -426,6 +448,12 @@ function renderPTPublishedTable(dates) {
     const vCong = d.publishedVisitCong || '';
     const vSpeaker = d.publishedVisitSpeaker || '';
     if (speaker || chairman || reader) hasAny = true;
+
+    const curMonth2 = date.getFullYear() * 100 + date.getMonth();
+    if (curMonth2 !== prevMonth2) {
+      html += `<tr class="pt-month-sep"><td colspan="7">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+      prevMonth2 = curMonth2;
+    }
 
     html += `<tr>
       <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
@@ -527,8 +555,8 @@ async function publishPTSchedule() {
 
   // まず保存
   await savePTSchedule();
-  // 再読込
-  const docs = await loadPTSchedule(_ptCurMonth);
+  // 再読込（12ヶ月分）
+  const docs = await loadPTSchedule(_ptCurMonth, 12);
   _ptDocs = docs;
 
   const batch = db.batch();
