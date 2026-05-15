@@ -7071,7 +7071,8 @@ async function migratePioneerToOrgRoles() {
     const data = doc.data();
     const status = Array.isArray(data.status) ? data.status
                  : (typeof data.status === 'string' ? data.status.split(',').map(s => s.trim()) : []);
-    if (!status.includes('RP')) return;
+    const isPioneer = status.some(v => { const s = String(v || ''); return s === 'RP' || s.includes('開拓'); });
+    if (!isPioneer) return;
     const orgRoles = Array.isArray(data.orgRoles) ? data.orgRoles : [];
     if (orgRoles.some(r => r?.department === 'pioneer_regular')) return;
     const updated = [...orgRoles, { department: 'pioneer_regular', position: '本人' }];
