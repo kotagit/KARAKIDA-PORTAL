@@ -1322,7 +1322,7 @@ async function renderPublicTalkView() {
     let html = '<div style="margin-top:20px">';
     html += '<h3 style="margin:0 0 10px;font-size:16px;color:#333"><span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:4px">campaign</span>公開講演予定</h3>';
     html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-    html += '<th>日付</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
+    html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
     html += '</tr></thead><tbody>';
 
     let prevMonth = -1;
@@ -1340,12 +1340,13 @@ async function renderPublicTalkView() {
 
       const curMonth = date.getFullYear() * 100 + date.getMonth();
       if (curMonth !== prevMonth) {
-        html += `<tr class="pt-month-sep"><td colspan="5">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
+        html += `<tr class="pt-month-sep"><td colspan="6">${date.getFullYear()}年${date.getMonth()+1}月</td></tr>`;
         prevMonth = curMonth;
       }
 
       html += `<tr class="${isOff ? 'pt-row-off' : ''}">
         <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
+        <td class="pt-num-cell">${isOff ? '' : (num || '—')}</td>
         <td style="text-align:left;font-size:12px">${isOff ? `<span class="pt-off-label">${d.isConvention ? '大会' : '記念式'}</span>` : (esc(title) || '—')}</td>
         <td>${speaker ? esc(speaker) + (cong ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : (isOff ? '' : '—')}</td>
         <td>${isOff ? '' : (esc(chairman) || '—')}</td>
