@@ -882,9 +882,90 @@ async function renderTalkPrefForm() {
 }
 window.renderTalkPrefForm = renderTalkPrefForm;
 
+// ── S-99 講演一覧 ──────────────────────────
+async function renderS99List() {
+  const container = document.getElementById('s99-list-body');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const talkList = await loadTalkList();
+
+    if (talkList.length === 0) {
+      container.innerHTML = `
+        <div class="duty-pub-notice">
+          <span class="material-icons">warning</span>
+          講演マスタがまだインポートされていません。
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+          <button class="btn-primary" onclick="importTalkListToFirestore()">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle">upload</span> 初期データをインポート
+          </button>
+          <label class="btn-primary" style="cursor:pointer">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle">description</span> S-99 Wordからインポート
+            <input type="file" accept=".docx" style="display:none" onchange="importTalkListFromDocx(this.files[0])">
+          </label>
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    // 検索バー
+    html += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" class="duty-input" id="s99-search" placeholder="番号 or キーワードで検索" style="max-width:300px">
+      <span class="s99-count" id="s99-count">${talkList.length}件</span>
+      <label class="btn-outline pt-import-btn" style="cursor:pointer;margin-left:auto">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">description</span> S-99更新
+        <input type="file" accept=".docx" style="display:none" onchange="importTalkListFromDocx(this.files[0])">
+      </label>
+    </div>`;
+
+    // テーブル
+    html += '<div class="pt-table-wrap"><table class="duty-table s99-table"><thead><tr>';
+    html += '<th style="width:60px">番号</th><th>主題</th>';
+    html += '</tr></thead><tbody id="s99-tbody">';
+
+    talkList.forEach(t => {
+      const unused = t.title.includes('使用しないでください');
+      html += `<tr class="s99-row${unused ? ' s99-unused' : ''}" data-num="${t.number}" data-title="${esc(t.title.toLowerCase())}">
+        <td class="s99-num">${t.number}</td>
+        <td${unused ? ' style="color:#999;font-style:italic"' : ''}>${esc(t.title)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+
+    // 検索フィルタ
+    const searchInput = document.getElementById('s99-search');
+    const countEl = document.getElementById('s99-count');
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      let visible = 0;
+      container.querySelectorAll('.s99-row').forEach(row => {
+        const num = row.dataset.num;
+        const title = row.dataset.title;
+        const show = !q || num.includes(q) || title.includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      countEl.textContent = `${visible}件`;
+    });
+
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    console.error('renderS99List error:', e);
+  }
+}
+window.renderS99List = renderS99List;
+
 // ── 管理画面ボタン ──────────────────────────
 document.getElementById('admin-manage-public-talk')?.addEventListener('click', () => {
   _ptViewMode = 'draft';
   navigate('admin-public-talk');
   renderPublicTalkAdmin();
+});
+
+document.getElementById('admin-manage-s99')?.addEventListener('click', () => {
+  navigate('admin-s99');
+  renderS99List();
 });

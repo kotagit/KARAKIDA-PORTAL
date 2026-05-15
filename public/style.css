@@ -3036,6 +3036,19 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   font-size: 11px;
 }
 
+/* ── S-99 講演一覧 ── */
+.s99-table { min-width: 320px; }
+.s99-num {
+  text-align: center;
+  font-weight: 600;
+  color: #1565c0;
+}
+.s99-unused td { background: #fafafa; }
+.s99-count {
+  font-size: 13px;
+  color: #888;
+}
+
 /* ── 講演希望チップ（管理画面） ── */
 .pt-pref-chips {
   display: flex;

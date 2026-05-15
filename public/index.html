@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=150">
+  <link rel="stylesheet" href="style.css?v=151">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -288,6 +288,10 @@
             <span class="admin-row-label">公開講演予定表策定</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+          <div class="admin-list-row" id="admin-manage-s99">
+            <span class="admin-row-label">S-99 講演一覧</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
 
         </div>
 
@@ -435,6 +439,17 @@
       </div>
       <div class="page-content">
         <div id="public-talk-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <!-- S-99 講演一覧 -->
+    <section id="page-admin-s99" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">S-99 講演一覧</h2>
+      </div>
+      <div class="page-content">
+        <div id="s99-list-body"><div class="loading">読み込み中...</div></div>
       </div>
     </section>
 
@@ -1987,10 +2002,10 @@
   </div>
 </div>
 
-<script src="main.js?v=175"></script>
+<script src="main.js?v=176"></script>
 <script src="assignment.js?v=80"></script>
 <script src="pw.js?v=9"></script>
 <script src="duties.js?v=13"></script>
-<script src="public-talk.js?v=1"></script>
+<script src="public-talk.js?v=2"></script>
 </body>
 </html>

@@ -107,6 +107,7 @@ const PAGE_TITLES = {
   'senkyo-night': '夜間区域',
   'senkyo-public': '公共エリア伝道',
   'admin-public-talk': '公開講演予定表策定',
+  'admin-s99': 'S-99 講演一覧',
   'talk-pref': '講演希望番号',
   'admin-dept-annai': '案内部門 取決め表',
   'admin-dept-avs': 'AVS 取決め表',
