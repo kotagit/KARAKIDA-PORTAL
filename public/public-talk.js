@@ -1,12 +1,14 @@
 // ── 公開講演予定表策定 ──────────────────────────────
 // Firestore:
 //   PUBLIC_TALK_LIST/{number}  : { number, title }  講演マスタ(194件)
+//     ※ 番号がキー。主題は番号に紐づき、Wordインポートで上書き更新。
 //   PUBLIC_TALK_SCHEDULE/{id}  : 週末ごとの予定レコード
-//     date, talkNumber, talkTitle,
-//     speaker, speakerCong,
-//     chairman, reader,
-//     visitCong, visitSpeaker,
-//     publishedXxx..., status, updatedAt, publishedAt
+//     date, talkNumber, speaker, speakerCong,
+//     chairman, reader, visitCong, visitSpeaker,
+//     publishedXxx..., updatedAt, publishedAt
+//     ※ talkTitle は保存しない。表示時に PUBLIC_TALK_LIST から取得。
+//   TALK_PREFS/{oderId}  : 講演者の希望講演番号
+//     uid, name, talks: [number,...], updatedAt
 
 // ── 講演マスタ（S-99） ──────────────────────────
 let _ptTalkList = null;  // [{number, title}]
@@ -39,6 +41,7 @@ let _ptCurMonth = null;   // Date(月の1日)
 let _ptDocs = {};         // date → doc data
 let _ptViewMode = 'draft';
 let _ptElderList = [];    // 長老・奉仕の僕リスト
+let _ptSpeakerPrefs = {}; // name → [talkNumbers]
 
 // ── データロード ──────────────────────────
 async function loadPTSchedule(monthDate) {
@@ -70,6 +73,23 @@ async function loadElderList() {
     ).sort((a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
   } catch (e) {
     _ptElderList = [];
+  }
+}
+
+// ── 講演者の希望番号ロード ──────────────────────────
+async function loadSpeakerPrefs() {
+  try {
+    const snap = await db.collection('TALK_PREFS').get();
+    _ptSpeakerPrefs = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.name && Array.isArray(d.talks) && d.talks.length > 0) {
+        _ptSpeakerPrefs[d.name] = d.talks;
+      }
+    });
+  } catch (e) {
+    console.warn('TALK_PREFS読込エラー:', e);
+    _ptSpeakerPrefs = {};
   }
 }
 
@@ -134,8 +154,9 @@ async function renderPublicTalkAdmin() {
     const [talkList, docs] = await Promise.all([
       loadTalkList(),
       loadPTSchedule(monthDate),
+      loadElderList(),
+      loadSpeakerPrefs(),
     ]);
-    await loadElderList();
     _ptDocs = docs;
 
     const dates = await listWeekendDatesInMonthAsync(monthDate.getFullYear(), monthDate.getMonth());
@@ -147,9 +168,15 @@ async function renderPublicTalkAdmin() {
           <span class="material-icons">warning</span>
           講演マスタ（S-99）がまだインポートされていません。
         </div>
-        <button class="btn-primary" onclick="importTalkListToFirestore()">
-          <span class="material-icons" style="font-size:16px;vertical-align:middle">upload</span> 講演マスタをインポート（194件）
-        </button>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+          <button class="btn-primary" onclick="importTalkListToFirestore()">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle">upload</span> 初期データをインポート（194件）
+          </button>
+          <label class="btn-primary" style="cursor:pointer">
+            <span class="material-icons" style="font-size:16px;vertical-align:middle">description</span> S-99 Wordからインポート
+            <input type="file" accept=".docx" style="display:none" onchange="importTalkListFromDocx(this.files[0])">
+          </label>
+        </div>
       `;
       return;
     }
@@ -189,6 +216,10 @@ async function renderPublicTalkAdmin() {
       ${isDraft && hasUnpublished ? `<button class="btn-primary duty-publish-btn" onclick="publishPTSchedule()">
         <span class="material-icons" style="font-size:16px;vertical-align:middle">publish</span> 公開する
       </button>` : ''}
+      ${isDraft ? `<label class="btn-outline pt-import-btn" style="cursor:pointer;margin-left:auto">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">description</span> S-99更新
+        <input type="file" accept=".docx" style="display:none" onchange="importTalkListFromDocx(this.files[0])">
+      </label>` : ''}
     </div>`;
 
     if (isDraft) {
@@ -199,8 +230,8 @@ async function renderPublicTalkAdmin() {
 
     container.innerHTML = html;
 
-    // 番号select変更時に主題を自動入力
     if (isDraft) {
+      // 番号select変更時に主題を自動入力
       container.querySelectorAll('.pt-talk-select').forEach(sel => {
         sel.addEventListener('change', function() {
           const ymd = this.dataset.date;
@@ -211,6 +242,60 @@ async function renderPublicTalkAdmin() {
           }
         });
       });
+
+      // 講演者入力変更時に希望番号を反映
+      container.querySelectorAll('.pt-speaker-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+          const ymd = this.dataset.date;
+          const name = this.value.trim();
+          const prefs = _ptSpeakerPrefs[name] || [];
+          // 希望チップを更新
+          const chipsEl = container.querySelector(`.pt-pref-chips[data-date="${ymd}"]`);
+          if (chipsEl) {
+            if (prefs.length > 0) {
+              chipsEl.innerHTML = prefs.map(n =>
+                `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
+              ).join('');
+              attachPrefChipHandlers(container, ymd);
+            } else {
+              chipsEl.innerHTML = '';
+            }
+          } else if (prefs.length > 0) {
+            const div = document.createElement('div');
+            div.className = 'pt-pref-chips';
+            div.dataset.date = ymd;
+            div.innerHTML = prefs.map(n =>
+              `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
+            ).join('');
+            this.parentElement.appendChild(div);
+            attachPrefChipHandlers(container, ymd);
+          }
+          // 番号selectのoptgroupを更新
+          const talkSel = container.querySelector(`.pt-talk-select[data-date="${ymd}"]`);
+          if (talkSel) {
+            const curVal = parseInt(talkSel.value, 10) || 0;
+            talkSel.innerHTML = '<option value="">—</option>' + buildTalkOpts(curVal, prefs);
+          }
+        });
+      });
+
+      // 希望チップクリック → 番号selectにセット
+      function attachPrefChipHandlers(cont, ymd) {
+        cont.querySelectorAll(`.pt-pref-chips[data-date="${ymd}"] .pt-pref-chip`).forEach(chip => {
+          chip.addEventListener('click', function() {
+            const num = parseInt(this.dataset.num, 10);
+            const talkSel = cont.querySelector(`.pt-talk-select[data-date="${ymd}"]`);
+            if (talkSel) {
+              talkSel.value = String(num);
+              talkSel.dispatchEvent(new Event('change'));
+            }
+          });
+        });
+      }
+      dates.forEach(date => {
+        const ymd = fmtPtYmd(date);
+        attachPrefChipHandlers(container, ymd);
+      });
     }
   } catch (e) {
     console.error('renderPublicTalkAdmin error:', e);
@@ -220,15 +305,36 @@ async function renderPublicTalkAdmin() {
 window.renderPublicTalkAdmin = renderPublicTalkAdmin;
 
 // ── 下書きテーブル ──────────────────────────
+function buildElderOpts(selected) {
+  return _ptElderList.map(u => {
+    const sel = u.name === selected ? ' selected' : '';
+    return `<option value="${esc(u.name)}"${sel}>${esc(u.name)}</option>`;
+  }).join('');
+}
+
+function buildTalkOpts(selectedNum, prefNums) {
+  // 希望番号があれば上部に「★ 希望」グループで表示
+  const prefSet = new Set(prefNums || []);
+  let html = '';
+  if (prefSet.size > 0) {
+    html += '<optgroup label="★ 希望講演">';
+    (_ptTalkList || []).filter(t => prefSet.has(t.number)).forEach(t => {
+      const sel = t.number === selectedNum ? ' selected' : '';
+      const short = t.title.length > 20 ? t.title.substring(0,20)+'…' : t.title;
+      html += `<option value="${t.number}"${sel}>★${t.number}. ${esc(short)}</option>`;
+    });
+    html += '</optgroup><optgroup label="全講演">';
+  }
+  (_ptTalkList || []).forEach(t => {
+    const sel = t.number === selectedNum ? ' selected' : '';
+    const short = t.title.length > 15 ? t.title.substring(0,15)+'…' : t.title;
+    html += `<option value="${t.number}"${sel}>${t.number}. ${esc(short)}</option>`;
+  });
+  if (prefSet.size > 0) html += '</optgroup>';
+  return html;
+}
+
 function renderPTDraftTable(dates) {
-  const elderOpts = _ptElderList.map(u =>
-    `<option value="${esc(u.name)}">${esc(u.name)}</option>`
-  ).join('');
-
-  const talkOpts = (_ptTalkList || []).map(t =>
-    `<option value="${t.number}">${t.number}. ${esc(t.title.length > 15 ? t.title.substring(0,15)+'…' : t.title)}</option>`
-  ).join('');
-
   let html = '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
   html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
   html += '</tr></thead><tbody>';
@@ -237,6 +343,8 @@ function renderPTDraftTable(dates) {
     const ymd = fmtPtYmd(date);
     const dowJp = PT_DOW_JP[date.getDay()];
     const d = _ptDocs[ymd] || {};
+    const speakerName = d.speaker || '';
+    const prefNums = _ptSpeakerPrefs[speakerName] || [];
 
     html += `<tr>`;
     // 日付
@@ -244,37 +352,32 @@ function renderPTDraftTable(dates) {
       <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
     </td>`;
 
-    // 番号
+    // 番号（講演者の希望番号を優先表示）
     html += `<td><select class="duty-select pt-talk-select" data-date="${ymd}" data-field="talkNumber">
-      <option value="">—</option>${talkOpts.replace(
-        d.talkNumber ? `value="${d.talkNumber}"` : '____NOMATCH____',
-        d.talkNumber ? `value="${d.talkNumber}" selected` : '____NOMATCH____'
-      )}
+      <option value="">—</option>${buildTalkOpts(d.talkNumber || 0, prefNums)}
     </select></td>`;
 
-    // 主題（自動表示）
+    // 主題（マスタから取得）
     const title = d.talkNumber ? (_ptTalkMap[d.talkNumber] || '') : '';
     html += `<td class="pt-title-cell" data-date="${ymd}">${esc(title)}</td>`;
 
     // 講演者（テキスト入力 — 他会衆の人も入るため）
-    html += `<td><input type="text" class="duty-input pt-field" data-date="${ymd}" data-field="speaker" value="${esc(d.speaker || '')}" placeholder="講演者名">
+    html += `<td>
+      <input type="text" class="duty-input pt-field pt-speaker-input" data-date="${ymd}" data-field="speaker" value="${esc(speakerName)}" placeholder="講演者名" list="pt-elder-datalist">
       <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
+      ${prefNums.length > 0 ? `<div class="pt-pref-chips" data-date="${ymd}">${prefNums.map(n =>
+        `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
+      ).join('')}</div>` : ''}
     </td>`;
 
     // 司会者
     html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="chairman">
-      <option value="">—</option>${elderOpts.replace(
-        d.chairman ? `value="${esc(d.chairman)}"` : '____NOMATCH____',
-        d.chairman ? `value="${esc(d.chairman)}" selected` : '____NOMATCH____'
-      )}
+      <option value="">—</option>${buildElderOpts(d.chairman || '')}
     </select></td>`;
 
     // 朗読者
     html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="reader">
-      <option value="">—</option>${elderOpts.replace(
-        d.reader ? `value="${esc(d.reader)}"` : '____NOMATCH____',
-        d.reader ? `value="${esc(d.reader)}" selected` : '____NOMATCH____'
-      )}
+      <option value="">—</option>${buildElderOpts(d.reader || '')}
     </select></td>`;
 
     // 訪問講演（会衆/人）
@@ -286,6 +389,11 @@ function renderPTDraftTable(dates) {
     html += '</tr>';
   }
   html += '</tbody></table></div>';
+
+  // datalist for speaker name autocomplete
+  html += `<datalist id="pt-elder-datalist">${_ptElderList.map(u =>
+    `<option value="${esc(u.name)}">`
+  ).join('')}</datalist>`;
 
   html += `<div class="duty-actions">
     <button class="btn-primary" onclick="savePTSchedule()">
@@ -310,7 +418,7 @@ function renderPTPublishedTable(dates) {
     const dowJp = PT_DOW_JP[date.getDay()];
     const d = _ptDocs[ymd] || {};
     const num = d.publishedTalkNumber || '';
-    const title = num ? (_ptTalkMap[num] || d.publishedTalkTitle || '') : '';
+    const title = num ? (_ptTalkMap[num] || '') : '';
     const speaker = d.publishedSpeaker || '';
     const cong = d.publishedSpeakerCong || '';
     const chairman = d.publishedChairman || '';
@@ -357,11 +465,9 @@ async function savePTSchedule() {
 
   for (const [ymd, fields] of Object.entries(dateData)) {
     const talkNumber = parseInt(fields.talkNumber, 10) || 0;
-    const talkTitle = talkNumber ? (_ptTalkMap[talkNumber] || '') : '';
     const data = {
       date: ymd,
       talkNumber,
-      talkTitle,
       speaker: fields.speaker || '',
       speakerCong: fields.speakerCong || '',
       chairman: fields.chairman || '',
@@ -379,7 +485,7 @@ async function savePTSchedule() {
         if ((existing[f] || '') !== (data[f] || '')) changed = true;
       });
       if (existing.talkNumber !== data.talkNumber) changed = true;
-      if (!changed) return;
+      if (!changed) continue;
       batch.update(db.collection('PUBLIC_TALK_SCHEDULE').doc(existing.id), data);
       writes++;
     } else {
@@ -391,7 +497,6 @@ async function savePTSchedule() {
         data.publishedChairman = '';
         data.publishedReader = '';
         data.publishedTalkNumber = 0;
-        data.publishedTalkTitle = '';
         data.publishedVisitCong = '';
         data.publishedVisitSpeaker = '';
         const ref = db.collection('PUBLIC_TALK_SCHEDULE').doc();
@@ -447,7 +552,6 @@ async function publishPTSchedule() {
         publishedChairman: d.chairman || '',
         publishedReader: d.reader || '',
         publishedTalkNumber: d.talkNumber || 0,
-        publishedTalkTitle: d.talkTitle || '',
         publishedVisitCong: d.visitCong || '',
         publishedVisitSpeaker: d.visitSpeaker || '',
         publishedAt: now,
@@ -610,6 +714,173 @@ async function importTalkListToFirestore() {
   }
 }
 window.importTalkListToFirestore = importTalkListToFirestore;
+
+// ── Wordファイル(.docx)からインポート ──────────────────────────
+async function importTalkListFromDocx(file) {
+  if (!file) return;
+  if (!file.name.endsWith('.docx')) {
+    alert('.docx ファイルを選択してください');
+    return;
+  }
+
+  try {
+    const buf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    const xmlFile = zip.file('word/document.xml');
+    if (!xmlFile) { alert('Word文書の解析に失敗しました'); return; }
+    const xmlStr = await xmlFile.async('string');
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlStr, 'application/xml');
+    const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const paragraphs = doc.getElementsByTagNameNS(ns, 'p');
+
+    // 段落ごとにテキスト結合
+    const lines = [];
+    for (const p of paragraphs) {
+      const texts = p.getElementsByTagNameNS(ns, 't');
+      let line = '';
+      for (const t of texts) line += t.textContent;
+      line = line.trim();
+      if (line) lines.push(line);
+    }
+
+    // "番号. 主題" パターンを抽出
+    const talks = [];
+    for (const line of lines) {
+      const m = line.match(/^(\d{1,3})\.\s*(.+)$/);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num >= 1 && num <= 300) {
+          talks.push({ number: num, title: m[2].trim() });
+        }
+      }
+    }
+
+    if (talks.length === 0) {
+      alert('講演データを検出できませんでした。\n「番号. 主題」の形式で記載されたWordファイルを指定してください。');
+      return;
+    }
+
+    if (!(await customConfirm(`${talks.length}件の講演データを検出しました。\nインポート（上書き更新）しますか？`))) return;
+
+    const batch = db.batch();
+    talks.forEach(t => {
+      const ref = db.collection('PUBLIC_TALK_LIST').doc(String(t.number));
+      batch.set(ref, { number: t.number, title: t.title });
+    });
+    await batch.commit();
+    alert(`${talks.length}件の講演マスタを更新しました`);
+    _ptTalkList = null;
+    _ptTalkMap = {};
+    await renderPublicTalkAdmin();
+  } catch (e) {
+    alert('Wordインポートエラー: ' + e.message);
+    console.error('importTalkListFromDocx error:', e);
+  }
+}
+window.importTalkListFromDocx = importTalkListFromDocx;
+
+// ── 講演希望番号フォーム（講演者用） ──────────────────────────
+async function renderTalkPrefForm() {
+  const container = document.getElementById('talk-pref-body');
+  if (!container) return;
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  try {
+    const talkList = await loadTalkList();
+    if (talkList.length === 0) {
+      container.innerHTML = '<div class="empty-state"><span class="material-icons">info</span>講演マスタが未登録です</div>';
+      return;
+    }
+
+    // 現在のユーザーの希望を読み込み
+    let myPrefs = [];
+    let myDocId = null;
+    if (currentUser) {
+      const email = currentUser.email.trim();
+      const snap = await db.collection('TALK_PREFS').where('uid', '==', currentUser.uid).limit(1).get();
+      if (!snap.empty) {
+        myDocId = snap.docs[0].id;
+        myPrefs = snap.docs[0].data().talks || [];
+      }
+    }
+    const prefSet = new Set(myPrefs);
+
+    let html = '<div class="tp-form">';
+    html += '<p class="tp-desc">希望する講演番号を選択してください。調整者が予定表を作成する際に参考にします。</p>';
+    html += '<div class="tp-search"><input type="text" class="duty-input" id="tp-search-input" placeholder="番号 or キーワードで検索"></div>';
+    html += '<div class="tp-list" id="tp-list">';
+    talkList.forEach(t => {
+      const checked = prefSet.has(t.number) ? ' checked' : '';
+      html += `<label class="tp-item" data-num="${t.number}" data-title="${esc(t.title)}">
+        <input type="checkbox" value="${t.number}"${checked}>
+        <span class="tp-num">${t.number}</span>
+        <span class="tp-title">${esc(t.title)}</span>
+      </label>`;
+    });
+    html += '</div>';
+    html += `<div class="tp-selected" id="tp-selected-count">選択中: ${prefSet.size}件</div>`;
+    html += `<div class="duty-actions">
+      <button class="btn-primary" id="tp-save-btn">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存
+      </button>
+    </div>`;
+    html += '</div>';
+    container.innerHTML = html;
+
+    // 検索フィルタ
+    const searchInput = document.getElementById('tp-search-input');
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      container.querySelectorAll('.tp-item').forEach(el => {
+        const num = el.dataset.num;
+        const title = el.dataset.title.toLowerCase();
+        el.style.display = (!q || num.includes(q) || title.includes(q)) ? '' : 'none';
+      });
+    });
+
+    // 選択数カウント
+    const countEl = document.getElementById('tp-selected-count');
+    container.querySelectorAll('.tp-item input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const cnt = container.querySelectorAll('.tp-item input[type="checkbox"]:checked').length;
+        countEl.textContent = `選択中: ${cnt}件`;
+      });
+    });
+
+    // 保存
+    document.getElementById('tp-save-btn').addEventListener('click', async () => {
+      const selected = [];
+      container.querySelectorAll('.tp-item input[type="checkbox"]:checked').forEach(cb => {
+        selected.push(parseInt(cb.value, 10));
+      });
+      selected.sort((a,b) => a - b);
+
+      try {
+        const data = {
+          uid: currentUser.uid,
+          name: memberUserName || currentUser.displayName || '',
+          talks: selected,
+          updatedAt: firebase.firestore.Timestamp.now(),
+        };
+        if (myDocId) {
+          await db.collection('TALK_PREFS').doc(myDocId).set(data);
+        } else {
+          await db.collection('TALK_PREFS').add(data);
+        }
+        alert(`${selected.length}件の希望講演を保存しました`);
+      } catch (e) {
+        alert('保存エラー: ' + e.message);
+      }
+    });
+
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">読み込みエラー: ' + e.message + '</div>';
+    console.error('renderTalkPrefForm error:', e);
+  }
+}
+window.renderTalkPrefForm = renderTalkPrefForm;
 
 // ── 管理画面ボタン ──────────────────────────
 document.getElementById('admin-manage-public-talk')?.addEventListener('click', () => {

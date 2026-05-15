@@ -3036,6 +3036,92 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   font-size: 11px;
 }
 
+/* ── 講演希望チップ（管理画面） ── */
+.pt-pref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+.pt-pref-chip {
+  display: inline-block;
+  background: #e3f2fd;
+  color: #1565c0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid #90caf9;
+  transition: background 0.15s;
+}
+.pt-pref-chip:hover {
+  background: #bbdefb;
+}
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-size: 13px;
+}
+.btn-outline:hover { background: #f5f5f5; }
+.pt-import-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+/* ── 講演希望番号フォーム ── */
+.tp-form { max-width: 600px; }
+.tp-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+}
+.tp-search { margin-bottom: 10px; }
+.tp-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 4px;
+}
+.tp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.tp-item:hover { background: #f0f4ff; }
+.tp-item input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.tp-num {
+  flex-shrink: 0;
+  width: 32px;
+  font-weight: 600;
+  color: #1565c0;
+  text-align: right;
+}
+.tp-title {
+  flex: 1;
+  color: #333;
+}
+.tp-selected {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #1565c0;
+  font-weight: 600;
+}
+
 /* ── 成員編集: 部門・組織表役職 ── */
 .me-dept-grid {
   display: grid;

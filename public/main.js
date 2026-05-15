@@ -107,6 +107,7 @@ const PAGE_TITLES = {
   'senkyo-night': '夜間区域',
   'senkyo-public': '公共エリア伝道',
   'admin-public-talk': '公開講演予定表策定',
+  'talk-pref': '講演希望番号',
   'admin-dept-annai': '案内部門 取決め表',
   'admin-dept-avs': 'AVS 取決め表',
   'admin-dept-parking': '駐車場 取決め表',
@@ -351,6 +352,7 @@ function navigate(page, pushHistory) {
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
   if (page === 'senkyo-public')    loadSenkyoPublic();
   if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
+  if (page === 'talk-pref') { if (typeof renderTalkPrefForm === 'function') renderTalkPrefForm(); }
   if (page === 'shinsei')  loadLinks('shinsei');
   if (page === 'soshiki')  loadOrgView();
   if (page === 'gyoji')    loadLinks('gyoji');
@@ -1518,6 +1520,20 @@ async function loadLinks(section) {
       .orderBy('order', 'asc').get();
 
     listEl.innerHTML = '';
+
+    if (section === 'shukai' && isElder) {
+      const shukaiItems = [
+        { icon: 'record_voice_over', label: '講演希望番号', page: 'talk-pref' },
+      ];
+      shukaiItems.forEach(fi => {
+        const el = document.createElement('div');
+        el.className = 'admin-list-row';
+        el.style.cursor = 'pointer';
+        el.innerHTML = `<span class="material-icons admin-row-icon">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
+        el.addEventListener('click', () => navigate(fi.page));
+        listEl.appendChild(el);
+      });
+    }
 
     if (section === 'shinsei') {
       const versionDiv = document.createElement('div');
