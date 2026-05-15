@@ -6934,7 +6934,7 @@ function renderDeptEditTable() {
   });
 
   // colgroup で列幅を固定（colspan によるずれを防止）
-  const LABEL_W = 180, CELL_W = 20;
+  const LABEL_W = 280, CELL_W = 20;
   const table = thead.closest('table');
   table.style.width = (LABEL_W + members.length * CELL_W) + 'px';
   let existingCg = table.querySelector('colgroup');

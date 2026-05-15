@@ -2583,7 +2583,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 
 /* 部門情報モード: colgroup 列幅固定 */
-.me-bulk-table col.meb-col-label { width: 180px; }
+.me-bulk-table col.meb-col-label { width: 280px; }
 .me-bulk-table col.meb-col-cell  { width: 20px; }
 
 /* 部門情報モード: 転置レイアウト（行=役職、列=成員） */
@@ -2614,7 +2614,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   overflow: hidden;
   text-overflow: ellipsis;
   border-right: 1px solid #ddd;
-  min-width: 160px;
+  min-width: 280px;
   vertical-align: middle;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-inner {
