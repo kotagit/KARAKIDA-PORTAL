@@ -34,6 +34,8 @@ let _dutyCurMonth = null;      // Date(月の1日)
 let _dutyDocs     = {};        // key=`${dept}_${position}_${date}` → docId
 let _dutyConflicts = {};       // key=`${name}_${date}` → [{dept,position}]
 let _dutyProgramConflicts = {}; // key=`${name}_${date}` → [{code,date}]
+let _dutyCandidatesByPos = {};  // posId → [name, ...]
+let _dutyAllCandidates = [];    // 全候補者名（フォールバック用）
 
 // ── 集会日の自動列挙 ──────────────────────────
 async function getMeetingConfig() {
@@ -158,6 +160,106 @@ async function loadProgramConflicts(monthDate) {
     console.warn('プログラム衝突チェックエラー:', e);
   }
   return conflicts;
+}
+
+// ── 候補者ロード（selectプルダウン用） ──────────────────────────
+async function loadDutyCandidates(dept) {
+  const cfg = DEPT_CONFIG[dept];
+  if (!cfg) return;
+
+  const allUsers = await getUserListCached();
+  _dutyCandidatesByPos = {};
+  for (const pos of cfg.positions) {
+    _dutyCandidatesByPos[pos.id] = [];
+  }
+
+  if (cfg.mode === 'group') {
+    const groups = [...new Set(allUsers.map(u => u.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+    for (const pos of cfg.positions) {
+      _dutyCandidatesByPos[pos.id] = groups;
+    }
+    _dutyAllCandidates = groups;
+    return;
+  }
+
+  allUsers.forEach(u => {
+    if (!u.name) return;
+    const dp = (u.deptPositions && typeof u.deptPositions === 'object') ? u.deptPositions : {};
+    const posArr = Array.isArray(dp[dept]) ? dp[dept] : [];
+
+    if (posArr.length > 0) {
+      for (const posId of posArr) {
+        if (_dutyCandidatesByPos[posId]) {
+          _dutyCandidatesByPos[posId].push(u.name);
+        }
+      }
+    } else if (dp[dept] !== undefined || (Array.isArray(u.departments) && u.departments.includes(dept))) {
+      for (const pos of cfg.positions) {
+        _dutyCandidatesByPos[pos.id].push(u.name);
+      }
+    }
+  });
+
+  // 候補者がゼロのポジションは全成員をフォールバック
+  _dutyAllCandidates = allUsers.filter(u => u.name).map(u => u.name)
+    .sort((a, b) => (a).localeCompare(b, 'ja'));
+  for (const pos of cfg.positions) {
+    if (_dutyCandidatesByPos[pos.id].length === 0) {
+      _dutyCandidatesByPos[pos.id] = [..._dutyAllCandidates];
+    } else {
+      _dutyCandidatesByPos[pos.id].sort((a, b) => a.localeCompare(b, 'ja'));
+    }
+  }
+}
+
+// ── selectのoptions再構築（同一日の他ポジションで使われている人を除外） ──
+function rebuildDutySelectOptions(changedSelect) {
+  const dept = _dutyCurDept;
+  const container = document.getElementById(`dept-${dept}-body`);
+  if (!container) return;
+
+  const ymd = changedSelect ? changedSelect.dataset.date : null;
+  // 変更があった日のselectだけ更新
+  const targetDates = ymd ? [ymd] : [];
+  if (targetDates.length === 0) return;
+
+  const selects = container.querySelectorAll(`.duty-select[data-date="${ymd}"]`);
+  // その日に割り当てられている人を集める
+  const usedByPos = {};
+  selects.forEach(sel => {
+    usedByPos[sel.dataset.pos] = sel.value;
+  });
+
+  selects.forEach(sel => {
+    const posId = sel.dataset.pos;
+    const currentVal = sel.value;
+    const candidates = _dutyCandidatesByPos[posId] || [];
+
+    // 他ポジションで使われている名前（自分のポジション以外）
+    const usedByOthers = new Set();
+    Object.entries(usedByPos).forEach(([p, name]) => {
+      if (p !== posId && name) usedByOthers.add(name);
+    });
+
+    // options再構築
+    let optHtml = '<option value="">— 未割当 —</option>';
+    candidates.forEach(name => {
+      if (usedByOthers.has(name)) return; // その日に他ポジションで使用中 → 非表示
+      const selected = name === currentVal ? ' selected' : '';
+      const warnings = getConflictInfo(name, ymd, dept);
+      const warnMark = warnings.some(w => w.type === 'program') ? ' ⚠️' // ⚠️
+        : warnings.some(w => w.type === 'dept') ? ' ○' : ''; // ○
+      optHtml += `<option value="${esc(name)}"${selected}>${esc(name)}${warnMark}</option>`;
+    });
+
+    // 現在値が候補にない場合も表示（手入力や他部門の人）
+    if (currentVal && !candidates.includes(currentVal)) {
+      const selected = ' selected';
+      optHtml += `<option value="${esc(currentVal)}"${selected}>${esc(currentVal)}</option>`;
+    }
+
+    sel.innerHTML = optHtml;
+  });
 }
 
 // ── 自動生成アルゴリズム ──────────────────────────
@@ -321,12 +423,14 @@ async function renderDeptAdmin() {
     ]);
   } catch (e) {
     console.warn('データロードエラー（部分的に続行）:', e);
-    // dutyDocsだけでも取得を試みる
     try { dutyDocs = await loadDeptDuties(dept, monthDate); } catch (e2) { /* ignore */ }
   }
   _dutyDocs = dutyDocs;
   _dutyConflicts = otherConflicts;
   _dutyProgramConflicts = progConflicts;
+
+  // 候補者ロード
+  await loadDutyCandidates(dept);
 
   // 月切替UI
   let html = `
@@ -373,20 +477,46 @@ async function renderDeptAdmin() {
       <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
       <div class="duty-date-sub">${typeLabel}</div>
     </td>`;
+    // この日に既に割り当て済みの人を収集
+    const usedThisDay = new Set();
     cfg.positions.forEach(p => {
       const key = `${dept}_${p.id}_${ymd}`;
       const cur = _dutyDocs[key]?.assignee || '';
-      // 衝突チェック
+      if (cur) usedThisDay.add(cur);
+    });
+
+    cfg.positions.forEach(p => {
+      const key = `${dept}_${p.id}_${ymd}`;
+      const cur = _dutyDocs[key]?.assignee || '';
       const warnings = cur ? getConflictInfo(cur, ymd, dept) : [];
       const warnClass = warnings.some(w => w.type === 'program') ? 'duty-cell-warn-prog'
         : warnings.some(w => w.type === 'dept') ? 'duty-cell-warn-dept' : '';
       const warnTitle = warnings.map(w => w.text).join('\n');
 
+      // プルダウン構築：この日の他ポジションで使われている人を除外
+      const candidates = _dutyCandidatesByPos[p.id] || [];
+      const othersUsed = new Set(usedThisDay);
+      othersUsed.delete(cur); // 自分自身は除外しない
+      let optHtml = '<option value="">— 未割当 —</option>';
+      candidates.forEach(name => {
+        if (othersUsed.has(name)) return;
+        const selected = name === cur ? ' selected' : '';
+        const cWarns = getConflictInfo(name, ymd, dept);
+        const mark = cWarns.some(w => w.type === 'program') ? ' ⚠'
+          : cWarns.some(w => w.type === 'dept') ? ' ○' : '';
+        optHtml += `<option value="${esc(name)}"${selected}>${esc(name)}${mark}</option>`;
+      });
+      // 現在値が候補リストにない場合も表示
+      if (cur && !candidates.includes(cur)) {
+        optHtml += `<option value="${esc(cur)}" selected>${esc(cur)}</option>`;
+      }
+
       html += `<td class="${warnClass}" ${warnTitle ? `title="${esc(warnTitle)}"` : ''}>
-        <input type="text" class="duty-input ${warnClass ? 'duty-input-warn' : ''}"
+        <select class="duty-select ${warnClass ? 'duty-input-warn' : ''}"
           data-key="${key}" data-dept="${dept}" data-pos="${p.id}" data-date="${ymd}" data-type="${type}"
-          value="${esc(cur)}" placeholder="${cfg.mode==='group'?'グループ名':'氏名'}"
-          onchange="onDutyInputChange(this)" />
+          onchange="onDutySelectChange(this)">
+          ${optHtml}
+        </select>
         ${warnings.length > 0 ? `<div class="duty-warn-badges">${warnings.map(w =>
           `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
         ).join('')}</div>` : ''}
@@ -401,18 +531,9 @@ async function renderDeptAdmin() {
     <button class="btn-primary" onclick="saveDeptDuties()">
       <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存
     </button>
-    <button class="btn-secondary" onclick="openDutyMemberPicker()">
-      <span class="material-icons" style="font-size:16px;vertical-align:middle">person_search</span> 成員から選択
-    </button>
   </div>`;
 
   container.innerHTML = html;
-
-  // 入力フィールドのイベント
-  container.querySelectorAll('.duty-input').forEach(inp => {
-    inp.addEventListener('focus', () => { container._lastDutyInput = inp; });
-    inp.addEventListener('dblclick', () => { container._lastDutyInput = inp; openDutyMemberPicker(); });
-  });
 
   } catch (e) {
     console.error('renderDeptAdmin error:', e);
@@ -421,50 +542,90 @@ async function renderDeptAdmin() {
 }
 window.renderDeptAdmin = renderDeptAdmin;
 
-// ── 入力変更時に衝突リアルタイム更新 ──────────────────────────
-function onDutyInputChange(inp) {
-  const name = inp.value.trim();
-  const ymd = inp.dataset.date;
-  const td = inp.parentElement;
+// ── select変更時：衝突更新 + 同一日の他selectを再構築 ──────────────────────────
+function onDutySelectChange(sel) {
+  const name = sel.value;
+  const ymd = sel.dataset.date;
+  const td = sel.parentElement;
 
-  // 既存の警告バッジ削除
+  // 警告バッジ更新
   const oldBadges = td.querySelector('.duty-warn-badges');
   if (oldBadges) oldBadges.remove();
-
   td.className = '';
-  inp.classList.remove('duty-input-warn');
+  sel.classList.remove('duty-input-warn');
 
-  if (!name) return;
-
-  const warnings = getConflictInfo(name, ymd, _dutyCurDept);
-
-  // 同一日に同じ部門内で重複チェック
-  const container = document.getElementById(`dept-${_dutyCurDept}-body`);
-  if (container) {
-    const sameDate = container.querySelectorAll(`.duty-input[data-date="${ymd}"]`);
-    let dupCount = 0;
-    sameDate.forEach(other => {
-      if (other !== inp && other.value.trim() === name) dupCount++;
-    });
-    if (dupCount > 0) {
-      warnings.push({ type: 'dept', text: '同一日に部門内で重複' });
+  if (name) {
+    const warnings = getConflictInfo(name, ymd, _dutyCurDept);
+    if (warnings.length > 0) {
+      const warnClass = warnings.some(w => w.type === 'program') ? 'duty-cell-warn-prog' : 'duty-cell-warn-dept';
+      td.className = warnClass;
+      sel.classList.add('duty-input-warn');
+      td.title = warnings.map(w => w.text).join('\n');
+      const badgeHtml = warnings.map(w =>
+        `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
+      ).join('');
+      sel.insertAdjacentHTML('afterend', `<div class="duty-warn-badges">${badgeHtml}</div>`);
+    } else {
+      td.title = '';
     }
   }
 
-  if (warnings.length > 0) {
-    const warnClass = warnings.some(w => w.type === 'program') ? 'duty-cell-warn-prog' : 'duty-cell-warn-dept';
-    td.className = warnClass;
-    inp.classList.add('duty-input-warn');
-    td.title = warnings.map(w => w.text).join('\n');
-    const badgeHtml = warnings.map(w =>
-      `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
-    ).join('');
-    inp.insertAdjacentHTML('afterend', `<div class="duty-warn-badges">${badgeHtml}</div>`);
-  } else {
-    td.title = '';
-  }
+  // 同一日の全selectを再構築（使用済みの人を除外）
+  const dept = _dutyCurDept;
+  const container = document.getElementById(`dept-${dept}-body`);
+  if (!container) return;
+
+  const sameDateSels = container.querySelectorAll(`.duty-select[data-date="${ymd}"]`);
+  // この日に選ばれている人を収集
+  const usedMap = {}; // posId → name
+  sameDateSels.forEach(s => { if (s.value) usedMap[s.dataset.pos] = s.value; });
+
+  sameDateSels.forEach(s => {
+    if (s === sel) return; // 変更元は既に正しいのでスキップ
+    const posId = s.dataset.pos;
+    const currentVal = s.value;
+    const candidates = _dutyCandidatesByPos[posId] || [];
+
+    const othersUsed = new Set();
+    Object.entries(usedMap).forEach(([p, n]) => { if (p !== posId) othersUsed.add(n); });
+
+    let optHtml = '<option value="">— 未割当 —</option>';
+    candidates.forEach(n => {
+      if (othersUsed.has(n)) return;
+      const selected = n === currentVal ? ' selected' : '';
+      const cWarns = getConflictInfo(n, ymd, dept);
+      const mark = cWarns.some(w => w.type === 'program') ? ' ⚠'
+        : cWarns.some(w => w.type === 'dept') ? ' ○' : '';
+      optHtml += `<option value="${esc(n)}"${selected}>${esc(n)}${mark}</option>`;
+    });
+    if (currentVal && !candidates.includes(currentVal)) {
+      optHtml += `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>`;
+    }
+    s.innerHTML = optHtml;
+
+    // 警告バッジも再評価
+    const sTd = s.parentElement;
+    const sBadges = sTd.querySelector('.duty-warn-badges');
+    if (sBadges) sBadges.remove();
+    sTd.className = '';
+    s.classList.remove('duty-input-warn');
+    if (currentVal) {
+      const sWarns = getConflictInfo(currentVal, ymd, dept);
+      if (sWarns.length > 0) {
+        const wc = sWarns.some(w => w.type === 'program') ? 'duty-cell-warn-prog' : 'duty-cell-warn-dept';
+        sTd.className = wc;
+        s.classList.add('duty-input-warn');
+        sTd.title = sWarns.map(w => w.text).join('\n');
+        s.insertAdjacentHTML('afterend', `<div class="duty-warn-badges">${sWarns.map(w =>
+          `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
+        ).join('')}</div>`);
+      } else {
+        sTd.title = '';
+      }
+    }
+  });
 }
-window.onDutyInputChange = onDutyInputChange;
+window.onDutySelectChange = onDutySelectChange;
 
 // ── 自動生成実行 ──────────────────────────
 async function autoGenDuty() {
@@ -473,9 +634,8 @@ async function autoGenDuty() {
   const container = document.getElementById(`dept-${dept}-body`);
   if (!container) return;
 
-  // 既存データがある場合は確認
-  const existingInputs = container.querySelectorAll('.duty-input');
-  const hasData = [...existingInputs].some(inp => inp.value.trim() !== '');
+  const existingSelects = container.querySelectorAll('.duty-select');
+  const hasData = [...existingSelects].some(sel => sel.value !== '');
   if (hasData) {
     if (!(await customConfirm('既存の割当がクリアされ、自動生成で上書きされます。よろしいですか？'))) return;
   }
@@ -484,12 +644,23 @@ async function autoGenDuty() {
   const dates = listMeetingDatesInMonth(_dutyCurMonth.getFullYear(), _dutyCurMonth.getMonth(), meetCfg);
   const generated = await autoGenerateDeptSchedule(dept, dates);
 
-  // UIに反映
-  existingInputs.forEach(inp => {
-    const key = inp.dataset.key;
-    const entry = generated[key];
-    inp.value = entry ? entry.assignee : '';
-    onDutyInputChange(inp);
+  // UIに反映（日付ごとにまとめて処理）
+  const dateGroups = {};
+  existingSelects.forEach(sel => {
+    const ymd = sel.dataset.date;
+    if (!dateGroups[ymd]) dateGroups[ymd] = [];
+    dateGroups[ymd].push(sel);
+  });
+
+  Object.entries(dateGroups).forEach(([ymd, sels]) => {
+    // まず全selectの値を設定
+    sels.forEach(sel => {
+      const key = sel.dataset.key;
+      const entry = generated[key];
+      sel.value = entry ? entry.assignee : '';
+    });
+    // 最後のselectでonChangeを呼んで全体を再構築
+    if (sels.length > 0) onDutySelectChange(sels[sels.length - 1]);
   });
 }
 window.autoGenDuty = autoGenDuty;
@@ -500,9 +671,9 @@ async function clearDutyAll() {
   const dept = _dutyCurDept;
   const container = document.getElementById(`dept-${dept}-body`);
   if (!container) return;
-  container.querySelectorAll('.duty-input').forEach(inp => {
-    inp.value = '';
-    onDutyInputChange(inp);
+  container.querySelectorAll('.duty-select').forEach(sel => {
+    sel.value = '';
+    onDutySelectChange(sel);
   });
 }
 window.clearDutyAll = clearDutyAll;
@@ -521,7 +692,7 @@ window.changeDutyMonth = changeDutyMonth;
 // ── 保存（一括） ──────────────────────────
 async function saveDeptDuties() {
   const dept = _dutyCurDept;
-  const inputs = document.querySelectorAll(`#dept-${dept}-body .duty-input`);
+  const inputs = document.querySelectorAll(`#dept-${dept}-body .duty-select`);
   const batch = db.batch();
   let writes = 0;
   for (const inp of inputs) {
