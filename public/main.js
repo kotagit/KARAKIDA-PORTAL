@@ -6970,14 +6970,17 @@ function renderDeptEditTable() {
 
   // 本体
   let html = '';
+  let secIdx = 0;
+  let curSec = '';
   rows.forEach(row => {
     if (row.kind === 'section') {
-      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col" colspan="${members.length + 1}"><strong>${esc(row.label)}</strong></td></tr>`;
+      curSec = 'meb-sec-' + secIdx++;
+      html += `<tr class="meb-section-row ${esc(row.cls)}" data-sec="${curSec}"><td class="meb-sticky-col" colspan="${members.length + 1}"><span class="meb-sec-arrow">▼</span><strong>${esc(row.label)}</strong></td></tr>`;
       return;
     }
     // ラベルセル
     const subText = row.deptLabel || row.subLabel || '';
-    html += `<tr>`;
+    html += `<tr data-sec-content="${curSec}">`;
     const isSub = row.isSub || false;
     html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner">`
          +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
@@ -7038,6 +7041,19 @@ function renderDeptEditTable() {
       const row = rows[+sel.dataset.row];
       const member = meBulkOriginal(sel.dataset.mid);
       if (row && member) row.set(member, sel.value);
+    });
+  });
+
+  // アコーディオン
+  tbody.querySelectorAll('.meb-section-row').forEach(secRow => {
+    secRow.style.cursor = 'pointer';
+    secRow.addEventListener('click', () => {
+      const sec = secRow.dataset.sec;
+      const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
+      const arrow = secRow.querySelector('.meb-sec-arrow');
+      const isOpen = contentRows[0] && contentRows[0].style.display !== 'none';
+      contentRows.forEach(r => r.style.display = isOpen ? 'none' : '');
+      if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
     });
   });
 

@@ -2596,6 +2596,10 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   background: #e3f2fd; color: var(--primary-dark, #035d9a);
   padding: 6px 12px; font-size: 12px;
   border-top: 2px solid var(--primary, #047CBC);
+  cursor: pointer; user-select: none;
+}
+.meb-sec-arrow {
+  font-size: 10px; margin-right: 6px; display: inline-block;
 }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-svc td     { background: #ede7f6; color: #4527a0; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-elder td   { background: #fce4ec; color: #ad1457; }
