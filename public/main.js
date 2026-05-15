@@ -7038,13 +7038,14 @@ function renderDeptEditTable() {
     });
   });
 
-  // アコーディオン
+  // アコーディオン（初期状態: 全て折りたたみ）
   tbody.querySelectorAll('.meb-section-row').forEach(secRow => {
-    secRow.style.cursor = 'pointer';
+    const sec = secRow.dataset.sec;
+    const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
+    const arrow = secRow.querySelector('.meb-sec-arrow');
+    contentRows.forEach(r => r.style.display = 'none');
+    if (arrow) arrow.textContent = '▶';
     secRow.addEventListener('click', () => {
-      const sec = secRow.dataset.sec;
-      const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
-      const arrow = secRow.querySelector('.meb-sec-arrow');
       const isOpen = contentRows[0] && contentRows[0].style.display !== 'none';
       contentRows.forEach(r => r.style.display = isOpen ? 'none' : '');
       if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
