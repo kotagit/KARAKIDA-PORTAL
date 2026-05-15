@@ -2002,8 +2002,9 @@ async function loadJouhouRenraku() {
       if (!name) return;
       const arr = _parseStatus(data.status);
       if (arr.includes('inactive')) return;
-      const isGO = arr.includes('GO');
-      const isGA = arr.includes('GA');
+      const gr = deriveGroupRole(data);
+      const isGO = gr?.position === '監督' || arr.includes('GO');
+      const isGA = gr?.position === '補佐' || arr.includes('GA');
       if (!isGO && !isGA) return;
       const group = String(data.group || '').trim() || '（未所属）';
       if (!groupMap[group]) groupMap[group] = { go: [], ga: [] };
@@ -2763,9 +2764,9 @@ function tsToStr(val) {
 function displayRole(m) {
   const arr = _parseStatus(m.status);
   const parts = [];
-  if (arr.includes('EL')) parts.push('長老');
-  else if (arr.includes('MS')) parts.push('援助奉仕者');
-  if (arr.includes('RP') || arr.includes('正規開拓者')) parts.push('開拓者');
+  if (m.appointment === 'elder' || arr.includes('EL') || deriveIsElder(m)) parts.push('長老');
+  else if (m.appointment === 'ministerial' || arr.includes('MS')) parts.push('援助奉仕者');
+  if (deriveIsPioneer(m) || arr.includes('RP') || arr.includes('正規開拓者')) parts.push('開拓者');
   if (parts.length === 0) parts.push('伝道者');
   return parts.join(' / ');
 }
@@ -3221,7 +3222,9 @@ async function s13LoadSupervisors() {
   s13SupervisorMap = {};
   userList.forEach(d => {
     const arr = _parseStatus(d.status);
-    if (!arr.includes('GO') && !arr.includes('SV')) return;
+    const gr = deriveGroupRole(d);
+    const isGroupOverseer = gr?.position === '監督' || arr.includes('GO') || arr.includes('SV');
+    if (!isGroupOverseer) return;
     const group = (d.group || '').trim();
     const name = (d.name || '').trim();
     if (group && name) s13SupervisorMap[group] = name;
@@ -5617,10 +5620,11 @@ function _calcAge(birthDate) {
   return age;
 }
 
-function _gmMemberRank(arr, gender) {
-  if (arr.includes('GO')) return 0;
-  if (arr.includes('GA')) return 1;
-  const isPioneer = arr.includes('RP') || arr.includes('AP');
+function _gmMemberRank(arr, gender, user) {
+  const gr = user ? deriveGroupRole(user) : null;
+  if (gr?.position === '監督' || arr.includes('GO')) return 0;
+  if (gr?.position === '補佐' || arr.includes('GA')) return 1;
+  const isPioneer = (user && deriveIsPioneer(user)) || arr.includes('RP') || arr.includes('AP');
   if (gender === '男') return isPioneer ? 2 : 3;
   if (gender === '女') return isPioneer ? 4 : 5;
   return 6;
@@ -5816,8 +5820,9 @@ async function loadGroupMembers() {
           html += `<tr class="gm-row gm-row-empty"><td class="gm-tag-col"></td><td class="gm-num">${i+1}</td><td></td></tr>`;
           continue;
         }
-        const rowClass = m.status.includes('GO') ? 'gm-row-go'
-                       : m.status.includes('GA') ? 'gm-row-ga'
+        const mGr = deriveGroupRole(m);
+        const rowClass = (mGr?.position === '監督' || m.status.includes('GO')) ? 'gm-row-go'
+                       : (mGr?.position === '補佐' || m.status.includes('GA')) ? 'gm-row-ga'
                        : (m.gender === '男' ? 'gm-row-m' : m.gender === '女' ? 'gm-row-f' : '');
         const tag = getKanaTag(m.furigana || m.name);
         const tagCell = tag && tag !== prevTag ? tag : '';
@@ -6764,13 +6769,22 @@ function renderDeptEditTable() {
     else orgSections.push({ section: d.section, count: cnt });
   });
   orgSections.forEach(s => {
-    const cls = s.section === '奉仕委員会' ? 'meb-grp-org-svc' : 'meb-grp-org-elder';
+    const cls = s.section === '奉仕委員会' ? 'meb-grp-org-svc'
+              : s.section === '長老団'     ? 'meb-grp-org-elder'
+              : s.section === '開拓者'     ? 'meb-grp-org-pioneer'
+              : s.section === '野外宣教グループ' ? 'meb-grp-org-group'
+              : 'meb-grp-org';
     row1 += `<th colspan="${s.count}" class="meb-grp-org ${cls}">${esc(s.section)}</th>`;
   });
   // row2: 部門名 (部門ごとに colspan=positions数)
   ORG_DEPARTMENTS.forEach(d => {
     const cnt = getOrgPositions(d).length;
-    const typeCls = d.type === 'supervisor' ? 'meb-org-dept-sup' : d.type === 'sub' ? 'meb-org-dept-sub' : 'meb-org-dept-elder';
+    const typeCls = d.type === 'supervisor' ? 'meb-org-dept-sup'
+                  : d.type === 'sub'        ? 'meb-org-dept-sub'
+                  : d.type === 'elder'      ? 'meb-org-dept-elder'
+                  : d.type === 'pioneer'    ? 'meb-org-dept-pioneer'
+                  : d.type === 'group'      ? 'meb-org-dept-group'
+                  : '';
     row2 += `<th colspan="${cnt}" class="meb-org-dept-name ${typeCls}" title="${esc(d.label)}">${esc(d.label)}</th>`;
   });
   // row3: ポジション

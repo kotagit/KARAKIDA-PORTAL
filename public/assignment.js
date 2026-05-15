@@ -56,8 +56,10 @@ async function awLoadMembers() {
     .map(data => {
       const arr = (window._parseStatus ? window._parseStatus(data.status) : (Array.isArray(data.status) ? data.status : []));
       let position = '';
-      if (arr.includes('EL')) position = '長老';
-      else if (arr.includes('MS')) position = '援助奉仕者';
+      const isEl = (window.deriveIsElder ? window.deriveIsElder(data) : false) || arr.includes('EL');
+      const isMs = (window.deriveIsMS ? window.deriveIsMS(data) : false) || arr.includes('MS');
+      if (isEl) position = '長老';
+      else if (isMs) position = '援助奉仕者';
       else if (data.gender === '男') position = '生徒男';
       else if (data.gender === '女') position = '生徒女';
       return { ...data, status: arr, position, _isInactive: arr.includes('inactive') };
@@ -1522,8 +1524,8 @@ function awRenderMemberList() {
     return;
   }
   const filtered = awMemberFilter === 'all' ? awMembers : awMembers.filter(mb => {
-    if (awMemberFilter === '長老') return (mb.status || []).includes('EL');
-    if (awMemberFilter === '援助奉仕者') return (mb.status || []).includes('MS');
+    if (awMemberFilter === '長老') return (window.deriveIsElder ? window.deriveIsElder(mb) : (mb.status || []).includes('EL'));
+    if (awMemberFilter === '援助奉仕者') return (window.deriveIsMS ? window.deriveIsMS(mb) : (mb.status || []).includes('MS'));
     if (awMemberFilter === '男') return mb.gender === '男';
     if (awMemberFilter === '女') return mb.gender === '女';
     return true;
