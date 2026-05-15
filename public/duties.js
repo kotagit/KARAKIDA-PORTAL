@@ -234,7 +234,7 @@ function getConflictInfo(name, ymd, currentDept) {
   if (_dutyProgramConflicts[deptKey]) {
     const progs = _dutyProgramConflicts[deptKey];
     const labels = progs.map(p => p.label).join('、');
-    warnings.push({ type: 'program', text: `プログラム: ${labels}` });
+    warnings.push({ type: 'program', text: labels });
   }
   return warnings;
 }
