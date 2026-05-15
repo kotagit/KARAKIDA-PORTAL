@@ -139,9 +139,25 @@ async function loadOtherDeptConflicts(currentDept, monthDate) {
 }
 
 // ── 衝突チェック：プログラム（assignmentHistory） ──────────────────────────
-async function loadProgramConflicts(monthDate) {
-  const conflicts = {};
+let _dutyCodeLabels = null; // assignmentCodes のキャッシュ
+
+async function loadAssignmentCodeLabels() {
+  if (_dutyCodeLabels) return _dutyCodeLabels;
   try {
+    const snap = await db.collection('assignmentCodes').get();
+    _dutyCodeLabels = {};
+    snap.docs.forEach(d => { _dutyCodeLabels[d.data().code] = d.data().label; });
+  } catch (e) {
+    console.warn('assignmentCodes読込エラー:', e);
+    _dutyCodeLabels = {};
+  }
+  return _dutyCodeLabels;
+}
+
+async function loadProgramConflicts(monthDate) {
+  const conflicts = {}; // key=`${name}_${date}` → [{code, label}]
+  try {
+    const codeLabels = await loadAssignmentCodeLabels();
     const startDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
     const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
     const snap = await db.collection('assignmentHistory')
@@ -153,7 +169,11 @@ async function loadProgramConflicts(monthDate) {
       if (!d.memberName) return;
       const dt = d.date.toDate();
       const ymd = fmtYmd(dt);
-      conflicts[`${d.memberName}_${ymd}`] = true;
+      const key = `${d.memberName}_${ymd}`;
+      if (!conflicts[key]) conflicts[key] = [];
+      const code = d.code || '';
+      const label = codeLabels[code] || code || '担当あり';
+      conflicts[key].push({ code, label });
     });
   } catch (e) {
     console.warn('プログラム衝突チェックエラー:', e);
@@ -212,7 +232,9 @@ function getConflictInfo(name, ymd, currentDept) {
     }
   }
   if (_dutyProgramConflicts[deptKey]) {
-    warnings.push({ type: 'program', text: 'この日プログラム担当あり' });
+    const progs = _dutyProgramConflicts[deptKey];
+    const labels = progs.map(p => p.label).join('、');
+    warnings.push({ type: 'program', text: `プログラム: ${labels}` });
   }
   return warnings;
 }
