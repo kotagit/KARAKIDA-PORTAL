@@ -6903,8 +6903,8 @@ function renderDeptEditTable() {
     }
   });
 
-  // 長老団・開拓者・野外宣教グループ
-  ['長老団', '開拓者', '野外宣教グループ'].forEach(secName => {
+  // 長老団・野外宣教グループ（開拓者は資格セクションで管理）
+  ['長老団', '野外宣教グループ'].forEach(secName => {
     const depts = ORG_DEPARTMENTS.filter(d => d.section === secName).sort((a,b) => a.order - b.order);
     if (depts.length === 0) return;
     const cls = secName === '長老団' ? 'meb-grp-org-elder'
