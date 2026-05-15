@@ -6812,12 +6812,6 @@ function renderDeptEditTable() {
   function addPosDefRow(p, deptLabel, isSub, sectionCls) {
     rows.push({
       kind: 'check', label: p.label, deptLabel, isSub, sectionCls,
-      disabled: m => {
-        if (DUTY_POSITION_UNRESTRICTED.includes(p.dept)) return false;
-        const orgRoles = meBulkCurrentValue(m, 'orgRoles') || [];
-        const derived = deriveDepartmentsFromOrgRoles(orgRoles);
-        return !derived.includes(p.dept);
-      },
       get: m => {
         const o = meBulkCurrentValue(m, 'deptPositions') || {};
         return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
