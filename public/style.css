@@ -206,7 +206,8 @@ body {
 /* 横長レイアウトが必要なページは iPad/PC で page-content を広げる */
 @media (min-width: 768px) {
   #page-admin-group-members .page-content,
-  #page-admin-member-edit .page-content {
+  #page-admin-member-edit .page-content,
+  #page-admin-public-talk .page-content {
     max-width: 1600px;
   }
   /* リストモードは読みやすさのため中央寄せ・幅制限 */
