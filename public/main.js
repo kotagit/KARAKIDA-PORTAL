@@ -6424,7 +6424,7 @@ function deriveDepartmentsFromOrgRoles(orgRoles) {
   return [...set];
 }
 window.deriveDepartmentsFromOrgRoles = deriveDepartmentsFromOrgRoles;
-// 部門情報モード: ポジション限定（部門ごとのポジション）
+// 部門情報モード: 奉仕場所（部門ごとのポジション）
 const ME_POSITION_DEFS = [
   { dept: 'annai',    pos: 'hall',     label: '会場' },
   { dept: 'annai',    pos: 'entrance', label: '入口' },
@@ -6810,8 +6810,8 @@ function renderDeptEditTable() {
     }
   });
 
-  // ポジション限定
-  addSection('ポジション限定', 'meb-grp-pos');
+  // 奉仕場所
+  addSection('奉仕場所', 'meb-grp-pos');
   const _deptLabel = { annai:'案内', avs:'AVS', parking:'駐車場', cleaning:'清掃' };
   ME_POSITION_DEFS.forEach(p => {
     rows.push({
@@ -6975,7 +6975,7 @@ function renderDeptEditTable() {
           }
         });
       }
-      // orgRoles 変更時: ポジション限定の disabled 状態を更新
+      // orgRoles 変更時: 奉仕場所の disabled 状態を更新
       if (row.sectionCls === 'meb-grp-org') {
         const mid = cb.dataset.mid;
         tbody.querySelectorAll(`.meb-tr-cb[data-mid="${mid}"]`).forEach(other => {
