@@ -1,11 +1,13 @@
 // ── 部門別取決め表（案内/AVS/駐車場/清掃） ──────────────────────────────
 // Firestore: DEPT_DUTY
-//   dept       : 'annai' | 'avs' | 'parking' | 'cleaning'
-//   position   : 部門内ポジションID
-//   date       : 'YYYY-MM-DD'
-//   meetingType: 'midweek' | 'weekend'
-//   assignee   : 個人名 / グループ名（清掃）
-//   updatedAt  : Timestamp
+//   dept              : 'annai' | 'avs' | 'parking' | 'cleaning'
+//   position          : 部門内ポジションID
+//   date              : 'YYYY-MM-DD'
+//   meetingType        : 'midweek' | 'weekend'
+//   assignee           : 下書き割当者（管理者のみ参照）
+//   publishedAssignee  : 公開版割当者（一般成員に表示）
+//   publishedAt        : 最終公開日時
+//   updatedAt          : Timestamp
 
 const DEPT_CONFIG = {
   annai:    { label: '案内部門', icon: 'door_front', positions: [
@@ -29,18 +31,18 @@ const DEPT_CONFIG = {
 window.DEPT_CONFIG = DEPT_CONFIG;
 
 // 月単位の状態
-let _dutyCurDept  = null;      // 'annai'|'avs'|'parking'|'cleaning'
-let _dutyCurMonth = null;      // Date(月の1日)
-let _dutyDocs     = {};        // key=`${dept}_${position}_${date}` → docId
-let _dutyConflicts = {};       // key=`${name}_${date}` → [{dept,position}]
-let _dutyProgramConflicts = {}; // key=`${name}_${date}` → [{code,date}]
-let _dutyCandidatesByPos = {};  // posId → [name, ...]
-let _dutyAllCandidates = [];    // 全候補者名（フォールバック用）
+let _dutyCurDept  = null;
+let _dutyCurMonth = null;
+let _dutyDocs     = {};        // key → {id, assignee, publishedAssignee, ...}
+let _dutyConflicts = {};
+let _dutyProgramConflicts = {};
+let _dutyCandidatesByPos = {};
+let _dutyAllCandidates = [];
+let _dutyViewMode = 'draft';   // 'draft' | 'published'
 
 // ── 集会日の自動列挙 ──────────────────────────
 async function getMeetingConfig() {
   try {
-    // main.jsのgetAppConfigを利用（CONFIG/app.meetingDays）
     if (typeof getAppConfig === 'function') {
       const cfg = await getAppConfig();
       const days = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0
@@ -90,7 +92,6 @@ async function loadDeptDuties(dept, monthDate) {
   try {
     const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
     const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
-    // 複合インデックス不要: dateだけでフィルタし、deptはクライアント側で絞る
     const snap = await db.collection('DEPT_DUTY')
       .where('date', '>=', start)
       .where('date', '<=', end)
@@ -98,7 +99,7 @@ async function loadDeptDuties(dept, monthDate) {
     const map = {};
     snap.forEach(doc => {
       const d = doc.data();
-      if (d.dept !== dept) return; // クライアント側フィルタ
+      if (d.dept !== dept) return;
       map[`${d.dept}_${d.position}_${d.date}`] = { id: doc.id, ...d };
     });
     return map;
@@ -110,12 +111,10 @@ async function loadDeptDuties(dept, monthDate) {
 
 // ── 衝突チェック：他部門 ──────────────────────────
 async function loadOtherDeptConflicts(currentDept, monthDate) {
-  const conflicts = {}; // key=`${name}_${date}` → [{dept, position, label}]
+  const conflicts = {};
   try {
     const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
     const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
-
-    // 全DEPT_DUTYを一回のクエリで取得（複合インデックス不要）
     const snap = await db.collection('DEPT_DUTY')
       .where('date', '>=', start)
       .where('date', '<=', end)
@@ -141,7 +140,7 @@ async function loadOtherDeptConflicts(currentDept, monthDate) {
 
 // ── 衝突チェック：プログラム（assignmentHistory） ──────────────────────────
 async function loadProgramConflicts(monthDate) {
-  const conflicts = {}; // key=`${name}_${date}` → true
+  const conflicts = {};
   try {
     const startDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
     const endDate = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
@@ -154,8 +153,7 @@ async function loadProgramConflicts(monthDate) {
       if (!d.memberName) return;
       const dt = d.date.toDate();
       const ymd = fmtYmd(dt);
-      const key = `${d.memberName}_${ymd}`;
-      conflicts[key] = true;
+      conflicts[`${d.memberName}_${ymd}`] = true;
     });
   } catch (e) {
     console.warn('プログラム衝突チェックエラー:', e);
@@ -163,11 +161,10 @@ async function loadProgramConflicts(monthDate) {
   return conflicts;
 }
 
-// ── 候補者ロード（selectプルダウン用） ──────────────────────────
+// ── 候補者ロード ──────────────────────────
 async function loadDutyCandidates(dept) {
   const cfg = DEPT_CONFIG[dept];
   if (!cfg) return;
-
   const allUsers = await getUserListCached();
   _dutyCandidatesByPos = {};
   for (const pos of cfg.positions) {
@@ -176,9 +173,7 @@ async function loadDutyCandidates(dept) {
 
   if (cfg.mode === 'group') {
     const groups = [...new Set(allUsers.map(u => u.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
-    for (const pos of cfg.positions) {
-      _dutyCandidatesByPos[pos.id] = groups;
-    }
+    for (const pos of cfg.positions) { _dutyCandidatesByPos[pos.id] = groups; }
     _dutyAllCandidates = groups;
     return;
   }
@@ -187,23 +182,17 @@ async function loadDutyCandidates(dept) {
     if (!u.name) return;
     const dp = (u.deptPositions && typeof u.deptPositions === 'object') ? u.deptPositions : {};
     const posArr = Array.isArray(dp[dept]) ? dp[dept] : [];
-
     if (posArr.length > 0) {
       for (const posId of posArr) {
-        if (_dutyCandidatesByPos[posId]) {
-          _dutyCandidatesByPos[posId].push(u.name);
-        }
+        if (_dutyCandidatesByPos[posId]) _dutyCandidatesByPos[posId].push(u.name);
       }
     } else if (dp[dept] !== undefined || (Array.isArray(u.departments) && u.departments.includes(dept))) {
-      for (const pos of cfg.positions) {
-        _dutyCandidatesByPos[pos.id].push(u.name);
-      }
+      for (const pos of cfg.positions) { _dutyCandidatesByPos[pos.id].push(u.name); }
     }
   });
 
-  // 候補者がゼロのポジションは全成員をフォールバック
   _dutyAllCandidates = allUsers.filter(u => u.name).map(u => u.name)
-    .sort((a, b) => (a).localeCompare(b, 'ja'));
+    .sort((a, b) => a.localeCompare(b, 'ja'));
   for (const pos of cfg.positions) {
     if (_dutyCandidatesByPos[pos.id].length === 0) {
       _dutyCandidatesByPos[pos.id] = [..._dutyAllCandidates];
@@ -213,66 +202,28 @@ async function loadDutyCandidates(dept) {
   }
 }
 
-// ── selectのoptions再構築（同一日の他ポジションで使われている人を除外） ──
-function rebuildDutySelectOptions(changedSelect) {
-  const dept = _dutyCurDept;
-  const container = document.getElementById(`dept-${dept}-body`);
-  if (!container) return;
-
-  const ymd = changedSelect ? changedSelect.dataset.date : null;
-  // 変更があった日のselectだけ更新
-  const targetDates = ymd ? [ymd] : [];
-  if (targetDates.length === 0) return;
-
-  const selects = container.querySelectorAll(`.duty-select[data-date="${ymd}"]`);
-  // その日に割り当てられている人を集める
-  const usedByPos = {};
-  selects.forEach(sel => {
-    usedByPos[sel.dataset.pos] = sel.value;
-  });
-
-  selects.forEach(sel => {
-    const posId = sel.dataset.pos;
-    const currentVal = sel.value;
-    const candidates = _dutyCandidatesByPos[posId] || [];
-
-    // 他ポジションで使われている名前（自分のポジション以外）
-    const usedByOthers = new Set();
-    Object.entries(usedByPos).forEach(([p, name]) => {
-      if (p !== posId && name) usedByOthers.add(name);
-    });
-
-    // options再構築
-    let optHtml = '<option value="">— 未割当 —</option>';
-    candidates.forEach(name => {
-      if (usedByOthers.has(name)) return; // その日に他ポジションで使用中 → 非表示
-      const selected = name === currentVal ? ' selected' : '';
-      const warnings = getConflictInfo(name, ymd, dept);
-      const warnMark = warnings.some(w => w.type === 'program') ? ' ⚠️' // ⚠️
-        : warnings.some(w => w.type === 'dept') ? ' ○' : ''; // ○
-      optHtml += `<option value="${esc(name)}"${selected}>${esc(name)}${warnMark}</option>`;
-    });
-
-    // 現在値が候補にない場合も表示（手入力や他部門の人）
-    if (currentVal && !candidates.includes(currentVal)) {
-      const selected = ' selected';
-      optHtml += `<option value="${esc(currentVal)}"${selected}>${esc(currentVal)}</option>`;
+// ── 衝突情報 ──────────────────────────
+function getConflictInfo(name, ymd, currentDept) {
+  const warnings = [];
+  const deptKey = `${name}_${ymd}`;
+  if (_dutyConflicts[deptKey]) {
+    for (const c of _dutyConflicts[deptKey]) {
+      warnings.push({ type: 'dept', text: `${c.deptLabel}（${c.posLabel}）と重複` });
     }
-
-    sel.innerHTML = optHtml;
-  });
+  }
+  if (_dutyProgramConflicts[deptKey]) {
+    warnings.push({ type: 'program', text: 'この日プログラム担当あり' });
+  }
+  return warnings;
 }
 
-// ── 自動生成アルゴリズム ──────────────────────────
+// ── 自動生成アルゴリズム（負荷均等） ──────────────────────────
 async function autoGenerateDeptSchedule(dept, dates) {
   const cfg = DEPT_CONFIG[dept];
   if (!cfg) return {};
-
-  // USER_LISTからdeptPositionsで候補者取得
   const allUsers = await getUserListCached();
 
   if (cfg.mode === 'group') {
-    // 清掃：グループ単位でローテーション
     const groups = [...new Set(allUsers.map(u => u.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
     if (groups.length === 0) return {};
     const result = {};
@@ -280,108 +231,70 @@ async function autoGenerateDeptSchedule(dept, dates) {
     for (const { date } of dates) {
       const ymd = fmtYmd(date);
       for (const pos of cfg.positions) {
-        result[`${dept}_${pos.id}_${ymd}`] = {
-          dept, position: pos.id, date: ymd, assignee: groups[gi % groups.length],
-        };
+        result[`${dept}_${pos.id}_${ymd}`] = { dept, position: pos.id, date: ymd, assignee: groups[gi % groups.length] };
       }
       gi++;
     }
     return result;
   }
 
-  // 個人部門：deptPositionsから候補者を取得
   const candidatesByPos = {};
-  for (const pos of cfg.positions) {
-    candidatesByPos[pos.id] = [];
-  }
-
+  for (const pos of cfg.positions) { candidatesByPos[pos.id] = []; }
   allUsers.forEach(u => {
     if (!u.name) return;
     const dp = (u.deptPositions && typeof u.deptPositions === 'object') ? u.deptPositions : {};
     const posArr = Array.isArray(dp[dept]) ? dp[dept] : [];
-
     if (posArr.length > 0) {
-      for (const posId of posArr) {
-        if (candidatesByPos[posId]) {
-          candidatesByPos[posId].push(u.name);
-        }
-      }
+      for (const posId of posArr) { if (candidatesByPos[posId]) candidatesByPos[posId].push(u.name); }
     } else if (dp[dept] !== undefined || (Array.isArray(u.departments) && u.departments.includes(dept))) {
-      for (const pos of cfg.positions) {
-        candidatesByPos[pos.id].push(u.name);
-      }
+      for (const pos of cfg.positions) { candidatesByPos[pos.id].push(u.name); }
     }
   });
 
-  // ── 負荷均等アルゴリズム ──
-  // 全ポジション横断で、各人の割当回数をトラッキングし、最も少ない人を優先
-  const loadCount = {}; // name → 割当回数
-  // 全候補者の負荷カウンタ初期化
-  const allCandidateNames = new Set();
-  Object.values(candidatesByPos).forEach(arr => arr.forEach(n => allCandidateNames.add(n)));
-  allCandidateNames.forEach(n => { loadCount[n] = 0; });
+  const loadCount = {};
+  const allNames = new Set();
+  Object.values(candidatesByPos).forEach(arr => arr.forEach(n => allNames.add(n)));
+  allNames.forEach(n => { loadCount[n] = 0; });
 
   const result = {};
-
   for (const { date } of dates) {
     const ymd = fmtYmd(date);
-    const usedThisDay = new Set(); // この日に既に割り当てた人
-
-    // ポジションを候補者が少ない順に処理（制約が厳しいものから）
+    const usedThisDay = new Set();
     const sortedPositions = [...cfg.positions].sort((a, b) =>
       (candidatesByPos[a.id]?.length || 0) - (candidatesByPos[b.id]?.length || 0)
     );
-
     for (const pos of sortedPositions) {
       const candidates = candidatesByPos[pos.id];
       if (candidates.length === 0) continue;
-
-      // この日まだ使われておらず、負荷が最も少ない候補者を選ぶ
-      const available = candidates
-        .filter(n => !usedThisDay.has(n))
+      const available = candidates.filter(n => !usedThisDay.has(n))
         .sort((a, b) => (loadCount[a] || 0) - (loadCount[b] || 0));
-
-      const pick = available.length > 0 ? available[0] : candidates[0]; // フォールバック
-
-      result[`${dept}_${pos.id}_${ymd}`] = {
-        dept, position: pos.id, date: ymd, assignee: pick,
-      };
+      const pick = available.length > 0 ? available[0] : candidates[0];
+      result[`${dept}_${pos.id}_${ymd}`] = { dept, position: pos.id, date: ymd, assignee: pick };
       usedThisDay.add(pick);
       loadCount[pick] = (loadCount[pick] || 0) + 1;
     }
   }
-
   return result;
 }
 
-// ── 衝突情報のツールチップ生成 ──────────────────────────
-function getConflictInfo(name, ymd, currentDept) {
-  const warnings = [];
-  const deptKey = `${name}_${ymd}`;
-
-  // 他部門衝突
-  if (_dutyConflicts[deptKey]) {
-    for (const c of _dutyConflicts[deptKey]) {
-      warnings.push({ type: 'dept', text: `${c.deptLabel}（${c.posLabel}）と重複` });
-    }
-  }
-
-  // プログラム衝突
-  if (_dutyProgramConflicts[deptKey]) {
-    warnings.push({ type: 'program', text: 'この日プログラム担当あり' });
-  }
-
-  return warnings;
-}
-
+// ══════════════════════════════════════════════════════════════
 // ── 管理画面：部門ページ描画 ──────────────────────────
+// ══════════════════════════════════════════════════════════════
+
 async function openDeptAdmin(dept) {
   _dutyCurDept = dept;
+  _dutyViewMode = 'draft';
   if (!_dutyCurMonth) _dutyCurMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   navigate(`admin-dept-${dept}`);
   await renderDeptAdmin();
 }
 window.openDeptAdmin = openDeptAdmin;
+
+function switchDutyView(mode) {
+  _dutyViewMode = mode;
+  renderDeptAdmin();
+}
+window.switchDutyView = switchDutyView;
 
 async function renderDeptAdmin() {
   const dept = _dutyCurDept;
@@ -391,45 +304,90 @@ async function renderDeptAdmin() {
   container.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
-  const monthDate = _dutyCurMonth;
-  const monthLabel = fmtMonthLabel(monthDate);
-  const meetCfg = await getMeetingConfig();
-  const dates = listMeetingDatesInMonth(monthDate.getFullYear(), monthDate.getMonth(), meetCfg);
+    const monthDate = _dutyCurMonth;
+    const monthLabel = fmtMonthLabel(monthDate);
+    const meetCfg = await getMeetingConfig();
+    const dates = listMeetingDatesInMonth(monthDate.getFullYear(), monthDate.getMonth(), meetCfg);
 
-  // データ並行ロード（衝突チェックが失敗してもテーブルは表示する）
-  let dutyDocs = {}, otherConflicts = {}, progConflicts = {};
-  try {
-    [dutyDocs, otherConflicts, progConflicts] = await Promise.all([
-      loadDeptDuties(dept, monthDate),
-      loadOtherDeptConflicts(dept, monthDate),
-      loadProgramConflicts(monthDate),
-    ]);
-  } catch (e) {
-    console.warn('データロードエラー（部分的に続行）:', e);
-    try { dutyDocs = await loadDeptDuties(dept, monthDate); } catch (e2) { /* ignore */ }
-  }
-  _dutyDocs = dutyDocs;
-  _dutyConflicts = otherConflicts;
-  _dutyProgramConflicts = progConflicts;
+    let dutyDocs = {}, otherConflicts = {}, progConflicts = {};
+    try {
+      [dutyDocs, otherConflicts, progConflicts] = await Promise.all([
+        loadDeptDuties(dept, monthDate),
+        loadOtherDeptConflicts(dept, monthDate),
+        loadProgramConflicts(monthDate),
+      ]);
+    } catch (e) {
+      console.warn('データロードエラー:', e);
+      try { dutyDocs = await loadDeptDuties(dept, monthDate); } catch (e2) {}
+    }
+    _dutyDocs = dutyDocs;
+    _dutyConflicts = otherConflicts;
+    _dutyProgramConflicts = progConflicts;
+    await loadDutyCandidates(dept);
 
-  // 候補者ロード
-  await loadDutyCandidates(dept);
+    // 未公開の変更があるか判定
+    let hasUnpublished = false;
+    Object.values(_dutyDocs).forEach(d => {
+      const draft = d.assignee || '';
+      const pub   = d.publishedAssignee || '';
+      if (draft !== pub) hasUnpublished = true;
+    });
+    // 下書きにあって公開されてないものもチェック（新規ドキュメント）
+    Object.values(_dutyDocs).forEach(d => {
+      if (d.assignee && !d.publishedAssignee) hasUnpublished = true;
+    });
 
-  // 月切替UI
-  let html = `
-    <div class="duty-month-nav">
-      <button class="icon-btn" onclick="changeDutyMonth(-1)" title="前月"><span class="material-icons">chevron_left</span></button>
-      <span class="duty-month-label">${esc(monthLabel)}</span>
-      <button class="icon-btn" onclick="changeDutyMonth(1)" title="次月"><span class="material-icons">chevron_right</span></button>
-      <button class="icon-btn" onclick="changeDutyMonth(0)" title="今月"><span class="material-icons">today</span></button>
-    </div>
-  `;
+    const isDraft = _dutyViewMode === 'draft';
 
-  if (dates.length === 0) {
-    html += '<div class="empty-state">この月の集会日はありません</div>';
+    // 月切替UI
+    let html = `
+      <div class="duty-month-nav">
+        <button class="icon-btn" onclick="changeDutyMonth(-1)" title="前月"><span class="material-icons">chevron_left</span></button>
+        <span class="duty-month-label">${esc(monthLabel)}</span>
+        <button class="icon-btn" onclick="changeDutyMonth(1)" title="次月"><span class="material-icons">chevron_right</span></button>
+        <button class="icon-btn" onclick="changeDutyMonth(0)" title="今月"><span class="material-icons">today</span></button>
+      </div>
+    `;
+
+    // タブ切替
+    html += `<div class="duty-tabs">
+      <button class="duty-tab ${isDraft ? 'duty-tab-active' : ''}" onclick="switchDutyView('draft')">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">edit</span> 下書き
+        ${hasUnpublished ? '<span class="duty-unpub-badge">未公開の変更あり</span>' : ''}
+      </button>
+      <button class="duty-tab ${!isDraft ? 'duty-tab-active' : ''}" onclick="switchDutyView('published')">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">visibility</span> 公開中
+      </button>
+      ${isDraft && hasUnpublished ? `<button class="btn-primary duty-publish-btn" onclick="publishDeptDuties()">
+        <span class="material-icons" style="font-size:16px;vertical-align:middle">publish</span> 公開する
+      </button>` : ''}
+    </div>`;
+
+    if (dates.length === 0) {
+      html += '<div class="empty-state">この月の集会日はありません</div>';
+      container.innerHTML = html;
+      return;
+    }
+
+    if (isDraft) {
+      html += renderDraftTable(dept, cfg, dates);
+    } else {
+      html += renderPublishedTable(dept, cfg, dates);
+    }
+
     container.innerHTML = html;
-    return;
+
+    // 下書きモードのイベント設定は不要（onchangeはinline）
+  } catch (e) {
+    console.error('renderDeptAdmin error:', e);
+    container.innerHTML = `<div class="loading">エラーが発生しました: ${esc(e.message)}</div>`;
   }
+}
+window.renderDeptAdmin = renderDeptAdmin;
+
+// ── 下書きテーブル（編集可能） ──────────────────────────
+function renderDraftTable(dept, cfg, dates) {
+  let html = '';
 
   // 自動生成・クリアボタン
   html += `<div class="duty-gen-bar">
@@ -460,7 +418,7 @@ async function renderDeptAdmin() {
       <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
       <div class="duty-date-sub">${typeLabel}</div>
     </td>`;
-    // この日に既に割り当て済みの人を収集
+
     const usedThisDay = new Set();
     cfg.positions.forEach(p => {
       const key = `${dept}_${p.id}_${ymd}`;
@@ -471,15 +429,16 @@ async function renderDeptAdmin() {
     cfg.positions.forEach(p => {
       const key = `${dept}_${p.id}_${ymd}`;
       const cur = _dutyDocs[key]?.assignee || '';
+      const pub = _dutyDocs[key]?.publishedAssignee || '';
+      const changed = cur !== pub;
       const warnings = cur ? getConflictInfo(cur, ymd, dept) : [];
       const warnClass = warnings.some(w => w.type === 'program') ? 'duty-cell-warn-prog'
         : warnings.some(w => w.type === 'dept') ? 'duty-cell-warn-dept' : '';
       const warnTitle = warnings.map(w => w.text).join('\n');
 
-      // プルダウン構築：この日の他ポジションで使われている人を除外
       const candidates = _dutyCandidatesByPos[p.id] || [];
       const othersUsed = new Set(usedThisDay);
-      othersUsed.delete(cur); // 自分自身は除外しない
+      othersUsed.delete(cur);
       let optHtml = '<option value="">— 未割当 —</option>';
       candidates.forEach(name => {
         if (othersUsed.has(name)) return;
@@ -489,17 +448,21 @@ async function renderDeptAdmin() {
           : cWarns.some(w => w.type === 'dept') ? ' ○' : '';
         optHtml += `<option value="${esc(name)}"${selected}>${esc(name)}${mark}</option>`;
       });
-      // 現在値が候補リストにない場合も表示
       if (cur && !candidates.includes(cur)) {
         optHtml += `<option value="${esc(cur)}" selected>${esc(cur)}</option>`;
       }
 
+      const changedMark = changed ? '<span class="duty-changed-dot" title="未公開の変更"></span>' : '';
+
       html += `<td class="${warnClass}" ${warnTitle ? `title="${esc(warnTitle)}"` : ''}>
-        <select class="duty-select ${warnClass ? 'duty-input-warn' : ''}"
-          data-key="${key}" data-dept="${dept}" data-pos="${p.id}" data-date="${ymd}" data-type="${type}"
-          onchange="onDutySelectChange(this)">
-          ${optHtml}
-        </select>
+        <div class="duty-cell-inner">
+          ${changedMark}
+          <select class="duty-select ${warnClass ? 'duty-input-warn' : ''}"
+            data-key="${key}" data-dept="${dept}" data-pos="${p.id}" data-date="${ymd}" data-type="${type}"
+            onchange="onDutySelectChange(this)">
+            ${optHtml}
+          </select>
+        </div>
         ${warnings.length > 0 ? `<div class="duty-warn-badges">${warnings.map(w =>
           `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
         ).join('')}</div>` : ''}
@@ -509,29 +472,57 @@ async function renderDeptAdmin() {
   }
   html += '</tbody></table></div>';
 
-  // アクションバー
   html += `<div class="duty-actions">
     <button class="btn-primary" onclick="saveDeptDuties()">
-      <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存（下書き）
     </button>
   </div>`;
 
-  container.innerHTML = html;
-
-  } catch (e) {
-    console.error('renderDeptAdmin error:', e);
-    container.innerHTML = `<div class="loading">エラーが発生しました: ${esc(e.message)}</div>`;
-  }
+  return html;
 }
-window.renderDeptAdmin = renderDeptAdmin;
 
-// ── select変更時：衝突更新 + 同一日の他selectを再構築 ──────────────────────────
+// ── 公開中テーブル（読み取り専用） ──────────────────────────
+function renderPublishedTable(dept, cfg, dates) {
+  let html = '';
+  let hasAnyPublished = false;
+
+  html += '<div class="duty-table-wrap"><table class="duty-table"><thead><tr>';
+  html += '<th class="duty-date-col">日付</th>';
+  cfg.positions.forEach(p => { html += `<th>${esc(p.label)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (const { date, type } of dates) {
+    const ymd = fmtYmd(date);
+    const dowJp = DUTY_DOW_JP[date.getDay()];
+    const typeLabel = type === 'midweek' ? '週中' : '週末';
+    const typeClass = type === 'midweek' ? 'duty-midweek' : 'duty-weekend';
+    html += `<tr><td class="duty-date-cell ${typeClass}">
+      <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
+      <div class="duty-date-sub">${typeLabel}</div>
+    </td>`;
+    cfg.positions.forEach(p => {
+      const key = `${dept}_${p.id}_${ymd}`;
+      const pub = _dutyDocs[key]?.publishedAssignee || '';
+      if (pub) hasAnyPublished = true;
+      html += `<td class="duty-pub-cell">${pub ? esc(pub) : '<span class="duty-pub-empty">—</span>'}</td>`;
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  if (!hasAnyPublished) {
+    html = '<div class="duty-pub-notice"><span class="material-icons">info</span> まだ公開されていません。下書きタブで編集し「公開する」を押してください。</div>' + html;
+  }
+
+  return html;
+}
+
+// ── select変更時 ──────────────────────────
 function onDutySelectChange(sel) {
   const name = sel.value;
   const ymd = sel.dataset.date;
-  const td = sel.parentElement;
+  const td = sel.closest('td');
 
-  // 警告バッジ更新
   const oldBadges = td.querySelector('.duty-warn-badges');
   if (oldBadges) oldBadges.remove();
   td.className = '';
@@ -547,28 +538,26 @@ function onDutySelectChange(sel) {
       const badgeHtml = warnings.map(w =>
         `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
       ).join('');
-      sel.insertAdjacentHTML('afterend', `<div class="duty-warn-badges">${badgeHtml}</div>`);
+      td.insertAdjacentHTML('beforeend', `<div class="duty-warn-badges">${badgeHtml}</div>`);
     } else {
       td.title = '';
     }
   }
 
-  // 同一日の全selectを再構築（使用済みの人を除外）
+  // 同一日の全selectを再構築
   const dept = _dutyCurDept;
   const container = document.getElementById(`dept-${dept}-body`);
   if (!container) return;
 
   const sameDateSels = container.querySelectorAll(`.duty-select[data-date="${ymd}"]`);
-  // この日に選ばれている人を収集
-  const usedMap = {}; // posId → name
+  const usedMap = {};
   sameDateSels.forEach(s => { if (s.value) usedMap[s.dataset.pos] = s.value; });
 
   sameDateSels.forEach(s => {
-    if (s === sel) return; // 変更元は既に正しいのでスキップ
+    if (s === sel) return;
     const posId = s.dataset.pos;
     const currentVal = s.value;
     const candidates = _dutyCandidatesByPos[posId] || [];
-
     const othersUsed = new Set();
     Object.entries(usedMap).forEach(([p, n]) => { if (p !== posId) othersUsed.add(n); });
 
@@ -586,8 +575,7 @@ function onDutySelectChange(sel) {
     }
     s.innerHTML = optHtml;
 
-    // 警告バッジも再評価
-    const sTd = s.parentElement;
+    const sTd = s.closest('td');
     const sBadges = sTd.querySelector('.duty-warn-badges');
     if (sBadges) sBadges.remove();
     sTd.className = '';
@@ -599,7 +587,7 @@ function onDutySelectChange(sel) {
         sTd.className = wc;
         s.classList.add('duty-input-warn');
         sTd.title = sWarns.map(w => w.text).join('\n');
-        s.insertAdjacentHTML('afterend', `<div class="duty-warn-badges">${sWarns.map(w =>
+        sTd.insertAdjacentHTML('beforeend', `<div class="duty-warn-badges">${sWarns.map(w =>
           `<span class="duty-warn-badge ${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
         ).join('')}</div>`);
       } else {
@@ -613,7 +601,6 @@ window.onDutySelectChange = onDutySelectChange;
 // ── 自動生成実行 ──────────────────────────
 async function autoGenDuty() {
   const dept = _dutyCurDept;
-  const cfg = DEPT_CONFIG[dept];
   const container = document.getElementById(`dept-${dept}-body`);
   if (!container) return;
 
@@ -627,7 +614,6 @@ async function autoGenDuty() {
   const dates = listMeetingDatesInMonth(_dutyCurMonth.getFullYear(), _dutyCurMonth.getMonth(), meetCfg);
   const generated = await autoGenerateDeptSchedule(dept, dates);
 
-  // UIに反映（日付ごとにまとめて処理）
   const dateGroups = {};
   existingSelects.forEach(sel => {
     const ymd = sel.dataset.date;
@@ -636,13 +622,11 @@ async function autoGenDuty() {
   });
 
   Object.entries(dateGroups).forEach(([ymd, sels]) => {
-    // まず全selectの値を設定
     sels.forEach(sel => {
       const key = sel.dataset.key;
       const entry = generated[key];
       sel.value = entry ? entry.assignee : '';
     });
-    // 最後のselectでonChangeを呼んで全体を再構築
     if (sels.length > 0) onDutySelectChange(sels[sels.length - 1]);
   });
 }
@@ -672,7 +656,7 @@ function changeDutyMonth(delta) {
 }
 window.changeDutyMonth = changeDutyMonth;
 
-// ── 保存（一括） ──────────────────────────
+// ── 保存（下書き） ──────────────────────────
 async function saveDeptDuties() {
   const dept = _dutyCurDept;
   const inputs = document.querySelectorAll(`#dept-${dept}-body .duty-select`);
@@ -688,7 +672,15 @@ async function saveDeptDuties() {
     if (existing) {
       if ((existing.assignee || '') === val) continue;
       if (val === '') {
-        batch.delete(db.collection('DEPT_DUTY').doc(existing.id));
+        // 公開版もなければ削除、あれば assignee だけクリア
+        if (!existing.publishedAssignee) {
+          batch.delete(db.collection('DEPT_DUTY').doc(existing.id));
+        } else {
+          batch.update(db.collection('DEPT_DUTY').doc(existing.id), {
+            assignee: '',
+            updatedAt: firebase.firestore.Timestamp.now(),
+          });
+        }
         writes++;
       } else {
         batch.update(db.collection('DEPT_DUTY').doc(existing.id), {
@@ -702,6 +694,7 @@ async function saveDeptDuties() {
       batch.set(ref, {
         dept, position: pos, date, meetingType: type,
         assignee: val,
+        publishedAssignee: '',
         updatedAt: firebase.firestore.Timestamp.now(),
       });
       writes++;
@@ -713,7 +706,7 @@ async function saveDeptDuties() {
   }
   try {
     await batch.commit();
-    alert(`${writes}件保存しました`);
+    alert(`${writes}件保存しました（下書き）`);
     await renderDeptAdmin();
   } catch (e) {
     alert('保存エラー: ' + e.message);
@@ -721,96 +714,87 @@ async function saveDeptDuties() {
 }
 window.saveDeptDuties = saveDeptDuties;
 
-// ── 成員ピッカー ──────────────────────────
-async function openDutyMemberPicker() {
+// ── 公開（下書き → 公開版に反映） ──────────────────────────
+async function publishDeptDuties() {
+  if (!(await customConfirm('下書きの内容で公開しますか？\n一般成員に表示されます。'))) return;
+
   const dept = _dutyCurDept;
+  const monthDate = _dutyCurMonth;
+
+  // まず下書きを保存（未保存の変更がある場合に備えて）
   const container = document.getElementById(`dept-${dept}-body`);
-  const target = container?._lastDutyInput;
-  if (!target) {
-    alert('先に入力欄をクリックしてから「成員から選択」を押してください');
+  const selects = container?.querySelectorAll('.duty-select');
+  if (selects && selects.length > 0) {
+    const saveBatch = db.batch();
+    let saveWrites = 0;
+    for (const inp of selects) {
+      const key  = inp.dataset.key;
+      const pos  = inp.dataset.pos;
+      const date = inp.dataset.date;
+      const type = inp.dataset.type;
+      const val  = inp.value.trim();
+      const existing = _dutyDocs[key];
+      if (existing) {
+        if ((existing.assignee || '') !== val) {
+          if (val === '' && !existing.publishedAssignee) {
+            saveBatch.delete(db.collection('DEPT_DUTY').doc(existing.id));
+          } else {
+            saveBatch.update(db.collection('DEPT_DUTY').doc(existing.id), {
+              assignee: val,
+              updatedAt: firebase.firestore.Timestamp.now(),
+            });
+          }
+          saveWrites++;
+        }
+      } else if (val !== '') {
+        const ref = db.collection('DEPT_DUTY').doc();
+        saveBatch.set(ref, {
+          dept, position: pos, date, meetingType: type,
+          assignee: val,
+          publishedAssignee: '',
+          updatedAt: firebase.firestore.Timestamp.now(),
+        });
+        saveWrites++;
+      }
+    }
+    if (saveWrites > 0) await saveBatch.commit();
+  }
+
+  // 最新データを再読込
+  const dutyDocs = await loadDeptDuties(dept, monthDate);
+
+  // publishedAssignee を assignee で上書き
+  const pubBatch = db.batch();
+  let pubWrites = 0;
+  const now = firebase.firestore.Timestamp.now();
+
+  Object.values(dutyDocs).forEach(d => {
+    const draft = d.assignee || '';
+    const pub   = d.publishedAssignee || '';
+    if (draft !== pub) {
+      pubBatch.update(db.collection('DEPT_DUTY').doc(d.id), {
+        publishedAssignee: draft,
+        publishedAt: now,
+      });
+      pubWrites++;
+    }
+  });
+
+  if (pubWrites === 0) {
+    alert('公開する変更はありません');
     return;
   }
-  const modal = document.getElementById('duty-picker-modal');
-  const list = document.getElementById('duty-picker-list');
-  const isGroupMode = DEPT_CONFIG[dept].mode === 'group';
-  document.getElementById('duty-picker-title').textContent =
-    isGroupMode ? 'グループを選択' : '成員を選択';
-
-  list.innerHTML = '<div class="loading">読み込み中...</div>';
-  modal.classList.remove('hidden');
 
   try {
-    if (isGroupMode) {
-      const all = await getUserListCached();
-      const groups = [...new Set(all.map(m => m.group).filter(Boolean))].sort();
-      list.innerHTML = groups.map(g =>
-        `<div class="duty-picker-item" onclick="selectDutyValue('${esc(g).replace(/'/g,"\\'")}')">${esc(g)}</div>`
-      ).join('');
-    } else {
-      const all = await getUserListCached();
-      const posId = target.dataset.pos || '';
-      const ymd = target.dataset.date || '';
-
-      // deptPositionsから所属者を判定
-      const inDept = all.filter(m => {
-        if (!m.name) return false;
-        const dp = (m.deptPositions && typeof m.deptPositions === 'object') ? m.deptPositions : {};
-        const posArr = Array.isArray(dp[dept]) ? dp[dept] : [];
-        if (posArr.length > 0) return posArr.includes(posId);
-        if (dp[dept] !== undefined) return true;
-        if (Array.isArray(m.departments) && m.departments.includes(dept)) return true;
-        return false;
-      });
-
-      const showFiltered = inDept.length > 0;
-      const members = (showFiltered ? inDept : all.filter(m => m.name))
-        .sort((a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja'));
-
-      // 衝突情報を付加
-      const noteHtml = showFiltered
-        ? ''
-        : `<div style="padding:8px 12px;font-size:11px;color:#888;background:#fff8e1;border-bottom:1px solid #ffe082">
-             ${esc(DEPT_CONFIG[dept].label)} の所属者が登録されていないため、全成員を表示しています。
-           </div>`;
-
-      list.innerHTML = noteHtml + members.map(m => {
-        const warnings = ymd ? getConflictInfo(m.name, ymd, dept) : [];
-        const warnHtml = warnings.length > 0
-          ? `<span class="duty-picker-warn">${warnings.map(w =>
-              `<span class="${w.type === 'program' ? 'duty-warn-prog-badge' : 'duty-warn-dept-badge'}">${esc(w.text)}</span>`
-            ).join(' ')}</span>`
-          : '';
-        return `<div class="duty-picker-item ${warnings.length > 0 ? 'duty-picker-item-warn' : ''}" onclick="selectDutyValue('${esc(m.name).replace(/'/g,"\\'")}')">
-          <div>
-            <span class="duty-picker-name">${esc(m.name)}</span>
-            <span class="duty-picker-group">${esc(m.group || '')}</span>
-          </div>
-          ${warnHtml}
-        </div>`;
-      }).join('');
-    }
+    await pubBatch.commit();
+    alert(`${pubWrites}件を公開しました`);
+    _dutyViewMode = 'published';
+    await renderDeptAdmin();
   } catch (e) {
-    list.innerHTML = `<div class="loading">読み込みエラー: ${esc(e.message)}</div>`;
+    alert('公開エラー: ' + e.message);
   }
 }
-window.openDutyMemberPicker = openDutyMemberPicker;
-
-function selectDutyValue(val) {
-  const dept = _dutyCurDept;
-  const container = document.getElementById(`dept-${dept}-body`);
-  const target = container?._lastDutyInput;
-  if (target) {
-    target.value = val;
-    onDutyInputChange(target);
-  }
-  closeDutyPicker();
-}
-window.selectDutyValue = selectDutyValue;
-
-function closeDutyPicker() {
-  document.getElementById('duty-picker-modal')?.classList.add('hidden');
-}
-window.closeDutyPicker = closeDutyPicker;
+window.publishDeptDuties = publishDeptDuties;
 
 // ── 管理ホームのリンク ──────────────────────────
 document.getElementById('admin-manage-dept-annai')?.addEventListener('click', () => openDeptAdmin('annai'));
@@ -818,7 +802,10 @@ document.getElementById('admin-manage-dept-avs')?.addEventListener('click', () =
 document.getElementById('admin-manage-dept-parking')?.addEventListener('click', () => openDeptAdmin('parking'));
 document.getElementById('admin-manage-dept-cleaning')?.addEventListener('click', () => openDeptAdmin('cleaning'));
 
-// ── ユーザー側表示（集会ページ） ──────────────────────────
+// ══════════════════════════════════════════════════════════════
+// ── ユーザー側表示（publishedAssignee のみ表示） ─────────────
+// ══════════════════════════════════════════════════════════════
+
 async function loadUserDuties(targetElId = 'shukai-duties', deptFilter = null) {
   const el = document.getElementById(targetElId);
   if (!el) return;
@@ -847,7 +834,10 @@ async function loadUserDuties(targetElId = 'shukai-duties', deptFilter = null) {
     const map = {};
     snap.forEach(doc => {
       const d = doc.data();
-      (map[d.date] ||= {})[`${d.dept}_${d.position}`] = d.assignee;
+      // ユーザー側は公開版のみ表示
+      const name = d.publishedAssignee || '';
+      if (!name) return;
+      (map[d.date] ||= {})[`${d.dept}_${d.position}`] = name;
     });
 
     let html = '';
@@ -893,7 +883,7 @@ async function loadUserDuties(targetElId = 'shukai-duties', deptFilter = null) {
 }
 window.loadUserDuties = loadUserDuties;
 
-// 集会ページ表示時に呼び出されるよう、navigateの後にフック
+// navigateフック
 (function hookShukaiPage() {
   const _orig = window.navigate;
   if (typeof _orig !== 'function') {

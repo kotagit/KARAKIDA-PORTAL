@@ -2833,6 +2833,89 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   padding: 8px 0;
 }
 
+/* ── 取決め表：タブ切替（下書き/公開中） ── */
+.duty-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0;
+}
+.duty-tab {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.duty-tab:hover { color: #333; }
+.duty-tab-active {
+  color: var(--primary, #047CBC);
+  border-bottom-color: var(--primary, #047CBC);
+}
+.duty-unpub-badge {
+  font-size: 10px;
+  background: #ff9800;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.duty-publish-btn {
+  margin-left: auto;
+  font-size: 13px;
+  padding: 6px 16px;
+  margin-bottom: 2px;
+}
+.duty-changed-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9800;
+  flex-shrink: 0;
+}
+.duty-cell-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.duty-pub-cell {
+  text-align: center;
+  font-size: 13px;
+  color: #222;
+  font-weight: 500;
+}
+.duty-pub-empty {
+  color: #ccc;
+}
+.duty-pub-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 8px;
+  color: #795548;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.duty-pub-notice .material-icons {
+  color: #ff9800;
+  font-size: 20px;
+}
+
 /* ── 取決め表：自動生成バー ── */
 .duty-gen-bar {
   display: flex;
