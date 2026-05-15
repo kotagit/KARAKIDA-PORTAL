@@ -255,21 +255,69 @@ async function renderPublicTalkAdmin() {
         });
       });
 
-      // 巡/地/記チェックで行のグレーアウト切替（ページ再描画）
+      // 巡/地/記チェックで行のグレーアウト切替（DOM操作のみ、再描画しない）
       container.querySelectorAll('.pt-sp-off').forEach(chk => {
         chk.addEventListener('change', function() {
-          // 地/記がチェックされたら即保存してから再描画
-          // →まず_ptDocsに反映してから再描画
           const ymd = this.dataset.date;
           const field = this.dataset.field;
           if (!_ptDocs[ymd]) _ptDocs[ymd] = { date: ymd };
           _ptDocs[ymd][field] = this.checked;
           // 地と記は排他
+          const otherField = field === 'isConvention' ? 'isMemorial' : 'isConvention';
           if (this.checked) {
-            const other = field === 'isConvention' ? 'isMemorial' : 'isConvention';
-            _ptDocs[ymd][other] = false;
+            _ptDocs[ymd][otherField] = false;
+            // 排他側のチェックを外す
+            const otherChk = container.querySelector(`.pt-sp-off[data-date="${ymd}"][data-field="${otherField}"]`);
+            if (otherChk) otherChk.checked = false;
           }
-          renderPublicTalkAdmin();
+          const isOff = !!(_ptDocs[ymd].isConvention || _ptDocs[ymd].isMemorial);
+          const row = this.closest('tr');
+          if (!row) return;
+          // 行のグレーアウト切替
+          row.classList.toggle('pt-row-off', isOff);
+          // オフ可能セルの中身を切替
+          const offLabel = _ptDocs[ymd].isConvention ? '大会' : (_ptDocs[ymd].isMemorial ? '記念式' : '');
+          row.querySelectorAll('.pt-offable').forEach(cell => {
+            if (isOff) {
+              // 中の入力要素を非表示にしてラベルを表示
+              cell.querySelectorAll('select, input, .pt-speaker-local, .pt-speaker-visit, .pt-pref-chips').forEach(el => el.style.display = 'none');
+              if (!cell.querySelector('.pt-off-label-dyn')) {
+                // 主題セルにはラベル、他は空
+                const isTalkCell = !!cell.querySelector('.pt-talk-select');
+                if (isTalkCell) {
+                  const lbl = document.createElement('span');
+                  lbl.className = 'pt-off-label pt-off-label-dyn';
+                  lbl.textContent = offLabel;
+                  cell.appendChild(lbl);
+                }
+              } else {
+                const lbl = cell.querySelector('.pt-off-label-dyn');
+                if (lbl) lbl.textContent = offLabel;
+              }
+              // 番号セルをクリア
+              if (cell.classList.contains('pt-num-cell')) cell.textContent = '';
+            } else {
+              // 入力要素を再表示
+              cell.querySelectorAll('select, input').forEach(el => {
+                // 訪問モードのvisibilityは別管理なのでスキップ
+                const parent = el.closest('.pt-speaker-local, .pt-speaker-visit');
+                if (!parent) el.style.display = '';
+              });
+              // speaker-local/visitは訪問チェックに応じて復元
+              const visitChk = container.querySelector(`.pt-visit-chk[data-date="${ymd}"]`);
+              const isVisit = visitChk && visitChk.checked;
+              cell.querySelectorAll('.pt-speaker-local').forEach(el => el.style.display = isVisit ? 'none' : 'block');
+              cell.querySelectorAll('.pt-speaker-visit').forEach(el => el.style.display = isVisit ? 'block' : 'none');
+              cell.querySelectorAll('.pt-pref-chips').forEach(el => el.style.display = '');
+              // 動的ラベルを除去
+              cell.querySelectorAll('.pt-off-label-dyn').forEach(el => el.remove());
+              // 番号セルを復元
+              if (cell.classList.contains('pt-num-cell')) {
+                const talkSel = container.querySelector(`.pt-talk-select[data-date="${ymd}"]`);
+                cell.textContent = (talkSel && parseInt(talkSel.value, 10)) || '—';
+              }
+            }
+          });
         });
       });
       // 巡チェックは_ptDocsに即反映のみ（グレーアウトなし）
