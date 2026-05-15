@@ -7008,7 +7008,6 @@ function renderDeptEditTable() {
   updateBulkToolbar();
 
   // 列ホバー
-  const table = tbody.closest('table');
   if (table) {
     let hoverCol = -1;
     table.addEventListener('mouseover', function(e) {
