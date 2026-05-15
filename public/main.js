@@ -6810,122 +6810,94 @@ function renderDeptEditTable() {
     }
   });
 
-  // 奉仕場所の行を生成するヘルパー
-  const _posDeptLabel = { annai:'案内', avs:'AVS', parking:'駐車場', cleaning:'清掃' };
-  function addPositionRows(deptKey, sectionCls) {
-    const defs = ME_POSITION_DEFS.filter(p => p.dept === deptKey);
-    if (defs.length === 0) return;
-    let first = true;
-    defs.forEach(p => {
-      rows.push({
-        kind: 'check',
-        label: p.label,
-        deptLabel: first ? '奉仕場所' : '',
-        isSub: !first,
-        sectionCls,
-        disabled: m => {
-          if (DUTY_POSITION_UNRESTRICTED.includes(p.dept)) return false;
-          const orgRoles = meBulkCurrentValue(m, 'orgRoles') || [];
-          const derived = deriveDepartmentsFromOrgRoles(orgRoles);
-          return !derived.includes(p.dept);
-        },
-        get: m => {
-          const o = meBulkCurrentValue(m, 'deptPositions') || {};
-          return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
-        },
-        set: (m, on) => {
-          const cur = meBulkCurrentValue(m, 'deptPositions') || {};
-          const newObj = { ...cur };
-          const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
-          const idx = arr.indexOf(p.pos);
-          if (on && idx === -1) arr.push(p.pos);
-          else if (!on && idx !== -1) arr.splice(idx, 1);
-          if (arr.length === 0) delete newObj[p.dept];
-          else newObj[p.dept] = arr;
-          meBulkRecordChange(m.docId, 'deptPositions', newObj);
-        }
-      });
-      first = false;
+  // orgRole 行を1つ追加するヘルパー
+  function addOrgRoleRow(d, pos, deptLabel, isSub, sectionCls) {
+    rows.push({
+      kind: 'check', label: pos, deptLabel, isSub, sectionCls,
+      get: m => {
+        const arr = meBulkCurrentValue(m, 'orgRoles') || [];
+        return arr.some(r => r && r.department === d.id && r.position === pos);
+      },
+      set: (m, on) => {
+        const cur = (meBulkCurrentValue(m, 'orgRoles') || []).slice();
+        const idx = cur.findIndex(r => r && r.department === d.id && r.position === pos);
+        if (on && idx === -1) cur.push({ department: d.id, position: pos });
+        else if (!on && idx !== -1) cur.splice(idx, 1);
+        meBulkRecordChange(m.docId, 'orgRoles', cur);
+      }
     });
   }
 
-  // orgRoles の行を生成するヘルパー
-  function addOrgRoleRows(d, sectionCls) {
-    let firstPos = true;
-    getOrgPositions(d).forEach(pos => {
-      rows.push({
-        kind: 'check',
-        label: pos,
-        deptLabel: firstPos ? d.label : '',
-        isSub: !firstPos,
-        sectionCls,
-        get: m => {
-          const arr = meBulkCurrentValue(m, 'orgRoles') || [];
-          return arr.some(r => r && r.department === d.id && r.position === pos);
-        },
-        set: (m, on) => {
-          const cur = (meBulkCurrentValue(m, 'orgRoles') || []).slice();
-          const idx = cur.findIndex(r => r && r.department === d.id && r.position === pos);
-          if (on && idx === -1) cur.push({ department: d.id, position: pos });
-          else if (!on && idx !== -1) cur.splice(idx, 1);
-          meBulkRecordChange(m.docId, 'orgRoles', cur);
-        }
-      });
-      firstPos = false;
+  // 奉仕場所行を追加するヘルパー
+  function addPosDefRow(p, deptLabel, isSub, sectionCls) {
+    rows.push({
+      kind: 'check', label: p.label, deptLabel, isSub, sectionCls,
+      disabled: m => {
+        if (DUTY_POSITION_UNRESTRICTED.includes(p.dept)) return false;
+        const orgRoles = meBulkCurrentValue(m, 'orgRoles') || [];
+        const derived = deriveDepartmentsFromOrgRoles(orgRoles);
+        return !derived.includes(p.dept);
+      },
+      get: m => {
+        const o = meBulkCurrentValue(m, 'deptPositions') || {};
+        return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
+      },
+      set: (m, on) => {
+        const cur = meBulkCurrentValue(m, 'deptPositions') || {};
+        const newObj = { ...cur };
+        const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
+        const idx = arr.indexOf(p.pos);
+        if (on && idx === -1) arr.push(p.pos);
+        else if (!on && idx !== -1) arr.splice(idx, 1);
+        if (arr.length === 0) delete newObj[p.dept];
+        else newObj[p.dept] = arr;
+        meBulkRecordChange(m.docId, 'deptPositions', newObj);
+      }
     });
   }
 
-  // 奉仕場所のみの行（orgRoleなし、駐車場・清掃用）
-  function addPositionOnlyRows(deptKey, label, sectionCls) {
-    const defs = ME_POSITION_DEFS.filter(p => p.dept === deptKey);
-    if (defs.length === 0) return;
-    let first = true;
-    defs.forEach(p => {
-      rows.push({
-        kind: 'check',
-        label: p.label,
-        deptLabel: first ? label : '',
-        isSub: !first,
-        sectionCls,
-        disabled: m => false,
-        get: m => {
-          const o = meBulkCurrentValue(m, 'deptPositions') || {};
-          return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
-        },
-        set: (m, on) => {
-          const cur = meBulkCurrentValue(m, 'deptPositions') || {};
-          const newObj = { ...cur };
-          const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
-          const idx = arr.indexOf(p.pos);
-          if (on && idx === -1) arr.push(p.pos);
-          else if (!on && idx !== -1) arr.splice(idx, 1);
-          if (arr.length === 0) delete newObj[p.dept];
-          else newObj[p.dept] = arr;
-          meBulkRecordChange(m.docId, 'deptPositions', newObj);
-        }
-      });
-      first = false;
-    });
-  }
+  // orgDept ID → 奉仕場所 deptKey のマッピング
+  const _orgIdToPosDept = { annai:'annai', stage_av:'avs' };
 
-  // ME_POSITION_DEFS の dept → orgDept ID のマッピング
-  const _posDeptToOrgId = { annai:'annai', avs:'stage_av' };
-
-  // 奉仕委員会: 管轄ごとにグルーピング
-  addSection('奉仕委員会', 'meb-grp-org-svc');
   const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
   const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
+
+  // 奉仕委員会: 監督レベル（補佐のみ）
+  addSection('奉仕委員会', 'meb-grp-org-svc');
   supervisors.forEach(sup => {
-    addOrgRoleRows(sup, 'meb-grp-org');
+    addOrgRoleRow(sup, '補佐', sup.label, false, 'meb-grp-org');
+  });
+
+  // 管轄セクション
+  const supLabels = { coord:'調整者管轄', secretary:'書記管轄', svc_ov:'奉仕監督管轄' };
+  supervisors.forEach(sup => {
+    addSection(supLabels[sup.id] || sup.label + '管轄', 'meb-grp-org-svc');
     const children = subDepts.filter(d => d.parent === sup.id);
     children.forEach(child => {
-      addOrgRoleRows(child, 'meb-grp-org');
-      const posKey = Object.entries(_posDeptToOrgId).find(([k,v]) => v === child.id);
-      if (posKey) addPositionRows(posKey[0], 'meb-grp-org');
+      const posDeptKey = _orgIdToPosDept[child.id];
+      const hasPosItems = posDeptKey && ME_POSITION_DEFS.some(p => p.dept === posDeptKey);
+      // 責任者（常に表示）
+      addOrgRoleRow(child, '責任者', child.label, false, 'meb-grp-org');
+      // 奉仕者は奉仕場所がない部門のみ表示
+      if (!hasPosItems) {
+        addOrgRoleRow(child, '奉仕者', '', true, 'meb-grp-org');
+      }
+      // 奉仕場所
+      if (hasPosItems) {
+        ME_POSITION_DEFS.filter(p => p.dept === posDeptKey).forEach((p, i) => {
+          addPosDefRow(p, '', true, 'meb-grp-org');
+        });
+      }
     });
+    // 調整者管轄: 駐車場・清掃（奉仕場所のみ）
     if (sup.id === 'coord') {
-      addPositionOnlyRows('parking', '駐車場', 'meb-grp-org');
-      addPositionOnlyRows('cleaning', '清掃', 'meb-grp-org');
+      ['parking', 'cleaning'].forEach(deptKey => {
+        const defs = ME_POSITION_DEFS.filter(p => p.dept === deptKey);
+        const label = deptKey === 'parking' ? '駐車場' : '清掃';
+        defs.forEach((p, i) => {
+          addPosDefRow(p, i === 0 ? label : '', i > 0, 'meb-grp-org');
+        });
+      });
     }
   });
 
@@ -6938,7 +6910,13 @@ function renderDeptEditTable() {
               : secName === '野外宣教グループ' ? 'meb-grp-org-group'
               : 'meb-grp-org';
     addSection(secName, cls);
-    depts.forEach(d => addOrgRoleRows(d, 'meb-grp-org'));
+    depts.forEach(d => {
+      let firstPos = true;
+      getOrgPositions(d).forEach(pos => {
+        addOrgRoleRow(d, pos, firstPos ? d.label : '', !firstPos, 'meb-grp-org');
+        firstPos = false;
+      });
+    });
   });
 
   // 負荷係数（数値）
