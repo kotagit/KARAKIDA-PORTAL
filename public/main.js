@@ -6897,7 +6897,7 @@ function renderDeptEditTable() {
   });
 
   // colgroup で列幅を固定（colspan によるずれを防止）
-  const LABEL_W = 180, CELL_W = 20;
+  const LABEL_W = 240, CELL_W = 20;
   const table = thead.closest('table');
   table.style.width = (LABEL_W + members.length * CELL_W) + 'px';
   let existingCg = table.querySelector('colgroup');
@@ -6926,9 +6926,9 @@ function renderDeptEditTable() {
     // ラベルセル
     const subText = row.deptLabel || row.subLabel || '';
     html += `<tr>`;
-    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}">`
-         +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
-         +  `<span class="meb-row-pos">${esc(row.label)}</span></td>`;
+    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner">`
+         +  `<span class="meb-row-dept">${esc(subText)}</span>`
+         +  `<span class="meb-row-pos">${esc(row.label)}</span></div></td>`;
     // 各成員のセル
     const rowIdx = rows.indexOf(row);
     members.forEach((m, i) => {
