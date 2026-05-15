@@ -6889,14 +6889,15 @@ function renderDeptEditTable() {
         });
       }
     });
-    // 調整者管轄: 駐車場・清掃（奉仕場所のみ）
     if (sup.id === 'coord') {
-      ['parking', 'cleaning'].forEach(deptKey => {
-        const defs = ME_POSITION_DEFS.filter(p => p.dept === deptKey);
-        const label = deptKey === 'parking' ? '駐車場' : '清掃';
-        defs.forEach((p, i) => {
-          addPosDefRow(p, i === 0 ? label : '', i > 0, 'meb-grp-org');
-        });
+      const parkingDept = ORG_DEPARTMENTS.find(d => d.id === 'parking');
+      if (parkingDept) addOrgRoleRow(parkingDept, '責任者', '駐車場', false, 'meb-grp-org');
+      ME_POSITION_DEFS.filter(p => p.dept === 'parking').forEach(p => {
+        addPosDefRow(p, '', true, 'meb-grp-org');
+      });
+      const cleanDefs = ME_POSITION_DEFS.filter(p => p.dept === 'cleaning');
+      cleanDefs.forEach((p, i) => {
+        addPosDefRow(p, i === 0 ? '清掃' : '', i > 0, 'meb-grp-org');
       });
     }
   });
