@@ -2525,6 +2525,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table thead .meb-org-dept-group   { background: #b2dfdb; color: #00695c; }
 
 /* 部門情報モード: colgroup 列幅固定 */
+#me-dept-mode .me-bulk-table { width: auto; }
 .me-bulk-table col.meb-col-label { width: 180px; }
 .me-bulk-table col.meb-col-cell  { width: 30px; }
 
