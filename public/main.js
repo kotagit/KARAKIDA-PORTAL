@@ -6619,9 +6619,7 @@ let meBulkSortDir = 1;       // 1=asc, -1=desc
 function renderBulkLegend() {
   const el = document.getElementById('me-bulk-legend');
   if (!el) return;
-  el.innerHTML = ME_STATUS_OPTIONS.map(opt =>
-    `<span class="me-legend-item"><span class="me-status-badge me-status-${esc(opt.code)}">${esc(opt.code)}</span><span class="me-legend-name">${esc(opt.label)}</span></span>`
-  ).join('');
+  el.innerHTML = '';
 }
 
 function renderBulkEditTable() {
