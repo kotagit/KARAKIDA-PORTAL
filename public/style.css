@@ -2580,16 +2580,17 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   font-size: 13px; font-weight: 600; color: #333;
 }
 .me-bulk-table .meb-hl-col {
-  background: #fff3e0 !important;
+  background: #ffebee !important;
 }
-.me-bulk-table thead .meb-name-vert.meb-hl-col {
-  background: #ffe0b2 !important;
+.me-bulk-table thead .meb-name-vert.meb-hl-col,
+.me-bulk-table thead .meb-num-cell.meb-hl-col {
+  background: #ef9a9a !important;
 }
 .me-bulk-table tbody tr.meb-hl-row > td {
-  background: #e3f2fd !important;
+  background: #ffebee !important;
 }
 .me-bulk-table tbody tr.meb-hl-row > td.meb-hl-col {
-  background: #ffcc80 !important;
+  background: #ef9a9a !important;
 }
 .me-bulk-table tbody tr.meb-section-row td {
   background: #e3f2fd; color: var(--primary-dark, #035d9a);
