@@ -6862,10 +6862,11 @@ function renderDeptEditTable() {
   const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
   const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
 
-  // 奉仕委員会: 監督レベル（補佐のみ）
+  // 奉仕委員会: 監督・補佐
   addSection('奉仕委員会', 'meb-grp-org-svc');
   supervisors.forEach(sup => {
-    addOrgRoleRow(sup, '補佐', sup.label, false, 'meb-grp-org');
+    addOrgRoleRow(sup, '監督', sup.label, false, 'meb-grp-org');
+    addOrgRoleRow(sup, '補佐', '', true, 'meb-grp-org');
   });
 
   // 管轄セクション
