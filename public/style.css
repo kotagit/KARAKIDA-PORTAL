@@ -2618,16 +2618,14 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   vertical-align: middle;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-dept {
-  display: block;
+  display: inline;
   font-size: 10px; color: #888;
-  line-height: 1.2;
-  margin-bottom: 1px;
+  margin-right: 4px;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos {
-  display: block;
+  display: inline;
   font-weight: 600; color: #333;
   font-size: 13px;
-  line-height: 1.2;
 }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos-indent {
   padding-left: 8px;
