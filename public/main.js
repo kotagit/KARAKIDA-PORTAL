@@ -6971,7 +6971,7 @@ function renderDeptEditTable() {
   rows.forEach(row => {
     if (row.kind === 'section') {
       curSec = 'meb-sec-' + secIdx++;
-      html += `<tr class="meb-section-row ${esc(row.cls)}" data-sec="${curSec}"><td class="meb-sticky-col" colspan="${members.length + 1}"><span class="meb-sec-arrow">▼</span><strong>${esc(row.label)}</strong></td></tr>`;
+      html += `<tr class="meb-section-row ${esc(row.cls)}" data-sec="${curSec}" data-sec-label="${esc(row.label)}"><td class="meb-sticky-col" colspan="${members.length + 1}"><span class="meb-sec-arrow">▼</span><strong>${esc(row.label)}</strong></td></tr>`;
       return;
     }
     // ラベルセル
@@ -7043,10 +7043,14 @@ function renderDeptEditTable() {
   // アコーディオン（初期状態: 全て折りたたみ）
   tbody.querySelectorAll('.meb-section-row').forEach(secRow => {
     const sec = secRow.dataset.sec;
+    const secLabel = secRow.dataset.secLabel || '';
     const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
     const arrow = secRow.querySelector('.meb-sec-arrow');
-    contentRows.forEach(r => r.style.display = 'none');
-    if (arrow) arrow.textContent = '▶';
+    const closedByDefault = ['資格','奉仕委員会','野外宣教グループ','システム','負荷係数'].includes(secLabel);
+    if (closedByDefault) {
+      contentRows.forEach(r => r.style.display = 'none');
+      if (arrow) arrow.textContent = '▶';
+    }
     secRow.addEventListener('click', () => {
       const isOpen = contentRows[0] && contentRows[0].style.display !== 'none';
       contentRows.forEach(r => r.style.display = isOpen ? 'none' : '');
