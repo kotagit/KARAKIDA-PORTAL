@@ -392,7 +392,15 @@ function buildTalkOpts(selectedNum, prefNums) {
 }
 
 function renderPTDraftTable(dates) {
-  let html = '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
+  let html = `<div class="duty-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn-primary" onclick="autoGeneratePTSchedule()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">auto_fix_high</span> 自動生成
+    </button>
+    <button class="btn-primary" onclick="savePTSchedule()">
+      <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存（下書き）
+    </button>
+  </div>`;
+  html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
   html += '<th>日付</th><th class="pt-special-th">巡/地/記</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
@@ -478,15 +486,6 @@ function renderPTDraftTable(dates) {
     html += '</tr>';
   }
   html += '</tbody></table></div>';
-
-  html += `<div class="duty-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn-primary" onclick="autoGeneratePTSchedule()">
-      <span class="material-icons" style="font-size:16px;vertical-align:middle">auto_fix_high</span> 自動生成
-    </button>
-    <button class="btn-primary" onclick="savePTSchedule()">
-      <span class="material-icons" style="font-size:16px;vertical-align:middle">save</span> 保存（下書き）
-    </button>
-  </div>`;
 
   return html;
 }
