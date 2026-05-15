@@ -1377,11 +1377,18 @@
         <!-- 部門情報モード -->
         <div id="me-dept-mode" class="hidden">
           <div id="me-bulk-legend" class="me-bulk-legend"></div>
-          <div class="me-bulk-scroll">
-            <table class="me-bulk-table">
-              <thead id="me-dept-thead"></thead>
-              <tbody id="me-dept-tbody"></tbody>
-            </table>
+          <div class="me-dept-split">
+            <div class="me-dept-edit-pane">
+              <div class="me-bulk-scroll">
+                <table class="me-bulk-table">
+                  <thead id="me-dept-thead"></thead>
+                  <tbody id="me-dept-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="me-dept-preview-pane" id="me-dept-preview">
+              <div class="me-dept-preview-inner" id="me-dept-preview-content"></div>
+            </div>
           </div>
         </div>
       </div>
