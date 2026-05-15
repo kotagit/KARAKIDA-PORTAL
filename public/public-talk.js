@@ -255,30 +255,36 @@ async function renderPublicTalkAdmin() {
         });
       });
 
-      // 訪問講演チェックで会衆名欄の表示切替
+      // 訪問講演チェックで講演者入力モード切替
       container.querySelectorAll('.pt-visit-chk').forEach(chk => {
         chk.addEventListener('change', function() {
           const ymd = this.dataset.date;
-          const fields = container.querySelector(`.pt-visit-fields[data-date="${ymd}"]`);
-          if (fields) {
-            fields.style.display = this.checked ? 'block' : 'none';
-            if (!this.checked) {
-              // チェック外したら会衆名をクリア
-              const congInput = fields.querySelector('[data-field="speakerCong"]');
-              if (congInput) congInput.value = '';
-            }
+          const cell = container.querySelector(`.pt-speaker-cell[data-date="${ymd}"]`);
+          if (!cell) return;
+          const localDiv = cell.querySelector('.pt-speaker-local');
+          const visitDiv = cell.querySelector('.pt-speaker-visit');
+          if (this.checked) {
+            // 通常→訪問: select値をテキストに引き継がない（別の人なので）
+            localDiv.style.display = 'none';
+            visitDiv.style.display = 'block';
+          } else {
+            // 訪問→通常: テキスト値をクリア
+            visitDiv.querySelectorAll('input').forEach(inp => inp.value = '');
+            visitDiv.style.display = 'none';
+            localDiv.style.display = 'block';
           }
         });
       });
 
-      // 講演者入力変更時に希望番号を反映
-      container.querySelectorAll('.pt-speaker-input').forEach(inp => {
-        inp.addEventListener('change', function() {
+      // 講演者select変更時に希望番号を反映
+      container.querySelectorAll('.pt-speaker-select').forEach(sel => {
+        sel.addEventListener('change', function() {
           const ymd = this.dataset.date;
           const name = this.value.trim();
           const prefs = _ptSpeakerPrefs[name] || [];
           // 希望チップを更新
-          const chipsEl = container.querySelector(`.pt-pref-chips[data-date="${ymd}"]`);
+          const localDiv = this.closest('.pt-speaker-local');
+          const chipsEl = localDiv?.querySelector(`.pt-pref-chips`);
           if (chipsEl) {
             if (prefs.length > 0) {
               chipsEl.innerHTML = prefs.map(n =>
@@ -288,14 +294,14 @@ async function renderPublicTalkAdmin() {
             } else {
               chipsEl.innerHTML = '';
             }
-          } else if (prefs.length > 0) {
+          } else if (prefs.length > 0 && localDiv) {
             const div = document.createElement('div');
             div.className = 'pt-pref-chips';
             div.dataset.date = ymd;
             div.innerHTML = prefs.map(n =>
               `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
             ).join('');
-            this.parentElement.appendChild(div);
+            localDiv.appendChild(div);
             attachPrefChipHandlers(container, ymd);
           }
           // 番号selectのoptgroupを更新
@@ -399,15 +405,20 @@ function renderPTDraftTable(dates) {
       <input type="checkbox" class="pt-visit-chk" data-date="${ymd}"${isVisit ? ' checked' : ''}>
     </td>`;
 
-    // 講演者
-    html += `<td>
-      <input type="text" class="duty-input pt-field pt-speaker-input" data-date="${ymd}" data-field="speaker" value="${esc(speakerName)}" placeholder="講演者名" list="pt-elder-datalist">
-      <div class="pt-visit-fields" data-date="${ymd}" style="display:${isVisit ? 'block' : 'none'}">
+    // 講演者 — 訪問:テキスト手入力+会衆名 / 通常:候補者select
+    html += `<td class="pt-speaker-cell" data-date="${ymd}">
+      <div class="pt-speaker-local" style="display:${isVisit ? 'none' : 'block'}">
+        <select class="duty-select pt-field pt-speaker-select" data-date="${ymd}" data-field="speaker">
+          <option value="">—</option>${buildElderOpts(isVisit ? '' : speakerName)}
+        </select>
+        ${prefNums.length > 0 ? `<div class="pt-pref-chips" data-date="${ymd}">${prefNums.map(n =>
+          `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
+        ).join('')}</div>` : ''}
+      </div>
+      <div class="pt-speaker-visit" style="display:${isVisit ? 'block' : 'none'}">
+        <input type="text" class="duty-input pt-field pt-speaker-input" data-date="${ymd}" data-field="speaker" value="${esc(isVisit ? speakerName : '')}" placeholder="講演者名">
         <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
       </div>
-      ${prefNums.length > 0 ? `<div class="pt-pref-chips" data-date="${ymd}">${prefNums.map(n =>
-        `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
-      ).join('')}</div>` : ''}
     </td>`;
 
     // 司会者
@@ -423,11 +434,6 @@ function renderPTDraftTable(dates) {
     html += '</tr>';
   }
   html += '</tbody></table></div>';
-
-  // datalist for speaker name autocomplete
-  html += `<datalist id="pt-elder-datalist">${_ptElderList.map(u =>
-    `<option value="${esc(u.name)}">`
-  ).join('')}</datalist>`;
 
   html += `<div class="duty-actions" style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn-primary" onclick="autoGeneratePTSchedule()">
@@ -451,9 +457,11 @@ async function autoGeneratePTSchedule() {
   const container = document.getElementById('public-talk-body');
   if (!container) return;
 
-  // 現在のフォーム値を収集
+  // 現在のフォーム値を収集（非表示の要素はスキップ）
   const dateRows = {};
   container.querySelectorAll('.pt-field, .pt-talk-select').forEach(el => {
+    const parent = el.closest('.pt-speaker-local, .pt-speaker-visit');
+    if (parent && parent.style.display === 'none') return;
     const ymd = el.dataset.date;
     const field = el.dataset.field;
     if (!dateRows[ymd]) dateRows[ymd] = {};
@@ -590,22 +598,23 @@ async function autoGeneratePTSchedule() {
   // ── UIに反映 ──
   allDates.forEach(ymd => {
     const r = dateRows[ymd];
-    const spk = container.querySelector(`.pt-speaker-input[data-date="${ymd}"]`);
-    const cng = container.querySelector(`.pt-field[data-date="${ymd}"][data-field="speakerCong"]`);
+    // 自動生成は内部講演者 → 通常モードに切替
+    const visitChk = container.querySelector(`.pt-visit-chk[data-date="${ymd}"]`);
+    if (visitChk && visitChk.checked) {
+      visitChk.checked = false;
+      visitChk.dispatchEvent(new Event('change'));
+    }
+    const spkSel = container.querySelector(`.pt-speaker-select[data-date="${ymd}"]`);
     const tkSel = container.querySelector(`.pt-talk-select[data-date="${ymd}"]`);
     const chSel = container.querySelector(`.pt-field[data-date="${ymd}"][data-field="chairman"]`);
     const rdSel = container.querySelector(`.pt-field[data-date="${ymd}"][data-field="reader"]`);
-    if (spk) spk.value = r.speaker || '';
-    if (cng) cng.value = r.speakerCong || '';
+    if (spkSel) spkSel.value = r.speaker || '';
     if (tkSel) {
       tkSel.value = r.talkNumber || '';
-      tkSel.dispatchEvent(new Event('change')); // 主題セル更新
+      tkSel.dispatchEvent(new Event('change'));
     }
     if (chSel) chSel.value = r.chairman || '';
     if (rdSel) rdSel.value = r.reader || '';
-
-    // 希望チップ更新
-    if (spk) spk.dispatchEvent(new Event('change'));
   });
 
   alert('講演者・主題・司会者・朗読者を自動生成しました。\n内容を確認して「保存」してください。');
@@ -668,9 +677,12 @@ async function savePTSchedule() {
   const batch = db.batch();
   let writes = 0;
 
-  // 日付ごとにフィールドを収集
+  // 日付ごとにフィールドを収集（非表示の要素はスキップ）
   const dateData = {};
   container.querySelectorAll('.pt-field, .pt-talk-select').forEach(el => {
+    // 非表示の親divに属する要素はスキップ
+    const parent = el.closest('.pt-speaker-local, .pt-speaker-visit');
+    if (parent && parent.style.display === 'none') return;
     const ymd = el.dataset.date;
     const field = el.dataset.field;
     if (!dateData[ymd]) dateData[ymd] = {};
