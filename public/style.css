@@ -2572,6 +2572,19 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table tbody td.meb-row-label .meb-row-pos.meb-row-pos-main {
   font-size: 13px; font-weight: 600; color: #333;
 }
+.me-bulk-table .meb-hl-col {
+  background: #fff3e0 !important;
+}
+.me-bulk-table thead .meb-name-vert.meb-hl-col {
+  background: #ffe0b2 !important;
+}
+.me-bulk-table tbody tr.meb-hl-row > td {
+  background: #e3f2fd !important;
+}
+.me-bulk-table tbody tr.meb-hl-row > td.meb-hl-col {
+  background: #ffcc80 !important;
+}
+.me-bulk-table thead .meb-name-vert { cursor: pointer; }
 .me-bulk-table tbody tr.meb-section-row td {
   background: #e3f2fd; color: var(--primary-dark, #035d9a);
   padding: 6px 12px; font-size: 12px;

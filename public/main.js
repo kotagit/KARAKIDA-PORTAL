@@ -6910,8 +6910,8 @@ function renderDeptEditTable() {
   // ヘッダー: 1列目=役職ラベル / 2列目以降=成員氏名（縦書き）
   let theadHtml = '<tr>';
   theadHtml += '<th class="meb-sticky-col meb-row-label-head">役職</th>';
-  members.forEach(m => {
-    theadHtml += `<th class="meb-name-vert" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;
+  members.forEach((m, i) => {
+    theadHtml += `<th class="meb-name-vert" data-col="${i}" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;
   });
   theadHtml += '</tr>';
   thead.innerHTML = theadHtml;
@@ -6937,7 +6937,7 @@ function renderDeptEditTable() {
       if (row.kind === 'select') {
         const cur = row.get(m);
         const val = (typeof cur === 'number') ? cur : 1.0;
-        html += `<td class="meb-status-col"><select class="meb-tr-sel" data-row="${rowIdx}" data-mid="${esc(m.docId)}">`;
+        html += `<td class="meb-status-col" data-col="${i}"><select class="meb-tr-sel" data-row="${rowIdx}" data-mid="${esc(m.docId)}">`;
         row.options.forEach(o => {
           html += `<option value="${o.value}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`;
         });
@@ -6945,7 +6945,7 @@ function renderDeptEditTable() {
       } else {
         const checked = row.get(m) ? 'checked' : '';
         const dis = (row.disabled && row.disabled(m)) ? 'disabled' : '';
-        html += `<td class="meb-status-col"><input type="checkbox" class="meb-tr-cb" data-row="${rowIdx}" data-mid="${esc(m.docId)}" ${checked} ${dis}></td>`;
+        html += `<td class="meb-status-col" data-col="${i}"><input type="checkbox" class="meb-tr-cb" data-row="${rowIdx}" data-mid="${esc(m.docId)}" ${checked} ${dis}></td>`;
       }
     });
     html += '</tr>';
@@ -6987,6 +6987,36 @@ function renderDeptEditTable() {
       const member = meBulkOriginal(sel.dataset.mid);
       if (row && member) row.set(member, sel.value);
     });
+  });
+
+  // 列・行ハイライト
+  const tbl = thead.closest('table');
+  let activeCol = -1;
+  function clearHighlight() {
+    tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
+    tbl.querySelectorAll('.meb-hl-row').forEach(el => el.classList.remove('meb-hl-row'));
+    activeCol = -1;
+  }
+  thead.querySelectorAll('.meb-name-vert').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = +th.dataset.col;
+      if (activeCol === col) { clearHighlight(); return; }
+      clearHighlight();
+      activeCol = col;
+      tbl.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add('meb-hl-col'));
+    });
+  });
+  tbody.addEventListener('mouseover', e => {
+    const td = e.target.closest('td');
+    if (!td || td.dataset.col === undefined) return;
+    const tr = td.closest('tr');
+    if (tr) tr.classList.add('meb-hl-row');
+  });
+  tbody.addEventListener('mouseout', e => {
+    const td = e.target.closest('td');
+    if (!td) return;
+    const tr = td.closest('tr');
+    if (tr) tr.classList.remove('meb-hl-row');
   });
 
   updateBulkToolbar();
