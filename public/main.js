@@ -6600,6 +6600,7 @@ function meBulkRecordChange(docId, key, value) {
     meBulkChanges.set(docId, change);
   }
   updateBulkToolbar();
+  renderDeptPreview();
 }
 
 function updateBulkToolbar() {
