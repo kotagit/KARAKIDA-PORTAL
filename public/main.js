@@ -98,6 +98,7 @@ const PAGE_TITLES = {
   'admin-group-emergency': 'グループ成員緊急連絡先',
   'admin-member-edit': 'グループ成員編集',
   'admin-org': '組織表管理',
+  'admin-config': '会衆設定',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
   'senkyo-cards': '区域カード',
@@ -379,6 +380,7 @@ function navigate(page, pushHistory) {
   if (page === 'senkyo-field')             loadUserFieldService();
   if (page === 'admin-org')                loadOrgEditor();
   if (page === 'admin-access-log')         loadAccessLog();
+  if (page === 'admin-config')             renderConfigPage();
   if (page === 'attendance-form')          initAttendanceForm();
 
   if (isAdmin) {
@@ -451,6 +453,10 @@ document.getElementById('admin-manage-attendance-monthly')?.addEventListener('cl
 
 document.getElementById('admin-manage-access-log')?.addEventListener('click', () => {
   navigate('admin-access-log');
+});
+
+document.getElementById('admin-manage-config')?.addEventListener('click', () => {
+  navigate('admin-config');
 });
 
 // メニューのクリック（data-page属性があるもののみ）
@@ -762,6 +768,39 @@ async function loadAnnAllList() {
 }
 
 const WD = ['日','月','火','水','木','金','土'];
+
+// ── CONFIG（会衆設定）共通 ────────────────────
+let _appConfig = null;
+async function getAppConfig() {
+  if (_appConfig) return _appConfig;
+  try {
+    const snap = await db.collection('CONFIG').doc('app').get();
+    _appConfig = snap.exists ? snap.data() : {};
+  } catch (e) { console.warn('CONFIG load error:', e); _appConfig = {}; }
+  return _appConfig;
+}
+async function saveAppConfig(updates) {
+  await db.collection('CONFIG').doc('app').set(updates, { merge: true });
+  _appConfig = { ..._appConfig, ...updates };
+}
+// 集会曜日を取得（デフォルト: 木=4, 日=0）
+async function getMeetingDays() {
+  const cfg = await getAppConfig();
+  return Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0 ? cfg.meetingDays : [4, 0];
+}
+// 指定月の集会日一覧を返す
+async function getMeetingDatesForMonth(year, month) {
+  const days = await getMeetingDays();
+  const dates = [];
+  const d = new Date(year, month, 1);
+  while (d.getMonth() === month) {
+    if (days.includes(d.getDay())) {
+      dates.push(new Date(d));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
 
 // 日付から次の集会日（木曜）の20:40を返す
 function getNextMeetingRelease(date) {
@@ -7020,3 +7059,46 @@ async function migratePioneerToOrgRoles() {
   renderBulkEditTable();
 }
 window.migratePioneerToOrgRoles = migratePioneerToOrgRoles;
+
+// ── 会衆設定ページ ────────────────────────────
+async function renderConfigPage() {
+  const body = document.getElementById('config-body');
+  if (!body) return;
+  body.innerHTML = '<div class="loading">読み込み中...</div>';
+
+  const cfg = await getAppConfig();
+  const meetingDays = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0 ? cfg.meetingDays : [4, 0];
+
+  let html = '<div style="max-width:500px;margin:0 auto;">';
+  html += '<h3 style="margin:0 0 16px;">集会曜日</h3>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
+  WD.forEach((label, i) => {
+    const checked = meetingDays.includes(i) ? ' checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;">'
+         +  '<input type="checkbox" class="cfg-meeting-day" value="' + i + '"' + checked + '>'
+         +  label + '</label>';
+  });
+  html += '</div>';
+  html += '<button id="cfg-save-btn" class="btn-primary" style="padding:8px 24px;">保存</button>';
+  html += '<span id="cfg-save-status" style="margin-left:12px;font-size:13px;color:#4caf50;"></span>';
+  html += '</div>';
+
+  body.innerHTML = html;
+
+  document.getElementById('cfg-save-btn').addEventListener('click', async () => {
+    const checks = body.querySelectorAll('.cfg-meeting-day:checked');
+    const days = Array.from(checks).map(c => Number(c.value)).sort((a, b) => a - b);
+    if (days.length === 0) { alert('少なくとも1つの曜日を選択してください。'); return; }
+    const btn = document.getElementById('cfg-save-btn');
+    btn.disabled = true; btn.textContent = '保存中...';
+    try {
+      await saveAppConfig({ meetingDays: days });
+      document.getElementById('cfg-save-status').textContent = '保存しました';
+      setTimeout(() => { const s = document.getElementById('cfg-save-status'); if (s) s.textContent = ''; }, 2000);
+    } catch (e) {
+      alert('保存エラー: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '保存';
+    }
+  });
+}
