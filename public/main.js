@@ -106,6 +106,7 @@ const PAGE_TITLES = {
   'senkyo-autolock': 'オートロック区域',
   'senkyo-night': '夜間区域',
   'senkyo-public': '公共エリア伝道',
+  'public-talk-view': '公開講演予定',
   'admin-public-talk': '公開講演予定表策定',
   'admin-s99': 'S-99 講演一覧',
   'talk-pref': '講演希望番号',
@@ -323,6 +324,8 @@ function navigate(page, pushHistory) {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'bumon';
   } else if (page.startsWith('jouhou-')) {
     backBtn._backTarget = 'jouhou';
+  } else if (page === 'public-talk-view') {
+    backBtn._backTarget = 'home';
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply' || page === 'attendance-form') {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'shinsei';
   } else if (page.startsWith('admin-')) {
@@ -352,7 +355,8 @@ function navigate(page, pushHistory) {
   if (page === 'senkyo-autolock')  loadSenkyoTerritories('AUTOLOCK', 'senkyo-autolock-view');
   if (page === 'senkyo-night')     loadSenkyoTerritories('NIGHT', 'senkyo-night-view');
   if (page === 'senkyo-public')    loadSenkyoPublic();
-  if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); if (typeof renderPublicTalkView === 'function') renderPublicTalkView(); }
+  if (page === 'shukai')   { loadLinks('shukai'); loadAssignmentWeekDisplay(); }
+  if (page === 'public-talk-view') { if (typeof renderPublicTalkView === 'function') renderPublicTalkView(); }
   if (page === 'talk-pref') { if (typeof renderTalkPrefForm === 'function') renderTalkPrefForm(); }
   if (page === 'shinsei')  loadLinks('shinsei');
   if (page === 'soshiki')  loadOrgView();

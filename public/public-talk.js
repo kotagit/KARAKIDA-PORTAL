@@ -1294,9 +1294,9 @@ document.getElementById('admin-manage-s99')?.addEventListener('click', () => {
 
 // ── 一般ユーザー向け 公開講演予定表示（集会ページ内） ──────────────────────────
 async function renderPublicTalkView() {
-  const container = document.getElementById('shukai-public-talk-display');
+  const container = document.getElementById('public-talk-view-body');
   if (!container) return;
-  container.innerHTML = '';
+  container.innerHTML = '<div class="loading">読み込み中...</div>';
 
   try {
     const talkList = await loadTalkList();
@@ -1317,10 +1317,12 @@ async function renderPublicTalkView() {
         break;
       }
     }
-    if (!hasAny) return; // 公開データなし → 何も表示しない
+    if (!hasAny) {
+      container.innerHTML = '<div class="empty-state"><span class="material-icons">info</span>公開講演の予定はまだ公開されていません。</div>';
+      return;
+    }
 
-    let html = '<div style="margin-top:20px">';
-    html += '<h3 style="margin:0 0 10px;font-size:16px;color:#333"><span class="material-icons" style="font-size:18px;vertical-align:middle;margin-right:4px">campaign</span>公開講演予定</h3>';
+    let html = '';
     html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
     html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
     html += '</tr></thead><tbody>';
