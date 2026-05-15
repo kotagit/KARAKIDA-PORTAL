@@ -6759,24 +6759,6 @@ function renderDeptEditTable() {
 
   function addSection(label, cls) { rows.push({ kind: 'section', label, cls }); }
 
-  // システム
-  addSection('システム', 'meb-grp-status');
-  ME_STATUS_OPTIONS.forEach(opt => {
-    rows.push({
-      kind: 'check',
-      label: opt.label,
-      sectionCls: 'meb-grp-status',
-      get: m => (m.status || []).includes(opt.code),
-      set: (m, on) => {
-        const cur = (meBulkCurrentValue(m, 'status') || []).slice();
-        const idx = cur.indexOf(opt.code);
-        if (on && idx === -1) cur.push(opt.code);
-        else if (!on && idx !== -1) cur.splice(idx, 1);
-        meBulkRecordChange(m.docId, 'status', cur);
-      }
-    });
-  });
-
   // 資格
   addSection('資格', 'meb-grp-dept');
   ['elder', 'ministerial'].forEach(code => {
@@ -6926,6 +6908,24 @@ function renderDeptEditTable() {
       });
     });
   }
+
+  // システム
+  addSection('システム', 'meb-grp-status');
+  ME_STATUS_OPTIONS.forEach(opt => {
+    rows.push({
+      kind: 'check',
+      label: opt.label,
+      sectionCls: 'meb-grp-status',
+      get: m => (m.status || []).includes(opt.code),
+      set: (m, on) => {
+        const cur = (meBulkCurrentValue(m, 'status') || []).slice();
+        const idx = cur.indexOf(opt.code);
+        if (on && idx === -1) cur.push(opt.code);
+        else if (!on && idx !== -1) cur.splice(idx, 1);
+        meBulkRecordChange(m.docId, 'status', cur);
+      }
+    });
+  });
 
   // 負荷係数（数値）
   addSection('負荷係数', 'meb-grp-status');
