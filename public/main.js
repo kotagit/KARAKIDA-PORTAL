@@ -6984,3 +6984,26 @@ function discardBulkChanges() {
   meBulkChanges.clear();
   renderBulkEditTable();
 }
+
+async function migrateGroupToOrgRoles() {
+  const snap = await db.collection('USER_LIST').get();
+  const batch = db.batch();
+  let count = 0;
+  snap.forEach(doc => {
+    const data = doc.data();
+    const gid = GROUP_NAME_TO_ID[data.group];
+    if (!gid) return;
+    const orgRoles = Array.isArray(data.orgRoles) ? data.orgRoles : [];
+    if (orgRoles.some(r => r && r.department === gid)) return;
+    const updated = [...orgRoles, { department: gid, position: '成員' }];
+    batch.update(doc.ref, { orgRoles: updated });
+    count++;
+  });
+  if (count === 0) { alert('反映対象なし（全員設定済み）'); return; }
+  if (!confirm(`${count}件の成員にグループ所属を追加します。実行しますか？`)) return;
+  await batch.commit();
+  alert(`${count}件更新しました`);
+  await loadMemberEditList();
+  renderBulkEditTable();
+}
+window.migrateGroupToOrgRoles = migrateGroupToOrgRoles;
