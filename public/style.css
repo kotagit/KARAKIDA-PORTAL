@@ -230,8 +230,9 @@ body {
 .admin-section-tag {
   display: inline-block; padding: 6px 18px; border-radius: 14px;
   background: #F1C232; color: #333;
-  font-size: 14px; font-weight: 700; margin-bottom: 10px;
+  font-size: 14px; font-weight: 700; margin: 12px 0 8px;
 }
+.admin-section-tag:first-child { margin-top: 0; }
 .admin-tile-grid { padding-bottom: 12px; margin-bottom: 12px; }
 .admin-tile {
   border-color: var(--primary) !important;
