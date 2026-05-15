@@ -6994,35 +6994,35 @@ function renderDeptEditTable() {
     });
   });
 
-  // 列・行ハイライト
+  // 列・行ハイライト（マウス位置追従）
   const tbl = thead.closest('table');
-  let activeCol = -1;
-  function clearHighlight() {
+  let hlCol = -1;
+  function clearHL() {
     tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
     tbl.querySelectorAll('.meb-hl-row').forEach(el => el.classList.remove('meb-hl-row'));
-    activeCol = -1;
+    hlCol = -1;
   }
-  thead.querySelectorAll('.meb-name-vert').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = +th.dataset.col;
-      if (activeCol === col) { clearHighlight(); return; }
-      clearHighlight();
-      activeCol = col;
-      tbl.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add('meb-hl-col'));
-    });
+  function applyColHL(col) {
+    if (col === hlCol) return;
+    tbl.querySelectorAll('.meb-hl-col').forEach(el => el.classList.remove('meb-hl-col'));
+    hlCol = col;
+    if (col >= 0) tbl.querySelectorAll(`[data-col="${col}"]`).forEach(el => el.classList.add('meb-hl-col'));
+  }
+  tbl.addEventListener('mouseover', e => {
+    const cell = e.target.closest('td, th');
+    if (!cell) return;
+    const col = cell.dataset.col !== undefined ? +cell.dataset.col : -1;
+    applyColHL(col);
+    const tr = cell.closest('tr');
+    if (tr && cell.closest('tbody')) tr.classList.add('meb-hl-row');
   });
-  tbody.addEventListener('mouseover', e => {
-    const td = e.target.closest('td');
-    if (!td || td.dataset.col === undefined) return;
-    const tr = td.closest('tr');
-    if (tr) tr.classList.add('meb-hl-row');
-  });
-  tbody.addEventListener('mouseout', e => {
-    const td = e.target.closest('td');
-    if (!td) return;
-    const tr = td.closest('tr');
+  tbl.addEventListener('mouseout', e => {
+    const cell = e.target.closest('td, th');
+    if (!cell) return;
+    const tr = cell.closest('tr');
     if (tr) tr.classList.remove('meb-hl-row');
   });
+  tbl.addEventListener('mouseleave', clearHL);
 
   updateBulkToolbar();
 }

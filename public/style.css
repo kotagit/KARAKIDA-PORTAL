@@ -2591,7 +2591,6 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table tbody tr.meb-hl-row > td.meb-hl-col {
   background: #ffcc80 !important;
 }
-.me-bulk-table thead .meb-name-vert { cursor: pointer; }
 .me-bulk-table tbody tr.meb-section-row td {
   background: #e3f2fd; color: var(--primary-dark, #035d9a);
   padding: 6px 12px; font-size: 12px;
