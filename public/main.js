@@ -6788,24 +6788,6 @@ function renderDeptEditTable() {
 
   function addSection(label, cls) { rows.push({ kind: 'section', label, cls }); }
 
-  // システム
-  addSection('システム', 'meb-grp-status');
-  ME_STATUS_OPTIONS.forEach(opt => {
-    rows.push({
-      kind: 'check',
-      label: opt.label,
-      sectionCls: 'meb-grp-status',
-      get: m => (m.status || []).includes(opt.code),
-      set: (m, on) => {
-        const cur = (meBulkCurrentValue(m, 'status') || []).slice();
-        const idx = cur.indexOf(opt.code);
-        if (on && idx === -1) cur.push(opt.code);
-        else if (!on && idx !== -1) cur.splice(idx, 1);
-        meBulkRecordChange(m.docId, 'status', cur);
-      }
-    });
-  });
-
   // 資格
   addSection('資格', 'meb-grp-dept');
   ['elder', 'ministerial'].forEach(code => {
@@ -6893,13 +6875,14 @@ function renderDeptEditTable() {
       lastSection = d.section;
       lastDept = '';
     }
-    getOrgPositions(d).forEach(pos => {
+    getOrgPositions(d).forEach((pos, pi) => {
       const isFirstOfDept = (d.label !== lastDept);
       lastDept = d.label;
       rows.push({
         kind: 'check',
         label: pos,
         deptLabel: isFirstOfDept ? d.label : '',
+        isSub: !isFirstOfDept,
         sectionCls: 'meb-grp-org',
         get: m => {
           const arr = meBulkCurrentValue(m, 'orgRoles') || [];
@@ -6913,6 +6896,24 @@ function renderDeptEditTable() {
           meBulkRecordChange(m.docId, 'orgRoles', cur);
         }
       });
+    });
+  });
+
+  // システム
+  addSection('システム', 'meb-grp-status');
+  ME_STATUS_OPTIONS.forEach(opt => {
+    rows.push({
+      kind: 'check',
+      label: opt.label,
+      sectionCls: 'meb-grp-status',
+      get: m => (m.status || []).includes(opt.code),
+      set: (m, on) => {
+        const cur = (meBulkCurrentValue(m, 'status') || []).slice();
+        const idx = cur.indexOf(opt.code);
+        if (on && idx === -1) cur.push(opt.code);
+        else if (!on && idx !== -1) cur.splice(idx, 1);
+        meBulkRecordChange(m.docId, 'status', cur);
+      }
     });
   });
 
@@ -6969,10 +6970,12 @@ function renderDeptEditTable() {
     }
     // ラベルセル
     const subText = row.deptLabel || row.subLabel || '';
+    const isSub = row.isSub || false;
     html += `<tr data-sec-content="${curSec}">`;
-    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}">`
+    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner">`
          +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
-         +  `<span class="meb-row-pos${subText ? '' : ' meb-row-pos-indent'}">${esc(row.label)}</span></td>`;
+         +  `<span class="meb-row-pos${isSub ? '' : ' meb-row-pos-main'}">${esc(row.label)}</span>`
+         +  `</div></td>`;
     // 各成員のセル
     members.forEach((m, i) => {
       if (row.kind === 'select') {
