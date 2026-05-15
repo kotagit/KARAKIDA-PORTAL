@@ -263,6 +263,7 @@ async function openDutyMemberPicker() {
       ).join('');
     } else {
       const all = await getUserListCached();
+      const posId = target.dataset.pos || '';
       // orgRoles から所属判定（旧 departments も互換維持）
       const fnDerive = window.deriveDepartmentsFromOrgRoles;
       const inDept = all.filter(m => {
@@ -271,14 +272,22 @@ async function openDutyMemberPicker() {
         if (fnDerive && fnDerive(m.orgRoles || []).includes(dept)) return true;
         return false;
       });
-      const showFiltered = inDept.length > 0;
-      const members = (showFiltered ? inDept : all.filter(m => m.name))
+      // deptPositions によるポジション限定フィルタ
+      const withPos = (inDept.length > 0 ? inDept : all.filter(m => m.name)).filter(m => {
+        const dp = m.deptPositions;
+        if (!dp || typeof dp !== 'object') return true;
+        const allowed = dp[dept];
+        if (!Array.isArray(allowed) || allowed.length === 0) return true;
+        return allowed.includes(posId);
+      });
+      const showFiltered = withPos.length > 0;
+      const members = (showFiltered ? withPos : all.filter(m => m.name))
         .sort((a, b) => (a.group || 'zzz').localeCompare(b.group || 'zzz', 'ja')
           || a.name.localeCompare(b.name, 'ja'));
       const noteHtml = showFiltered
         ? ''
         : `<div style="padding:8px 12px;font-size:11px;color:#888;background:#fff8e1;border-bottom:1px solid #ffe082">
-             ${esc(DEPT_CONFIG[dept].label)} の所属者がUSER_LIST.departmentsに登録されていないため、全成員を表示しています。
+             ${esc(DEPT_CONFIG[dept].label)} の所属者が登録されていないため、全成員を表示しています。
            </div>`;
       list.innerHTML = noteHtml + members.map(m =>
         `<div class="duty-picker-item" onclick="selectDutyValue('${esc(m.name).replace(/'/g,"\\'")}')">
