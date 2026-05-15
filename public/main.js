@@ -6866,11 +6866,6 @@ function renderDeptEditTable() {
       }
     });
     if (sup.id === 'coord') {
-      const parkingDept = ORG_DEPARTMENTS.find(d => d.id === 'parking');
-      if (parkingDept) addOrgRoleRow(parkingDept, '責任者', '駐車場', false, 'meb-grp-org');
-      ME_POSITION_DEFS.filter(p => p.dept === 'parking').forEach(p => {
-        addPosDefRow(p, '', true, 'meb-grp-org');
-      });
       const cleanDefs = ME_POSITION_DEFS.filter(p => p.dept === 'cleaning');
       cleanDefs.forEach((p, i) => {
         addPosDefRow(p, i === 0 ? '清掃' : '', i > 0, 'meb-grp-org');
@@ -6878,16 +6873,22 @@ function renderDeptEditTable() {
     }
   });
 
-  // 長老団管轄（駐車場は調整者管轄で管理）
-  const elderDepts = ORG_DEPARTMENTS.filter(d => d.section === '長老団' && d.id !== 'parking').sort((a,b) => a.order - b.order);
+  const elderDepts = ORG_DEPARTMENTS.filter(d => d.section === '長老団').sort((a,b) => a.order - b.order);
   if (elderDepts.length > 0) {
     addSection('長老団管轄', 'meb-grp-org-elder');
     elderDepts.forEach(d => {
-      let firstPos = true;
-      getOrgPositions(d).forEach(pos => {
-        addOrgRoleRow(d, pos, firstPos ? d.label : '', !firstPos, 'meb-grp-org');
-        firstPos = false;
-      });
+      if (d.id === 'parking') {
+        addOrgRoleRow(d, '責任者', d.label, false, 'meb-grp-org');
+        ME_POSITION_DEFS.filter(p => p.dept === 'parking').forEach(p => {
+          addPosDefRow(p, '', true, 'meb-grp-org');
+        });
+      } else {
+        let firstPos = true;
+        getOrgPositions(d).forEach(pos => {
+          addOrgRoleRow(d, pos, firstPos ? d.label : '', !firstPos, 'meb-grp-org');
+          firstPos = false;
+        });
+      }
     });
   }
 
