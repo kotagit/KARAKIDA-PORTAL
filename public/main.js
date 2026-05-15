@@ -6723,14 +6723,191 @@ function renderBasicEditTable() {
 }
 
 function renderDeptEditTable() {
+  // 転置レイアウト: 行=役職、列=成員（氏名は縦書き）
   const thead = document.getElementById('me-dept-thead');
   const tbody = document.getElementById('me-dept-tbody');
   if (!thead || !tbody) return;
 
   renderBulkLegend();
 
-  // 組織表役職カラムを構築: 各部門 × そのpositions
-  // ORG_DEPARTMENTS順で展開し、各 [部門id, position] を1列とする
+  const members = _getFilteredSorted();
+
+  // 行定義を構築: { kind: 'section'|'check'|'select', label, sectionCls, get/set, options? }
+  const rows = [];
+
+  function addSection(label, cls) { rows.push({ kind: 'section', label, cls }); }
+
+  // システム
+  addSection('システム', 'meb-grp-status');
+  ME_STATUS_OPTIONS.forEach(opt => {
+    rows.push({
+      kind: 'check',
+      label: opt.label,
+      sectionCls: 'meb-grp-status',
+      get: m => (m.status || []).includes(opt.code),
+      set: (m, on) => {
+        const cur = (meBulkCurrentValue(m, 'status') || []).slice();
+        const idx = cur.indexOf(opt.code);
+        if (on && idx === -1) cur.push(opt.code);
+        else if (!on && idx !== -1) cur.splice(idx, 1);
+        meBulkRecordChange(m.docId, 'status', cur);
+      }
+    });
+  });
+
+  // 任命
+  addSection('任命', 'meb-grp-dept');
+  ['elder', 'ministerial'].forEach(code => {
+    const label = code === 'elder' ? '長老' : '援助奉仕者';
+    rows.push({
+      kind: 'check',
+      label,
+      sectionCls: 'meb-grp-dept',
+      get: m => (meBulkCurrentValue(m, 'appointment') || m.appointment || '') === code,
+      set: (m, on) => meBulkRecordChange(m.docId, 'appointment', on ? code : '')
+    });
+  });
+
+  // ポジション限定
+  addSection('ポジション限定', 'meb-grp-pos');
+  ME_POSITION_DEFS.forEach(p => {
+    rows.push({
+      kind: 'check',
+      label: p.label,
+      subLabel: p.dept,
+      sectionCls: 'meb-grp-pos',
+      get: m => {
+        const o = meBulkCurrentValue(m, 'deptPositions') || {};
+        return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
+      },
+      set: (m, on) => {
+        const cur = meBulkCurrentValue(m, 'deptPositions') || {};
+        const newObj = { ...cur };
+        const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
+        const idx = arr.indexOf(p.pos);
+        if (on && idx === -1) arr.push(p.pos);
+        else if (!on && idx !== -1) arr.splice(idx, 1);
+        if (arr.length === 0) delete newObj[p.dept];
+        else newObj[p.dept] = arr;
+        meBulkRecordChange(m.docId, 'deptPositions', newObj);
+      }
+    });
+  });
+
+  // 組織表役職: section/dept/position の階層
+  let lastSection = '';
+  let lastDept = '';
+  ORG_DEPARTMENTS.forEach(d => {
+    if (d.section !== lastSection) {
+      const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
+                : d.section === '長老団' ? 'meb-grp-org-elder'
+                : d.section === '開拓者' ? 'meb-grp-org-pioneer'
+                : d.section === '野外宣教グループ' ? 'meb-grp-org-group'
+                : 'meb-grp-org';
+      addSection(d.section, cls);
+      lastSection = d.section;
+      lastDept = '';
+    }
+    getOrgPositions(d).forEach(pos => {
+      const isFirstOfDept = (d.label !== lastDept);
+      lastDept = d.label;
+      rows.push({
+        kind: 'check',
+        label: pos,
+        deptLabel: isFirstOfDept ? d.label : '',
+        sectionCls: 'meb-grp-org',
+        get: m => {
+          const arr = meBulkCurrentValue(m, 'orgRoles') || [];
+          return arr.some(r => r && r.department === d.id && r.position === pos);
+        },
+        set: (m, on) => {
+          const cur = (meBulkCurrentValue(m, 'orgRoles') || []).slice();
+          const idx = cur.findIndex(r => r && r.department === d.id && r.position === pos);
+          if (on && idx === -1) cur.push({ department: d.id, position: pos });
+          else if (!on && idx !== -1) cur.splice(idx, 1);
+          meBulkRecordChange(m.docId, 'orgRoles', cur);
+        }
+      });
+    });
+  });
+
+  // 負荷係数（数値）
+  addSection('負荷係数', 'meb-grp-status');
+  rows.push({
+    kind: 'select',
+    label: '負荷',
+    sectionCls: 'meb-grp-status',
+    options: [
+      { value: 0.5, label: '0.5' },
+      { value: 1,   label: '1.0' },
+      { value: 1.5, label: '1.5' },
+      { value: 2,   label: '2.0' },
+    ],
+    get: m => meBulkCurrentValue(m, 'dutyWeight'),
+    set: (m, val) => meBulkRecordChange(m.docId, 'dutyWeight', Number(val))
+  });
+
+  // ヘッダー: 1列目=役職ラベル / 2列目以降=成員氏名（縦書き）
+  let theadHtml = '<tr>';
+  theadHtml += '<th class="meb-sticky-col meb-row-label-head" style="min-width:180px">役職</th>';
+  members.forEach(m => {
+    theadHtml += `<th class="meb-name-vert" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;
+  });
+  theadHtml += '</tr>';
+  thead.innerHTML = theadHtml;
+
+  // 本体
+  let html = '';
+  rows.forEach(row => {
+    if (row.kind === 'section') {
+      html += `<tr class="meb-section-row ${esc(row.cls)}"><td class="meb-sticky-col" colspan="${members.length + 1}"><strong>${esc(row.label)}</strong></td></tr>`;
+      return;
+    }
+    // ラベルセル
+    const subText = row.deptLabel || row.subLabel || '';
+    html += `<tr>`;
+    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}">`
+         +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
+         +  `<span class="meb-row-pos">${esc(row.label)}</span></td>`;
+    // 各成員のセル
+    members.forEach((m, i) => {
+      if (row.kind === 'select') {
+        const cur = row.get(m);
+        const val = (typeof cur === 'number') ? cur : 1.0;
+        html += `<td class="meb-status-col"><select class="meb-tr-sel" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}">`;
+        row.options.forEach(o => {
+          html += `<option value="${o.value}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`;
+        });
+        html += '</select></td>';
+      } else {
+        const checked = row.get(m) ? 'checked' : '';
+        html += `<td class="meb-status-col"><input type="checkbox" class="meb-tr-cb" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}" ${checked}></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  // バインド
+  tbody.querySelectorAll('.meb-tr-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const row = rows[+cb.dataset.row];
+      const member = meBulkOriginal(cb.dataset.mid);
+      if (row && member) row.set(member, cb.checked);
+    });
+  });
+  tbody.querySelectorAll('.meb-tr-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const row = rows[+sel.dataset.row];
+      const member = meBulkOriginal(sel.dataset.mid);
+      if (row && member) row.set(member, sel.value);
+    });
+  });
+
+  updateBulkToolbar();
+  return; // 旧コードに進まない
+
+  // 以下は旧コード（実行されない）
   const orgCols = [];
   ORG_DEPARTMENTS.forEach(d => {
     getOrgPositions(d).forEach(pos => {

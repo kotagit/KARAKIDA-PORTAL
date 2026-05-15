@@ -2523,6 +2523,54 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table thead .meb-org-dept-elder   { background: #fce4ec; color: #ad1457; }
 .me-bulk-table thead .meb-org-dept-pioneer { background: #ffe0b2; color: #e65100; }
 .me-bulk-table thead .meb-org-dept-group   { background: #b2dfdb; color: #00695c; }
+
+/* 部門情報モード: 転置レイアウト（行=役職、列=成員） */
+.me-bulk-table thead .meb-row-label-head {
+  background: var(--primary, #047CBC); color: #fff;
+  text-align: left; padding-left: 12px;
+}
+.me-bulk-table thead .meb-name-vert {
+  background: #f5f5f5; padding: 4px 2px;
+  min-width: 28px; max-width: 32px;
+  vertical-align: bottom;
+}
+.meb-name-vert-inner {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.2;
+  max-height: 200px;
+  margin: 0 auto;
+}
+.me-bulk-table tbody td.meb-row-label {
+  text-align: left; padding: 6px 10px;
+  background: #fafafa;
+  font-size: 13px;
+  white-space: nowrap;
+  border-right: 1px solid #ddd;
+}
+.me-bulk-table tbody td.meb-row-label .meb-row-dept {
+  display: inline-block;
+  font-size: 11px; color: #888; margin-right: 8px;
+  min-width: 90px;
+}
+.me-bulk-table tbody td.meb-row-label .meb-row-pos {
+  font-weight: 600; color: #333;
+}
+.me-bulk-table tbody tr.meb-section-row td {
+  background: #e3f2fd; color: var(--primary-dark, #035d9a);
+  padding: 6px 12px; font-size: 12px;
+  border-top: 2px solid var(--primary, #047CBC);
+}
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-svc td     { background: #ede7f6; color: #4527a0; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-elder td   { background: #fce4ec; color: #ad1457; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-pioneer td { background: #fff3e0; color: #e65100; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-group td   { background: #e0f2f1; color: #00695c; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-dept td        { background: #e8f5e9; color: #2e7d32; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-pos td         { background: #fff3e0; color: #ef6c00; }
+.meb-tr-cb { transform: scale(1.1); }
+.meb-tr-sel { font-size: 12px; padding: 2px; }
 .meb-name-readonly { font-weight: 600; font-size: 13px; padding: 2px 4px; }
 .meb-weight { padding: 2px; font-size: 12px; }
 
