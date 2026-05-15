@@ -4,7 +4,7 @@
 //     ※ 番号がキー。主題は番号に紐づき、Wordインポートで上書き更新。
 //   PUBLIC_TALK_SCHEDULE/{id}  : 週末ごとの予定レコード
 //     date, talkNumber, speaker, speakerCong,
-//     chairman, reader, visitCong, visitSpeaker,
+//     chairman, reader,
 //     publishedXxx..., updatedAt, publishedAt
 //     ※ talkTitle は保存しない。表示時に PUBLIC_TALK_LIST から取得。
 //   TALK_PREFS/{oderId}  : 講演者の希望講演番号
@@ -199,8 +199,7 @@ async function renderPublicTalkAdmin() {
       if ((d.chairman || '') !== (d.publishedChairman || '')) hasUnpublished = true;
       if ((d.reader || '') !== (d.publishedReader || '')) hasUnpublished = true;
       if ((d.talkNumber || 0) !== (d.publishedTalkNumber || 0)) hasUnpublished = true;
-      if ((d.visitCong || '') !== (d.publishedVisitCong || '')) hasUnpublished = true;
-      if ((d.visitSpeaker || '') !== (d.publishedVisitSpeaker || '')) hasUnpublished = true;
+      if ((d.speakerCong || '') !== (d.publishedSpeakerCong || '')) hasUnpublished = true;
     });
 
     const isDraft = _ptViewMode === 'draft';
@@ -252,6 +251,22 @@ async function renderPublicTalkAdmin() {
           if (numEl) {
             const num = parseInt(this.value, 10);
             numEl.textContent = num || '—';
+          }
+        });
+      });
+
+      // 訪問講演チェックで会衆名欄の表示切替
+      container.querySelectorAll('.pt-visit-chk').forEach(chk => {
+        chk.addEventListener('change', function() {
+          const ymd = this.dataset.date;
+          const fields = container.querySelector(`.pt-visit-fields[data-date="${ymd}"]`);
+          if (fields) {
+            fields.style.display = this.checked ? 'block' : 'none';
+            if (!this.checked) {
+              // チェック外したら会衆名をクリア
+              const congInput = fields.querySelector('[data-field="speakerCong"]');
+              if (congInput) congInput.value = '';
+            }
           }
         });
       });
@@ -346,7 +361,7 @@ function buildTalkOpts(selectedNum, prefNums) {
 
 function renderPTDraftTable(dates) {
   let html = '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-  html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
+  html += '<th>日付</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
   let prevMonth = -1;
@@ -356,6 +371,7 @@ function renderPTDraftTable(dates) {
     const d = _ptDocs[ymd] || {};
     const speakerName = d.speaker || '';
     const prefNums = _ptSpeakerPrefs[speakerName] || [];
+    const isVisit = !!(d.speakerCong);
 
     // 月区切りヘッダー
     const curMonth = date.getFullYear() * 100 + date.getMonth();
@@ -378,10 +394,17 @@ function renderPTDraftTable(dates) {
       <option value="">—</option>${buildTalkOpts(d.talkNumber || 0, prefNums)}
     </select></td>`;
 
-    // 講演者（テキスト入力 — 他会衆の人も入るため）
+    // 訪問講演チェック
+    html += `<td class="pt-visit-chk-cell">
+      <input type="checkbox" class="pt-visit-chk" data-date="${ymd}"${isVisit ? ' checked' : ''}>
+    </td>`;
+
+    // 講演者
     html += `<td>
       <input type="text" class="duty-input pt-field pt-speaker-input" data-date="${ymd}" data-field="speaker" value="${esc(speakerName)}" placeholder="講演者名" list="pt-elder-datalist">
-      <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
+      <div class="pt-visit-fields" data-date="${ymd}" style="display:${isVisit ? 'block' : 'none'}">
+        <input type="text" class="duty-input pt-field pt-cong-input" data-date="${ymd}" data-field="speakerCong" value="${esc(d.speakerCong || '')}" placeholder="会衆名">
+      </div>
       ${prefNums.length > 0 ? `<div class="pt-pref-chips" data-date="${ymd}">${prefNums.map(n =>
         `<span class="pt-pref-chip" data-num="${n}" title="${esc(_ptTalkMap[n] || '')}">${n}</span>`
       ).join('')}</div>` : ''}
@@ -396,12 +419,6 @@ function renderPTDraftTable(dates) {
     html += `<td><select class="duty-select pt-field" data-date="${ymd}" data-field="reader">
       <option value="">—</option>${buildElderOpts(d.reader || '')}
     </select></td>`;
-
-    // 訪問講演（会衆/人）
-    html += `<td>
-      <input type="text" class="duty-input pt-field pt-visit-input" data-date="${ymd}" data-field="visitCong" value="${esc(d.visitCong || '')}" placeholder="会衆名">
-      <input type="text" class="duty-input pt-field pt-visit-input" data-date="${ymd}" data-field="visitSpeaker" value="${esc(d.visitSpeaker || '')}" placeholder="講演者名">
-    </td>`;
 
     html += '</tr>';
   }
@@ -601,7 +618,7 @@ function renderPTPublishedTable(dates) {
   let hasAny = false;
 
   html += '<div class="pt-table-wrap"><table class="duty-table pt-table"><thead><tr>';
-  html += '<th>日付</th><th>番号</th><th>主題</th><th>講演者</th><th>司会者</th><th>朗読者</th><th>訪問講演</th>';
+  html += '<th>日付</th><th>番号</th><th>主題</th><th>訪問</th><th>講演者</th><th>司会者</th><th>朗読者</th>';
   html += '</tr></thead><tbody>';
 
   let prevMonth2 = -1;
@@ -615,8 +632,7 @@ function renderPTPublishedTable(dates) {
     const cong = d.publishedSpeakerCong || '';
     const chairman = d.publishedChairman || '';
     const reader = d.publishedReader || '';
-    const vCong = d.publishedVisitCong || '';
-    const vSpeaker = d.publishedVisitSpeaker || '';
+    const isVisit = !!(cong && cong !== '唐木田');
     if (speaker || chairman || reader) hasAny = true;
 
     const curMonth2 = date.getFullYear() * 100 + date.getMonth();
@@ -627,12 +643,12 @@ function renderPTPublishedTable(dates) {
 
     html += `<tr>
       <td class="duty-date-cell duty-weekend"><div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div></td>
-      <td class="duty-pub-cell">${num || '—'}</td>
+      <td class="duty-pub-cell pt-num-cell">${num || '—'}</td>
       <td class="duty-pub-cell" style="text-align:left;font-size:12px">${esc(title) || '—'}</td>
-      <td class="duty-pub-cell">${speaker ? esc(speaker) + (cong && cong !== '唐木田' ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : '—'}</td>
+      <td class="duty-pub-cell" style="text-align:center">${isVisit ? '<span class="material-icons" style="font-size:16px;color:#1565c0">check</span>' : ''}</td>
+      <td class="duty-pub-cell">${speaker ? esc(speaker) + (isVisit ? `<br><span style="font-size:10px;color:#888">${esc(cong)}</span>` : '') : '—'}</td>
       <td class="duty-pub-cell">${esc(chairman) || '—'}</td>
       <td class="duty-pub-cell">${esc(reader) || '—'}</td>
-      <td class="duty-pub-cell">${vCong ? `${esc(vCong)}<br>${esc(vSpeaker)}` : '—'}</td>
     </tr>`;
   }
   html += '</tbody></table></div>';
@@ -670,8 +686,6 @@ async function savePTSchedule() {
       speakerCong: fields.speakerCong || '',
       chairman: fields.chairman || '',
       reader: fields.reader || '',
-      visitCong: fields.visitCong || '',
-      visitSpeaker: fields.visitSpeaker || '',
       updatedAt: firebase.firestore.Timestamp.now(),
     };
 
@@ -679,7 +693,7 @@ async function savePTSchedule() {
     if (existing) {
       // 変更があれば更新
       let changed = false;
-      ['talkNumber','speaker','speakerCong','chairman','reader','visitCong','visitSpeaker'].forEach(f => {
+      ['talkNumber','speaker','speakerCong','chairman','reader'].forEach(f => {
         if ((existing[f] || '') !== (data[f] || '')) changed = true;
       });
       if (existing.talkNumber !== data.talkNumber) changed = true;
@@ -688,15 +702,13 @@ async function savePTSchedule() {
       writes++;
     } else {
       // 何か入力されていれば新規作成
-      const hasContent = data.talkNumber || data.speaker || data.chairman || data.reader || data.visitCong;
+      const hasContent = data.talkNumber || data.speaker || data.chairman || data.reader;
       if (hasContent) {
         data.publishedSpeaker = '';
         data.publishedSpeakerCong = '';
         data.publishedChairman = '';
         data.publishedReader = '';
         data.publishedTalkNumber = 0;
-        data.publishedVisitCong = '';
-        data.publishedVisitSpeaker = '';
         const ref = db.collection('PUBLIC_TALK_SCHEDULE').doc();
         batch.set(ref, data);
         writes++;
@@ -740,8 +752,6 @@ async function publishPTSchedule() {
     if ((d.chairman || '') !== (d.publishedChairman || '')) changed = true;
     if ((d.reader || '') !== (d.publishedReader || '')) changed = true;
     if ((d.talkNumber || 0) !== (d.publishedTalkNumber || 0)) changed = true;
-    if ((d.visitCong || '') !== (d.publishedVisitCong || '')) changed = true;
-    if ((d.visitSpeaker || '') !== (d.publishedVisitSpeaker || '')) changed = true;
 
     if (changed) {
       batch.update(db.collection('PUBLIC_TALK_SCHEDULE').doc(d.id), {
@@ -750,8 +760,6 @@ async function publishPTSchedule() {
         publishedChairman: d.chairman || '',
         publishedReader: d.reader || '',
         publishedTalkNumber: d.talkNumber || 0,
-        publishedVisitCong: d.visitCong || '',
-        publishedVisitSpeaker: d.visitSpeaker || '',
         publishedAt: now,
       });
       writes++;

@@ -3021,10 +3021,16 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   font-size: 11px;
   color: #666;
 }
-.pt-visit-input {
-  font-size: 11px;
+.pt-visit-chk-cell {
+  text-align: center;
+  width: 36px;
 }
-.pt-visit-input + .pt-visit-input {
+.pt-visit-chk {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.pt-visit-fields {
   margin-top: 4px;
 }
 .pt-field {
