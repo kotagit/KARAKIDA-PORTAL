@@ -6467,9 +6467,10 @@ const ORG_DEPARTMENTS = [
   { id:'jw_domain',      label:'JW.ORGドメイン管理者',     section:'長老団', type:'elder', order:5 },
   { id:'jw_support',     label:'JW.ORGユーザーサポート',   section:'長老団', type:'elder', order:6 },
   { id:'digital_team',   label:'電子化チーム',            section:'長老団', type:'elder', order:7 },
-  { id:'pw_planner',     label:'公共エリア伝道割当策定者', section:'長老団', type:'elder', order:8 },
-  { id:'cleaning_coord', label:'清掃調整者',              section:'長老団', type:'elder', order:9 },
-  { id:'parking',        label:'駐車場',                 section:'長老団', type:'elder', order:10 },
+  { id:'pw_permit',      label:'公共エリア許可証取得',     section:'長老団', type:'elder', order:8 },
+  { id:'pw_planner',     label:'公共エリア取決策定者',     section:'長老団', type:'elder', order:9 },
+  { id:'cleaning_coord', label:'清掃調整者',              section:'長老団', type:'elder', order:10 },
+  { id:'parking',        label:'駐車場',                 section:'長老団', type:'elder', order:11 },
 
   // === 開拓者 ===
   { id:'pioneer_regular', label:'正規開拓者', section:'開拓者', type:'pioneer', order:1 },
