@@ -244,14 +244,14 @@ async function renderPublicTalkAdmin() {
     container.innerHTML = html;
 
     if (isDraft) {
-      // 番号select変更時に主題を自動入力
+      // 主題select変更時に番号を自動表示
       container.querySelectorAll('.pt-talk-select').forEach(sel => {
         sel.addEventListener('change', function() {
           const ymd = this.dataset.date;
-          const titleEl = container.querySelector(`.pt-title-cell[data-date="${ymd}"]`);
-          if (titleEl) {
+          const numEl = container.querySelector(`.pt-num-cell[data-date="${ymd}"]`);
+          if (numEl) {
             const num = parseInt(this.value, 10);
-            titleEl.textContent = num ? (_ptTalkMap[num] || '') : '';
+            numEl.textContent = num || '—';
           }
         });
       });
@@ -326,22 +326,19 @@ function buildElderOpts(selected) {
 }
 
 function buildTalkOpts(selectedNum, prefNums) {
-  // 希望番号があれば上部に「★ 希望」グループで表示
   const prefSet = new Set(prefNums || []);
   let html = '';
   if (prefSet.size > 0) {
     html += '<optgroup label="★ 希望講演">';
     (_ptTalkList || []).filter(t => prefSet.has(t.number)).forEach(t => {
       const sel = t.number === selectedNum ? ' selected' : '';
-      const short = t.title.length > 20 ? t.title.substring(0,20)+'…' : t.title;
-      html += `<option value="${t.number}"${sel}>★${t.number}. ${esc(short)}</option>`;
+      html += `<option value="${t.number}"${sel}>★ ${esc(t.title)}</option>`;
     });
     html += '</optgroup><optgroup label="全講演">';
   }
   (_ptTalkList || []).forEach(t => {
     const sel = t.number === selectedNum ? ' selected' : '';
-    const short = t.title.length > 15 ? t.title.substring(0,15)+'…' : t.title;
-    html += `<option value="${t.number}"${sel}>${t.number}. ${esc(short)}</option>`;
+    html += `<option value="${t.number}"${sel}>${esc(t.title)}</option>`;
   });
   if (prefSet.size > 0) html += '</optgroup>';
   return html;
@@ -373,14 +370,13 @@ function renderPTDraftTable(dates) {
       <div class="duty-date-main">${date.getMonth()+1}/${date.getDate()}（${dowJp}）</div>
     </td>`;
 
-    // 番号（講演者の希望番号を優先表示）
+    // 番号（主題選択から自動表示）
+    html += `<td class="pt-num-cell" data-date="${ymd}">${d.talkNumber || '—'}</td>`;
+
+    // 主題（プルダウン選択）
     html += `<td><select class="duty-select pt-talk-select" data-date="${ymd}" data-field="talkNumber">
       <option value="">—</option>${buildTalkOpts(d.talkNumber || 0, prefNums)}
     </select></td>`;
-
-    // 主題（マスタから取得）
-    const title = d.talkNumber ? (_ptTalkMap[d.talkNumber] || '') : '';
-    html += `<td class="pt-title-cell" data-date="${ymd}">${esc(title)}</td>`;
 
     // 講演者（テキスト入力 — 他会衆の人も入るため）
     html += `<td>

@@ -3010,13 +3010,11 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .pt-table { min-width: 700px; }
 .pt-table th { font-size: 12px; white-space: nowrap; }
-.pt-title-cell {
-  font-size: 12px;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #555;
+.pt-num-cell {
+  text-align: center;
+  font-weight: 600;
+  color: #1565c0;
+  min-width: 36px;
 }
 .pt-cong-input {
   margin-top: 4px;
@@ -3033,7 +3031,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   min-width: 80px;
 }
 .pt-talk-select {
-  min-width: 120px;
+  min-width: 180px;
   font-size: 11px;
 }
 .pt-month-sep td {
