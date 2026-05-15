@@ -1127,7 +1127,7 @@ body {
   margin-bottom: 16px; background: #fff; box-shadow: var(--shadow); border-radius: 6px; overflow: hidden;
 }
 .org-pv-tbl th, .org-pv-tbl td {
-  border: 1px solid #ddd; padding: 8px 12px; text-align: left; vertical-align: top;
+  border: 1px solid #ddd; padding: 8px 12px; text-align: left; vertical-align: top; white-space: nowrap;
 }
 .org-pv-tbl thead th {
   background: var(--primary); color: #fff; font-weight: bold; font-size: 13px;
@@ -2573,7 +2573,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .me-dept-preview-inner table th,
 .me-dept-preview-inner table td {
-  border: 1px solid #ccc; padding: 2px 4px; text-align: left;
+  border: 1px solid #ccc; padding: 2px 4px; text-align: left; white-space: nowrap;
 }
 .me-dept-preview-inner table th {
   background: #f5f5f5; font-weight: 600;
