@@ -7103,7 +7103,7 @@ function renderDeptPreview() {
   const elders = ORG_DEPARTMENTS.filter(d => d.type === 'elder').sort((a,b) => a.order - b.order);
 
   const _sortByFurigana = (a, b) => (a.furigana || a.name || '').localeCompare(b.furigana || b.name || '', 'ja');
-  const _orgIdToPosDeptPv = { annai:'annai', stage_av:'avs' };
+  const _orgIdToPosDeptPv = { annai:'annai', stage_av:'avs', parking:'parking' };
 
   function findMembers(deptId, pos) {
     return members.filter(m => {
