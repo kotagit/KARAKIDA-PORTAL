@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=156">
+  <link rel="stylesheet" href="style.css?v=157">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -1534,12 +1534,10 @@
           <option value="elder">長老</option>
           <option value="ministerial">援助奉仕者</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label><input type="checkbox" id="me-is-wt-reader" style="margin-right:6px;vertical-align:middle"> ものみの塔朗読者</label>
-      </div>
-      <div class="form-group">
-        <label><input type="checkbox" id="me-is-public-speaker" style="margin-right:6px;vertical-align:middle"> 公開講演者</label>
+        <div style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+          <label style="font-weight:normal"><input type="checkbox" id="me-is-wt-reader" style="margin-right:4px;vertical-align:middle"> ものみの塔朗読者</label>
+          <label style="font-weight:normal"><input type="checkbox" id="me-is-public-speaker" style="margin-right:4px;vertical-align:middle"> 公開講演者</label>
+        </div>
       </div>
       <div class="form-group">
         <label>システム権限 (status)</label>

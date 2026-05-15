@@ -2473,7 +2473,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   background: white;
   vertical-align: middle;
 }
-.me-bulk-table tbody tr:hover td { background: #fafafa; }
+.me-bulk-table tbody tr:hover td { background: #fff3f0; }
 .me-bulk-table .meb-input {
   width: 100%;
   padding: 4px 6px;
