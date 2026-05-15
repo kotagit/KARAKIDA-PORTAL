@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=144">
+  <link rel="stylesheet" href="style.css?v=146">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -222,9 +222,13 @@
       </div>
       <div class="page-content">
 
+        <!-- ── 宣教 ── -->
+        <div class="admin-section-tag">宣教</div>
         <div class="admin-list-menu">
-          <!-- 宣教 -->
-          <div class="admin-section-tag">宣教</div>
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">map</span>
+            <span class="admin-role-name">区域係</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-pw-schedule">
             <span class="admin-row-label">公共エリア伝道取決表策定</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
@@ -241,12 +245,23 @@
             <span class="admin-row-label">S-13 作成</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+        </div>
 
-          <!-- 集会 -->
-          <div class="admin-section-tag">集会</div>
+        <!-- ── 集会 ── -->
+        <div class="admin-section-tag">集会</div>
+        <div class="admin-list-menu">
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">settings</span>
+            <span class="admin-role-name">調整者</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-announcements">
             <span class="admin-row-label">発表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">menu_book</span>
+            <span class="admin-role-name">生活と奉仕の集会の監督</span>
           </div>
           <div class="admin-list-row" id="admin-manage-program">
             <span class="admin-row-label">プログラム表作成</span>
@@ -264,6 +279,11 @@
             <span class="admin-row-label">生徒管理</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">door_front</span>
+            <span class="admin-role-name">案内係</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-attendance-monthly">
             <span class="admin-row-label">出席者数月次集計</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
@@ -272,27 +292,52 @@
             <span class="admin-row-label">案内部門 取決め表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">videocam</span>
+            <span class="admin-role-name">AVS部門</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-dept-avs">
             <span class="admin-row-label">AVS 取決め表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">local_parking</span>
+            <span class="admin-role-name">駐車場部門</span>
           </div>
           <div class="admin-list-row" id="admin-manage-dept-parking">
             <span class="admin-row-label">駐車場 取決め表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">cleaning_services</span>
+            <span class="admin-role-name">清掃部門</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-dept-cleaning">
             <span class="admin-row-label">清掃 取決め表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+        </div>
 
-          <!-- 会衆 -->
-          <div class="admin-section-tag">会衆</div>
+        <!-- ── 会衆 ── -->
+        <div class="admin-section-tag">会衆</div>
+        <div class="admin-list-menu">
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">edit_note</span>
+            <span class="admin-role-name">書記</span>
+          </div>
           <div class="admin-list-row" id="admin-manage-group-members">
             <span class="admin-row-label">グループ成員表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" id="admin-manage-group-emergency">
             <span class="admin-row-label">グループ成員緊急連絡先</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-member-edit">
+            <span class="admin-row-label">グループ成員編集</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" id="admin-manage-org">
@@ -315,11 +360,11 @@
 
         <!-- ── 唐木田PORTAL（ADMINのみ） ── -->
         <div id="admin-portal-section" class="hidden">
+          <div class="admin-section-tag">唐木田PORTAL</div>
           <div class="admin-list-menu">
-            <div class="admin-section-tag">唐木田PORTAL</div>
-            <div class="admin-list-row" id="admin-manage-member-edit">
-              <span class="admin-row-label">成員情報編集</span>
-              <span class="material-icons admin-row-chevron">chevron_right</span>
+            <div class="admin-role-header">
+              <span class="material-icons admin-role-icon">admin_panel_settings</span>
+              <span class="admin-role-name">ADMIN</span>
             </div>
             <div class="admin-list-row" id="admin-manage-access-log">
               <span class="admin-row-label">アクセスログ</span>
@@ -1881,7 +1926,7 @@
   </div>
 </div>
 
-<script src="main.js?v=171"></script>
+<script src="main.js?v=174"></script>
 <script src="assignment.js?v=80"></script>
 <script src="pw.js?v=9"></script>
 <script src="duties.js?v=6"></script>
