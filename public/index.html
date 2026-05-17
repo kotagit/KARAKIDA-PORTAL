@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>唐木田PORTAL</title>
-  <link rel="stylesheet" href="style.css?v=162">
+  <link rel="stylesheet" href="style.css?v=163">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -416,6 +416,10 @@
               <span class="admin-row-label">会衆設定</span>
               <span class="material-icons admin-row-chevron">chevron_right</span>
             </div>
+            <div class="admin-list-row" id="admin-manage-permission-simulator">
+              <span class="admin-row-label">権限シミュレーター</span>
+              <span class="material-icons admin-row-chevron">chevron_right</span>
+            </div>
           </div>
         </div>
 
@@ -430,6 +434,16 @@
       </div>
       <div class="page-content">
         <div id="config-body"></div>
+      </div>
+    </section>
+
+    <section id="page-admin-permission-simulator" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">権限シミュレーター</h2>
+      </div>
+      <div class="page-content">
+        <div id="psim-body"></div>
       </div>
     </section>
 
@@ -2045,7 +2059,7 @@
   </div>
 </div>
 
-<script src="main.js?v=188"></script>
+<script src="main.js?v=189"></script>
 <script src="assignment.js?v=80"></script>
 <script src="pw.js?v=9"></script>
 <script src="duties.js?v=16"></script>

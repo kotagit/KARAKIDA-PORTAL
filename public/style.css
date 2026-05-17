@@ -3292,3 +3292,102 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .home-accordion .home-acc-item:hover {
   background: #eaf4fb;
 }
+
+/* ── 権限シミュレーター ── */
+.psim-wrap { max-width: 900px; margin: 0 auto; }
+.psim-section {
+  margin-bottom: 20px;
+  background: white;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 8px;
+  padding: 14px;
+}
+.psim-section-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+.psim-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.psim-preset-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--primary);
+  background: white;
+  color: var(--primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.psim-preset-btn:hover { background: var(--primary-light, #e3f2fd); }
+.psim-preset-clear { border-color: #999; color: #555; }
+.psim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.psim-cat-wide { grid-column: 1 / -1; }
+.psim-cat {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.psim-cat-title {
+  font-size: 12px; font-weight: 700; color: #555;
+  margin-bottom: 6px;
+}
+.psim-radio, .psim-check {
+  display: block;
+  font-size: 13px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.psim-radio input, .psim-check input { margin-right: 6px; vertical-align: middle; }
+.psim-flags {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.psim-flag {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  font-family: monospace;
+}
+.psim-flag-on { background: #c8e6c9; color: #1b5e20; }
+.psim-flag-off { background: #f5f5f5; color: #999; }
+
+.psim-prev-group {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+.psim-prev-group-hidden {
+  opacity: 0.55;
+  background: #f5f5f5;
+}
+.psim-prev-group-title {
+  font-size: 13px; font-weight: 700;
+  color: #444;
+  margin-bottom: 6px;
+}
+.psim-hidden-tag {
+  font-size: 10px; padding: 1px 6px;
+  background: #ffcdd2; color: #c62828;
+  border-radius: 8px; margin-left: 6px; font-weight: normal;
+}
+.psim-prev-items {
+  display: flex; flex-direction: column; gap: 3px;
+  padding-left: 10px;
+}
+.psim-item {
+  font-size: 13px; padding: 2px 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.psim-item-on { color: #1b5e20; }
+.psim-item-off { color: #c62828; text-decoration: line-through; }
+.psim-item-icon {
+  font-weight: 700;
+  display: inline-block;
+  width: 14px;
+}
+.psim-item-hint {
+  font-size: 11px; color: #888; text-decoration: none; font-style: italic;
+}

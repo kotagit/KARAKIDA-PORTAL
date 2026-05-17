@@ -99,6 +99,7 @@ const PAGE_TITLES = {
   'admin-member-edit': 'グループ成員編集',
   'admin-org': '組織表管理',
   'admin-config': '会衆設定',
+  'admin-permission-simulator': '権限シミュレーター',
   'senkyo-mycard': '割当て区域カード',
   'senkyo-cardview': '区域カード',
   'senkyo-cards': '区域カード',
@@ -391,6 +392,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-org')                loadOrgEditor();
   if (page === 'admin-access-log')         loadAccessLog();
   if (page === 'admin-config')             renderConfigPage();
+  if (page === 'admin-permission-simulator') renderPermissionSimulator();
   if (page === 'attendance-form')          initAttendanceForm();
 
   if (isAdmin) {
@@ -7283,3 +7285,285 @@ async function renderConfigPage() {
     }
   });
 }
+
+// ─────────────────────────────────────────────
+// 権限シミュレーター
+// ─────────────────────────────────────────────
+
+// 任命オプション
+const PSIM_APPOINTMENTS = [
+  { code: '',            label: '伝道者' },
+  { code: 'elder',       label: '長老' },
+  { code: 'ministerial', label: '援助奉仕者' },
+];
+
+// orgRoles ベースの選択肢（よく使うもの抜粋）
+// それぞれ dept (ORG_DEPARTMENTS.id) と position
+const PSIM_ROLE_OPTIONS = [
+  { dept: 'coord',          pos: '監督',   label: '調整者(監督)' },
+  { dept: 'secretary',      pos: '監督',   label: '書記(監督)' },
+  { dept: 'svc_ov',         pos: '監督',   label: '奉仕監督(監督)' },
+  { dept: 'annai',          pos: '責任者', label: '案内(責任者)' },
+  { dept: 'annai',          pos: '奉仕者', label: '案内(奉仕者)' },
+  { dept: 'stage_av',       pos: '責任者', label: 'AVS(責任者)' },
+  { dept: 'public_talk',    pos: '責任者', label: '公開講演調整者' },
+  { dept: 'account',        pos: '責任者', label: '会計' },
+  { dept: 'territory',      pos: '責任者', label: '区域' },
+  { dept: 'pw_permit',      pos: '責任者', label: '公共エリア許可証取得' },
+  { dept: 'pw_planner',     pos: '責任者', label: '公共エリア取決策定者' },
+  { dept: 'literature',     pos: '責任者', label: '文書' },
+  { dept: 'pioneer_regular',pos: '本人',   label: '正規開拓者' },
+  { dept: 'group_poplar',   pos: '監督',   label: 'ポプラ(監督)' },
+  { dept: 'group_poplar',   pos: '補佐',   label: 'ポプラ(補佐)' },
+];
+
+// プリセット
+const PSIM_PRESETS = {
+  publisher:   { label: '一般成員', appointment: '', orgRoleKeys: [], status: [] },
+  annaigakari: { label: '案内係',   appointment: '', orgRoleKeys: ['annai|奉仕者'], status: [] },
+  ms:          { label: '援助奉仕者', appointment: 'ministerial', orgRoleKeys: [], status: [] },
+  elder:       { label: '長老',     appointment: 'elder', orgRoleKeys: [], status: [] },
+  secretary:   { label: '書記',     appointment: 'elder', orgRoleKeys: ['secretary|監督'], status: [] },
+  svc_ov:      { label: '奉仕監督', appointment: 'elder', orgRoleKeys: ['svc_ov|監督'], status: [] },
+  group_ov:    { label: 'グループ監督', appointment: 'elder', orgRoleKeys: ['group_poplar|監督'], status: [] },
+  pioneer:     { label: '正規開拓者', appointment: '', orgRoleKeys: ['pioneer_regular|本人'], status: [] },
+  web:         { label: 'WEB管理者', appointment: '', orgRoleKeys: [], status: ['WEB'] },
+  admin:       { label: 'ADMIN',    appointment: '', orgRoleKeys: [], status: ['WEB', 'ADMIN'] },
+};
+
+// シミュレートされた user オブジェクトから派生フラグを計算
+function psimDeriveFlags(state) {
+  const orgRoles = state.orgRoleKeys.map(k => {
+    const [dept, pos] = k.split('|');
+    return { department: dept, position: pos };
+  });
+  const u = {
+    appointment: state.appointment,
+    orgRoles,
+    status: state.status.slice(),
+  };
+  return {
+    user: u,
+    isAdmin:       u.status.includes('WEB'),
+    isPortalAdmin: u.status.includes('ADMIN'),
+    isElder:       deriveIsElder(u),
+    isMS:          deriveIsMS(u),
+    isPioneer:     deriveIsPioneer(u),
+    isAnnaigakari: deriveIsAnnaigakari(u),
+    isGroupOverseer:  deriveGroupRole(u)?.position === '監督',
+    isGroupAssistant: deriveGroupRole(u)?.position === '補佐',
+    inactive:      u.status.includes('inactive'),
+  };
+}
+
+// 表示ルール: 各機能の表示条件と説明
+// when(flags) → true なら表示
+const PSIM_FEATURES = [
+  { group: 'ホーム画面', items: [
+    { label: '発表', when: f => true },
+    { label: '宣教', when: f => true },
+    { label: '集会', when: f => true },
+    { label: '申請（フォーム）', when: f => true },
+    { label: '組織', when: f => true },
+    { label: '行事', when: f => true },
+    { label: '情報', when: f => true },
+    { label: '計画', when: f => true },
+    { label: '災害対応', when: f => true },
+    { label: '管理画面', when: f => f.isAdmin, hint: '要 WEB' },
+  ]},
+  { group: '申請ページ', items: [
+    { label: '公共エリア伝道申込み', when: f => true },
+    { label: '奉仕報告',           when: f => true },
+    { label: '区域情報登録',       when: f => true },
+    { label: '成員情報登録',       when: f => true },
+    { label: '出席人数登録',       when: f => f.isAnnaigakari || f.isAdmin, hint: '要 案内係 or WEB' },
+  ]},
+  { group: '集会ページ', items: [
+    { label: '講演希望番号', when: f => f.isElder, hint: '要 長老' },
+  ]},
+  { group: '管理画面（全体）', items: [
+    { label: '管理画面に入る権限', when: f => f.isAdmin, hint: '要 WEB' },
+  ]},
+  { group: '管理画面: 宣教', cond: f => f.isAdmin, items: [
+    { label: '公共エリア伝道取決表策定', when: f => true },
+    { label: '公共エリア伝道参加者策定', when: f => true },
+    { label: '野外奉仕取決表策定',       when: f => true },
+    { label: 'S-13 作成',                when: f => true },
+  ]},
+  { group: '管理画面: 集会', cond: f => f.isAdmin, items: [
+    { label: '発表',           when: f => true },
+    { label: 'プログラム表作成', when: f => true },
+    { label: '担当者策定',      when: f => true },
+    { label: 'S-89 作成',       when: f => true },
+    { label: '生徒管理',        when: f => true },
+    { label: '公開講演予定表策定', when: f => true },
+    { label: 'S-99 講演一覧',   when: f => true },
+  ]},
+  { group: '管理画面: 部門', cond: f => f.isAdmin, items: [
+    { label: '案内 取決め表',   when: f => true },
+    { label: 'AVS 取決め表',    when: f => true },
+    { label: '駐車場 取決め表', when: f => true },
+    { label: '文書 取決め表',   when: f => true },
+    { label: '清掃 取決め表',   when: f => true },
+  ]},
+  { group: '管理画面: 会衆', cond: f => f.isAdmin, items: [
+    { label: 'グループ成員表',          when: f => true },
+    { label: 'グループ成員緊急連絡先',   when: f => true },
+    { label: '組織表編集',              when: f => true },
+    { label: '奉仕報告記録承認',         when: f => true },
+    { label: '奉仕報告提出状況',         when: f => true },
+    { label: 'S-21 伝道者カード',       when: f => true },
+    { label: '出席者数月次集計',         when: f => true },
+  ]},
+  { group: '管理画面: 唐木田PORTAL', cond: f => f.isAdmin && f.isPortalAdmin, items: [
+    { label: 'グループ成員編集',  when: f => f.isPortalAdmin, hint: '要 ADMIN' },
+    { label: 'アクセスログ',      when: f => f.isPortalAdmin, hint: '要 ADMIN' },
+    { label: '会衆設定',          when: f => f.isPortalAdmin, hint: '要 ADMIN' },
+    { label: '権限シミュレーター', when: f => f.isPortalAdmin, hint: '要 ADMIN' },
+  ]},
+];
+
+// 現在のシミュレーション状態
+let _psimState = { appointment: '', orgRoleKeys: [], status: [] };
+
+function renderPermissionSimulator() {
+  const body = document.getElementById('psim-body');
+  if (!body) return;
+
+  let html = '<div class="psim-wrap">';
+
+  // プリセット
+  html += '<div class="psim-section">';
+  html += '<div class="psim-section-title">プリセット</div>';
+  html += '<div class="psim-presets">';
+  Object.entries(PSIM_PRESETS).forEach(([key, p]) => {
+    html += `<button class="psim-preset-btn" data-preset="${esc(key)}">${esc(p.label)}</button>`;
+  });
+  html += '<button class="psim-preset-btn psim-preset-clear" data-preset="">クリア</button>';
+  html += '</div></div>';
+
+  // カスタム設定
+  html += '<div class="psim-section">';
+  html += '<div class="psim-section-title">詳細設定（カスタム）</div>';
+  html += '<div class="psim-grid">';
+
+  // 任命
+  html += '<div class="psim-cat"><div class="psim-cat-title">任命</div>';
+  PSIM_APPOINTMENTS.forEach(opt => {
+    const chk = _psimState.appointment === opt.code ? 'checked' : '';
+    html += `<label class="psim-radio"><input type="radio" name="psim-appt" value="${esc(opt.code)}" ${chk}> ${esc(opt.label)}</label>`;
+  });
+  html += '</div>';
+
+  // システム
+  html += '<div class="psim-cat"><div class="psim-cat-title">システム</div>';
+  ['WEB', 'ADMIN', 'inactive'].forEach(s => {
+    const chk = _psimState.status.includes(s) ? 'checked' : '';
+    html += `<label class="psim-check"><input type="checkbox" class="psim-status-cb" value="${esc(s)}" ${chk}> ${esc(s)}</label>`;
+  });
+  html += '</div>';
+
+  // 組織役職
+  html += '<div class="psim-cat psim-cat-wide"><div class="psim-cat-title">組織役職</div>';
+  PSIM_ROLE_OPTIONS.forEach(r => {
+    const k = `${r.dept}|${r.pos}`;
+    const chk = _psimState.orgRoleKeys.includes(k) ? 'checked' : '';
+    html += `<label class="psim-check"><input type="checkbox" class="psim-role-cb" value="${esc(k)}" ${chk}> ${esc(r.label)}</label>`;
+  });
+  html += '</div>';
+
+  html += '</div></div>';
+
+  // 派生フラグ
+  const flags = psimDeriveFlags(_psimState);
+  html += '<div class="psim-section">';
+  html += '<div class="psim-section-title">派生フラグ</div>';
+  html += '<div class="psim-flags">';
+  const flagsToShow = [
+    ['isAdmin', flags.isAdmin],
+    ['isPortalAdmin', flags.isPortalAdmin],
+    ['isElder', flags.isElder],
+    ['isMS', flags.isMS],
+    ['isPioneer', flags.isPioneer],
+    ['isAnnaigakari', flags.isAnnaigakari],
+    ['isGroupOverseer', flags.isGroupOverseer],
+    ['isGroupAssistant', flags.isGroupAssistant],
+    ['inactive', flags.inactive],
+  ];
+  flagsToShow.forEach(([k, v]) => {
+    html += `<span class="psim-flag ${v ? 'psim-flag-on' : 'psim-flag-off'}">${esc(k)}: ${v ? 'true' : 'false'}</span>`;
+  });
+  html += '</div></div>';
+
+  // プレビュー（各画面の表示項目）
+  html += '<div class="psim-section">';
+  html += '<div class="psim-section-title">プレビュー（表示される項目）</div>';
+  PSIM_FEATURES.forEach(grp => {
+    // セクション自体の表示条件
+    const sectionVisible = !grp.cond || grp.cond(flags);
+    html += `<div class="psim-prev-group ${sectionVisible ? '' : 'psim-prev-group-hidden'}">`;
+    html += `<div class="psim-prev-group-title">${esc(grp.group)}${sectionVisible ? '' : ' <span class="psim-hidden-tag">非表示</span>'}</div>`;
+    if (sectionVisible) {
+      html += '<div class="psim-prev-items">';
+      grp.items.forEach(it => {
+        const visible = it.when(flags);
+        const icon = visible ? '✓' : '✗';
+        const cls = visible ? 'psim-item-on' : 'psim-item-off';
+        const hint = (!visible && it.hint) ? ` <span class="psim-item-hint">(${esc(it.hint)})</span>` : '';
+        html += `<div class="psim-item ${cls}"><span class="psim-item-icon">${icon}</span>${esc(it.label)}${hint}</div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '</div>';
+  body.innerHTML = html;
+
+  // イベント
+  body.querySelectorAll('.psim-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.preset;
+      if (key && PSIM_PRESETS[key]) {
+        const p = PSIM_PRESETS[key];
+        _psimState = {
+          appointment: p.appointment,
+          orgRoleKeys: p.orgRoleKeys.slice(),
+          status: p.status.slice(),
+        };
+      } else {
+        _psimState = { appointment: '', orgRoleKeys: [], status: [] };
+      }
+      renderPermissionSimulator();
+    });
+  });
+  body.querySelectorAll('input[name="psim-appt"]').forEach(r => {
+    r.addEventListener('change', () => {
+      _psimState.appointment = r.value;
+      renderPermissionSimulator();
+    });
+  });
+  body.querySelectorAll('.psim-status-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const v = cb.value;
+      const i = _psimState.status.indexOf(v);
+      if (cb.checked && i === -1) _psimState.status.push(v);
+      else if (!cb.checked && i !== -1) _psimState.status.splice(i, 1);
+      renderPermissionSimulator();
+    });
+  });
+  body.querySelectorAll('.psim-role-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const v = cb.value;
+      const i = _psimState.orgRoleKeys.indexOf(v);
+      if (cb.checked && i === -1) _psimState.orgRoleKeys.push(v);
+      else if (!cb.checked && i !== -1) _psimState.orgRoleKeys.splice(i, 1);
+      renderPermissionSimulator();
+    });
+  });
+}
+
+document.getElementById('admin-manage-permission-simulator')?.addEventListener('click', () => {
+  navigate('admin-permission-simulator');
+});
