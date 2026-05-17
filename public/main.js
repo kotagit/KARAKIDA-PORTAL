@@ -6268,6 +6268,7 @@ function openMemberEditModal(id) {
 
   document.getElementById('me-gender').value   = member?.gender   || '';
   document.getElementById('me-mail').value     = member?.mail     || '';
+  document.getElementById('me-address').value  = member?.address  || '';
   document.getElementById('me-stability').value = member?.stability || '';
   document.getElementById('me-hascar').checked  = member?.hasCar === true;
   const apEl = document.getElementById('me-appointment');
@@ -6378,6 +6379,7 @@ async function saveMemberEdit(e) {
   const group    = document.getElementById('me-group').value.trim();
   const gender   = document.getElementById('me-gender').value;
   const mail     = document.getElementById('me-mail').value.trim();
+  const address  = document.getElementById('me-address').value.trim();
   const stability = document.getElementById('me-stability').value;
   const hasCar    = document.getElementById('me-hascar').checked;
   const appointment = document.getElementById('me-appointment')?.value || '';
@@ -6396,6 +6398,7 @@ async function saveMemberEdit(e) {
   const data = {
     name, furigana, group, gender,
     mail: mail.toLowerCase(),
+    address,
     stability, hasCar,
     status,
     appointment,
