@@ -2666,6 +2666,33 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .meb-weight { padding: 2px; font-size: 12px; }
 
 /* ── 部門別 取決め表 ── */
+.duty-priority-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-left: 4px solid #ff9800;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  color: #6c4a00;
+}
+.duty-warn-icon { color: #ff9800; font-size: 22px; flex-shrink: 0; }
+.duty-warn-body { flex: 1; min-width: 0; }
+.duty-warn-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #8a5a00; }
+.duty-warn-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.duty-warn-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  background: #ffe082;
+  color: #8a5a00;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.duty-warn-hint { font-size: 11px; color: #888; }
+
 .duty-month-nav {
   display: flex;
   align-items: center;

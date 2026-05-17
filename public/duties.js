@@ -34,6 +34,53 @@ const DEPT_CONFIG = {
 };
 window.DEPT_CONFIG = DEPT_CONFIG;
 
+// 部門の策定優先順位（高い→低い）
+// 高優先度の部門が完全に決まる前に、低優先度の部門を策定すべきではない
+const DEPT_PRIORITY = ['avs', 'parking', 'annai', 'literature'];
+
+// 指定月において、currentDept より優先順位が高い部門のうち、
+// 「公開済み かつ 全スロット埋まっている」を満たさない部門を返す
+async function getIncompleteHigherDepts(currentDept, monthDate, dates) {
+  const idx = DEPT_PRIORITY.indexOf(currentDept);
+  if (idx <= 0) return [];
+  const higher = DEPT_PRIORITY.slice(0, idx);
+  try {
+    const start = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth(), 1));
+    const end   = fmtYmd(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0));
+    const snap = await db.collection('DEPT_DUTY')
+      .where('date', '>=', start)
+      .where('date', '<=', end)
+      .get();
+    const byDept = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (!higher.includes(d.dept)) return;
+      if (!byDept[d.dept]) byDept[d.dept] = {};
+      byDept[d.dept][`${d.position}_${d.date}`] = d.publishedAssignee || '';
+    });
+    const incomplete = [];
+    for (const dept of higher) {
+      const cfg = DEPT_CONFIG[dept];
+      if (!cfg) continue;
+      const need = dates.length * cfg.positions.length;
+      let filled = 0;
+      const docs = byDept[dept] || {};
+      for (const { date } of dates) {
+        const ymd = fmtYmd(date);
+        for (const pos of cfg.positions) {
+          if (docs[`${pos.id}_${ymd}`]) filled++;
+        }
+      }
+      if (filled < need) incomplete.push({ id: dept, label: cfg.label });
+    }
+    return incomplete;
+  } catch (e) {
+    console.warn('getIncompleteHigherDepts error:', e);
+    return [];
+  }
+}
+window.getIncompleteHigherDepts = getIncompleteHigherDepts;
+
 // 月単位の状態
 let _dutyCurDept  = null;
 let _dutyCurMonth = null;
@@ -365,8 +412,25 @@ async function renderDeptAdmin() {
 
     const isDraft = _dutyViewMode === 'draft';
 
+    // 優先順位チェック: 上位部門の予定が完成していない場合は警告
+    let priorityWarning = '';
+    try {
+      const incomplete = await getIncompleteHigherDepts(dept, monthDate, dates);
+      if (incomplete.length > 0) {
+        const list = incomplete.map(d => `<span class="duty-warn-chip">${esc(d.label)}</span>`).join('');
+        priorityWarning = `<div class="duty-priority-warning">
+          <span class="material-icons duty-warn-icon">warning</span>
+          <div class="duty-warn-body">
+            <div class="duty-warn-title">以下の部門の予定が先に決まっていません</div>
+            <div class="duty-warn-list">${list}</div>
+            <div class="duty-warn-hint">優先順位の高い部門を先に決めることをお勧めします。</div>
+          </div>
+        </div>`;
+      }
+    } catch (e) { console.warn('priority check error:', e); }
+
     // 月切替UI
-    let html = `
+    let html = priorityWarning + `
       <div class="duty-month-nav">
         <button class="icon-btn" onclick="changeDutyMonth(-1)" title="前月"><span class="material-icons">chevron_left</span></button>
         <span class="duty-month-label">${esc(monthLabel)}</span>
