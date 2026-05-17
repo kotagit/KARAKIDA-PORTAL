@@ -6449,7 +6449,7 @@ function deriveDepartmentsFromOrgRoles(orgRoles) {
   return [...set];
 }
 window.deriveDepartmentsFromOrgRoles = deriveDepartmentsFromOrgRoles;
-// 部門情報モード: ポジション限定（部門ごとのポジション）
+// 部門情報モード: 奉仕場所（部門ごとのポジション）
 const ME_POSITION_DEFS = [
   { dept: 'annai',    pos: 'hall',     label: '会場' },
   { dept: 'annai',    pos: 'entrance', label: '入口' },
@@ -6837,8 +6837,8 @@ function renderDeptEditTable() {
     }
   });
 
-  // ポジション限定
-  addSection('ポジション限定', 'meb-grp-pos');
+  // 奉仕場所
+  addSection('奉仕場所', 'meb-grp-pos');
   const DEPT_ID_TO_LABEL = { annai:'案内', avs:'AV', parking:'駐車場', cleaning:'清掃' };
   ME_POSITION_DEFS.forEach(p => {
     rows.push({
