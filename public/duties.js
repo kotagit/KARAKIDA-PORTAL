@@ -27,6 +27,10 @@ const DEPT_CONFIG = {
   cleaning: { label: '清掃部門', icon: 'cleaning_services', mode: 'group', positions: [
     { id: 'group', label: '担当グループ' },
   ]},
+  literature: { label: '文書部門', icon: 'menu_book', positions: [
+    { id: 'before', label: '集会前' },
+    { id: 'after',  label: '集会後' },
+  ]},
 };
 window.DEPT_CONFIG = DEPT_CONFIG;
 
@@ -823,6 +827,7 @@ document.getElementById('admin-manage-dept-annai')?.addEventListener('click', ()
 document.getElementById('admin-manage-dept-avs')?.addEventListener('click', () => openDeptAdmin('avs'));
 document.getElementById('admin-manage-dept-parking')?.addEventListener('click', () => openDeptAdmin('parking'));
 document.getElementById('admin-manage-dept-cleaning')?.addEventListener('click', () => openDeptAdmin('cleaning'));
+document.getElementById('admin-manage-dept-literature')?.addEventListener('click', () => openDeptAdmin('literature'));
 
 // ══════════════════════════════════════════════════════════════
 // ── ユーザー側表示（publishedAssignee のみ表示） ─────────────
