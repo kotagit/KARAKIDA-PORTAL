@@ -114,11 +114,13 @@ const PAGE_TITLES = {
   'admin-dept-avs': 'AVS 取決め表',
   'admin-dept-parking': '駐車場 取決め表',
   'admin-dept-cleaning': '清掃 取決め表',
+  'admin-dept-literature': '文書 取決め表',
   bumon: '部門',
   'user-dept-annai': '案内部門',
   'user-dept-avs': 'AVS部門',
   'user-dept-parking': '駐車場部門',
   'user-dept-cleaning': '王国会館の清掃',
+  'user-dept-literature': '文書部門',
 };
 
 // ── DOM ──────────────────────────────────────
@@ -6431,6 +6433,7 @@ const DUTY_TO_ORG_DEPT = {
   avs:      ['stage_av'],
   parking:  ['parking'],
   cleaning: ['cleaning_coord'],
+  literature: ['literature'],
 };
 window.DUTY_TO_ORG_DEPT = DUTY_TO_ORG_DEPT;
 // 後方互換: 旧 departments フィールドを参照する箇所のために残す

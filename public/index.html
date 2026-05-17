@@ -154,6 +154,11 @@
                 <span class="admin-row-label">駐車場部門</span>
                 <span class="material-icons admin-row-chevron">chevron_right</span>
               </div>
+              <div class="admin-list-row home-acc-item" data-page="user-dept-literature">
+                <span class="material-icons admin-row-icon" style="color:#5d4037 !important">menu_book</span>
+                <span class="admin-row-label">文書部門</span>
+                <span class="material-icons admin-row-chevron">chevron_right</span>
+              </div>
             </div>
           </div>
           <div class="home-accordion" id="home-acc-shinsei">
@@ -333,6 +338,15 @@
             <span class="admin-row-label">清掃 取決め表</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
+
+          <div class="admin-role-header">
+            <span class="material-icons admin-role-icon">menu_book</span>
+            <span class="admin-role-name">文書</span>
+          </div>
+          <div class="admin-list-row" id="admin-manage-dept-literature">
+            <span class="admin-row-label">文書 取決め表</span>
+            <span class="material-icons admin-row-chevron">chevron_right</span>
+          </div>
         </div>
 
         <!-- ── 会衆 ── -->
@@ -492,6 +506,16 @@
       </div>
       <div class="page-content">
         <div id="dept-cleaning-body"><div class="loading">読み込み中...</div></div>
+      </div>
+    </section>
+
+    <section id="page-admin-dept-literature" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">文書 取決め表</h2>
+      </div>
+      <div class="page-content">
+        <div id="dept-literature-body"><div class="loading">読み込み中...</div></div>
       </div>
     </section>
 
@@ -838,6 +862,11 @@
     <section id="page-user-dept-cleaning" class="page">
       <div class="page-banner banner-shukai"><h2>王国会館の清掃</h2></div>
       <div class="page-content"><div id="user-dept-cleaning-body"></div></div>
+    </section>
+    <!-- 部門：文書 -->
+    <section id="page-user-dept-literature" class="page">
+      <div class="page-banner banner-shukai"><h2>文書部門</h2></div>
+      <div class="page-content"><div id="user-dept-literature-body"></div></div>
     </section>
 
     <!-- 申請 -->
@@ -2016,10 +2045,10 @@
   </div>
 </div>
 
-<script src="main.js?v=186"></script>
+<script src="main.js?v=187"></script>
 <script src="assignment.js?v=80"></script>
 <script src="pw.js?v=9"></script>
-<script src="duties.js?v=14"></script>
+<script src="duties.js?v=15"></script>
 <script src="public-talk.js?v=17"></script>
 </body>
 </html>
