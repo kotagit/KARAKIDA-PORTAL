@@ -6429,6 +6429,7 @@ const ME_BULK_TEXT_FIELDS = [
   { key: 'group',    label: 'グループ',   width: 80,  type: 'select-group' },
   { key: 'gender',   label: '性別',       width: 50,  type: 'select', options: ['', '男', '女'] },
   { key: 'mail',     label: 'メール',     width: 140 },
+  { key: 'address',  label: '住所',       width: 200 },
 ];
 
 // 部門情報モード: 部門取決め表IDと組織表部門IDのマッピング
