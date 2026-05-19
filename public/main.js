@@ -7363,27 +7363,52 @@ function psimDeriveFlags(state) {
 // 表示ルール: 各機能の表示条件と説明
 // when(flags) → true なら表示
 const PSIM_FEATURES = [
-  { group: 'ホーム画面', items: [
+  { group: 'ホーム画面（上位タイル）', items: [
     { label: '発表', when: f => true },
     { label: '宣教', when: f => true },
     { label: '集会', when: f => true },
-    { label: '申請（フォーム）', when: f => true },
+    { label: 'フォーム', when: f => true },
     { label: '組織', when: f => true },
-    { label: '行事', when: f => true },
+    { label: 'イベント', when: f => true },
     { label: '情報', when: f => true },
     { label: '計画', when: f => true },
     { label: '災害対応', when: f => true },
     { label: '管理画面', when: f => f.isAdmin, hint: '要 WEB' },
+    { label: '奉仕報告提出バナー', when: f => false, hint: '毎月1〜10日のみ表示（日付条件）' },
   ]},
-  { group: '申請ページ', items: [
+  { group: 'ホーム > 宣教アコーディオン', items: [
+    { label: '個人の区域カード', when: f => true, hint: '区域割り当てがあると表示' },
+    { label: '全ての区域カード', when: f => true, hint: '区域割り当てがあると表示' },
+    { label: 'オートロック区域', when: f => true, hint: '区域割り当てがあると表示' },
+    { label: '夜間区域',         when: f => true, hint: '区域割り当てがあると表示' },
+    { label: '野外奉仕取決表', when: f => true },
+    { label: '公共エリア伝道', when: f => true },
+  ]},
+  { group: 'ホーム > 集会アコーディオン', items: [
+    { label: '公開講演（週末の集会）', when: f => true },
+    { label: '週中の集会',             when: f => true },
+    { label: '王国会館の清掃',         when: f => true },
+  ]},
+  { group: 'ホーム > 部門アコーディオン', items: [
+    { label: '案内部門',   when: f => true },
+    { label: 'AVS部門',    when: f => true },
+    { label: '駐車場部門', when: f => true },
+    { label: '文書部門',   when: f => true },
+  ]},
+  { group: 'ホーム > フォームアコーディオン', items: [
     { label: '公共エリア伝道申込み', when: f => true },
     { label: '奉仕報告',           when: f => true },
     { label: '区域情報登録',       when: f => true },
     { label: '成員情報登録',       when: f => true },
     { label: '出席人数登録',       when: f => f.isAnnaigakari || f.isAdmin, hint: '要 案内係 or WEB' },
   ]},
-  { group: '集会ページ', items: [
+  { group: '集会ページ内', items: [
     { label: '講演希望番号', when: f => f.isElder, hint: '要 長老' },
+  ]},
+  { group: '情報ページ', items: [
+    { label: '会衆登録情報', when: f => true },
+    { label: '連絡先情報',   when: f => true },
+    { label: '伝道者カード', when: f => true },
   ]},
   { group: '管理画面（全体）', items: [
     { label: '管理画面に入る権限', when: f => f.isAdmin, hint: '要 WEB' },
@@ -7501,24 +7526,33 @@ function renderPermissionSimulator() {
 
   // プレビュー（各画面の表示項目）
   html += '<div class="psim-section">';
-  html += '<div class="psim-section-title">プレビュー（表示される項目）</div>';
+  html += '<div class="psim-section-title">プレビュー（表示される項目）<span class="psim-prev-actions">'
+       +  '<button type="button" class="psim-prev-toggle" data-act="expand">すべて開く</button>'
+       +  '<button type="button" class="psim-prev-toggle" data-act="collapse">すべて閉じる</button>'
+       +  '</span></div>';
   PSIM_FEATURES.forEach(grp => {
     // セクション自体の表示条件
     const sectionVisible = !grp.cond || grp.cond(flags);
-    html += `<div class="psim-prev-group ${sectionVisible ? '' : 'psim-prev-group-hidden'}">`;
-    html += `<div class="psim-prev-group-title">${esc(grp.group)}${sectionVisible ? '' : ' <span class="psim-hidden-tag">非表示</span>'}</div>`;
+    // 可視/非表示カウント
+    const totalCount = grp.items.length;
+    const visibleCount = sectionVisible
+      ? grp.items.filter(it => it.when(flags)).length
+      : 0;
+    const summary = `${esc(grp.group)} <span class="psim-prev-count">${visibleCount}/${totalCount}</span>${sectionVisible ? '' : ' <span class="psim-hidden-tag">非表示</span>'}`;
+    html += `<details class="psim-prev-group ${sectionVisible ? '' : 'psim-prev-group-hidden'}">`;
+    html += `<summary class="psim-prev-group-title">${summary}</summary>`;
     if (sectionVisible) {
       html += '<div class="psim-prev-items">';
       grp.items.forEach(it => {
         const visible = it.when(flags);
         const icon = visible ? '✓' : '✗';
         const cls = visible ? 'psim-item-on' : 'psim-item-off';
-        const hint = (!visible && it.hint) ? ` <span class="psim-item-hint">(${esc(it.hint)})</span>` : '';
+        const hint = it.hint ? ` <span class="psim-item-hint">(${esc(it.hint)})</span>` : '';
         html += `<div class="psim-item ${cls}"><span class="psim-item-icon">${icon}</span>${esc(it.label)}${hint}</div>`;
       });
       html += '</div>';
     }
-    html += '</div>';
+    html += '</details>';
   });
   html += '</div>';
 
@@ -7564,6 +7598,13 @@ function renderPermissionSimulator() {
       if (cb.checked && i === -1) _psimState.orgRoleKeys.push(v);
       else if (!cb.checked && i !== -1) _psimState.orgRoleKeys.splice(i, 1);
       renderPermissionSimulator();
+    });
+  });
+  // プレビュー全展開/全折りたたみ
+  body.querySelectorAll('.psim-prev-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const open = btn.dataset.act === 'expand';
+      body.querySelectorAll('details.psim-prev-group').forEach(d => { d.open = open; });
     });
   });
 }
