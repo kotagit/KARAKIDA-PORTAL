@@ -6552,15 +6552,27 @@ async function loadAccessLog() {
         latestLog: null,
       }));
 
+    // orderBy + where はコンポジットインデックスが必要なので、equality だけで取得し
+     // クライアント側で最新を選ぶ（1ユーザあたりのログ件数は通常小さい想定）
     await Promise.all(memberEntries.map(async (m) => {
       let q = db.collection('LOGIN_LOG');
       if (m.email) q = q.where('email', '==', m.email);
       else q = q.where('name', '==', m.name);
-      const snap = await q.orderBy('loginAt', 'desc').limit(1).get();
-      if (!snap.empty) {
-        const d = snap.docs[0].data();
-        const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-        m.latestLog = { docId: snap.docs[0].id, dt, ua: d.userAgent || '' };
+      const snap = await q.get();
+      if (snap.empty) return;
+      let latestDoc = null, latestTs = -1;
+      snap.forEach(d => {
+        const ts = d.data().loginAt?.seconds || 0;
+        if (ts > latestTs) { latestTs = ts; latestDoc = d; }
+      });
+      if (latestDoc) {
+        const data = latestDoc.data();
+        const dt = data.loginAt?.toDate ? data.loginAt.toDate() : null;
+        m.latestLog = { docId: latestDoc.id, dt, ua: data.userAgent || '' };
+        m._allLogs = snap.docs.map(d => {
+          const dd = d.data();
+          return { docId: d.id, dt: dd.loginAt?.toDate ? dd.loginAt.toDate() : null, ua: dd.userAgent || '' };
+        }).sort((a, b) => (b.dt?.getTime() || 0) - (a.dt?.getTime() || 0));
       }
     }));
 
@@ -6705,18 +6717,22 @@ function _alRenderList() {
 
 async function _alLoadUserDetail(detailEl, u) {
   try {
-    let q = db.collection('LOGIN_LOG');
-    if (u.email) q = q.where('email', '==', u.email);
-    else q = q.where('name', '==', u.name);
-    const snap = await q.orderBy('loginAt', 'desc').get();
-    const logs = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        docId: d.id,
-        dt: data.loginAt?.toDate ? data.loginAt.toDate() : null,
-        ua: data.userAgent || '',
-      };
-    });
+    // 初回取得時のキャッシュを優先利用（インデックス不要な等価クエリで既に全件取得済み）
+    let logs = u._allLogs;
+    if (!logs) {
+      let q = db.collection('LOGIN_LOG');
+      if (u.email) q = q.where('email', '==', u.email);
+      else q = q.where('name', '==', u.name);
+      const snap = await q.get();
+      logs = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          docId: d.id,
+          dt: data.loginAt?.toDate ? data.loginAt.toDate() : null,
+          ua: data.userAgent || '',
+        };
+      }).sort((a, b) => (b.dt?.getTime() || 0) - (a.dt?.getTime() || 0));
+    }
     let html = '';
     if (isPortalAdmin) {
       const ids = logs.map(l => l.docId).join(',');
