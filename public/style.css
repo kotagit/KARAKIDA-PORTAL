@@ -1143,14 +1143,16 @@ body {
   font-weight: 700; color: var(--primary-dark); font-size: 13px;
 }
 
-/* 公共エリア伝道：セクションヘッダーをグラデーションに */
+/* 公共エリア伝道：セクションヘッダーをオレンジパステルに */
 #page-senkyo-public .aw-inline-section {
   border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(4, 124, 188, 0.12);
+  box-shadow: 0 4px 14px rgba(239, 108, 0, 0.12);
 }
 #page-senkyo-public .aw-inline-header {
-  background: linear-gradient(135deg, #047CBC 0%, #1e96d8 100%);
+  background: #ffcc80;
 }
+#page-senkyo-public .aw-inline-title { color: #1a1a1a; }
+#page-senkyo-public .fs-hdr-weekend { color: #c62828; }
 
 /* ── 組織表 閲覧（プレビュー形式） ── */
 .org-pv-wrap { max-width: 800px; margin: 0 auto; padding: 16px; }

@@ -5273,8 +5273,7 @@ async function loadSenkyoPublic() {
       hdr.className = 'aw-inline-header';
       hdr.innerHTML = `
         <div class="aw-header-left">
-          <div class="aw-inline-title${isWeekend ? ' fs-hdr-weekend' : ''}">${esc(group.day)}（${esc(group.weekday)}）</div>
-          <div class="aw-inline-sub">${esc(group.time)}</div>
+          <div class="aw-inline-title${isWeekend ? ' fs-hdr-weekend' : ''}">${esc(group.day)}(${esc(group.weekday)})　${esc(group.time)}</div>
         </div>
       `;
       section.appendChild(hdr);
