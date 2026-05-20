@@ -6864,10 +6864,17 @@ function renderDeptEditTable() {
   let lastSection = '';
   let lastDept = '';
   let lastParent = '';
+  let lifeMeetingSecAdded = false;
   const SVC_PARENT_LABELS = { coord: '調整者管轄', secretary: '書記管轄', svc_ov: '奉仕監督管轄' };
   ORG_DEPARTMENTS.forEach(d => {
     // 開拓者セクションは資格タグ内の「正規開拓者」と重複するためスキップ
     if (d.section === '開拓者') return;
+    // 野外宣教グループに入る直前に「生活と奉仕のための集会」セクションを挟む（現状は項目なし）
+    if (d.section === '野外宣教グループ' && !lifeMeetingSecAdded) {
+      addSection('生活と奉仕のための集会', 'meb-grp-org-life');
+      lifeMeetingSecAdded = true;
+      lastDept = '';
+    }
     if (d.section !== lastSection) {
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
                 : d.section === '長老団' ? 'meb-grp-org-elder'

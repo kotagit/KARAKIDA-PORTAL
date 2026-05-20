@@ -2676,6 +2676,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   padding-left: 28px; font-size: 11px;
 }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-elder td   { background: #fce4ec; color: #ad1457; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-life td    { background: #e8eaf6; color: #283593; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-pioneer td { background: #fff3e0; color: #e65100; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-group td   { background: #e0f2f1; color: #00695c; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-dept td        { background: #e8f5e9; color: #2e7d32; }
