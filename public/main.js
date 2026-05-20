@@ -2592,15 +2592,67 @@ function selectSrTarget(mode) {
   const isOther = mode === 'other';
   document.getElementById('sr-name-row').classList.toggle('hidden', isOther);
   document.getElementById('sr-other-name-row').classList.toggle('hidden', !isOther);
-  document.getElementById('sr-other-furigana-row').classList.toggle('hidden', !isOther);
   document.getElementById('sr-group-row').classList.toggle('hidden', isOther);
   document.getElementById('sr-other-group-row').classList.toggle('hidden', !isOther);
   if (isOther) {
     loadSrGroupList();
+    // 成員プルダウンをリセット（グループが選ばれてから成員リストを populate）
+    const memberSel = document.getElementById('sr-other-member');
+    if (memberSel) memberSel.innerHTML = '<option value="">グループを先に選択</option>';
   } else {
     document.getElementById('sr-group').value = memberUserGroup || '';
   }
   _srApplySelfModeAutofill(!isOther);
+}
+
+// グループ選択 → そのグループの成員プルダウン populate
+async function _srLoadMembersForGroup(groupName) {
+  const sel = document.getElementById('sr-other-member');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">読み込み中...</option>';
+  try {
+    const userList = await getUserListCached();
+    const members = userList
+      .filter(d => String(d.group || '').trim() === groupName && String(d.name || '').trim())
+      .sort((a, b) => String(a.furigana || a.name || '').localeCompare(String(b.furigana || b.name || ''), 'ja'));
+    sel.innerHTML = '<option value="">選択してください</option>';
+    members.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.docId;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    sel.innerHTML = '<option value="">読み込みエラー</option>';
+  }
+}
+
+// 「他の人」モードで成員選択 → 性別/立場/ふりがな を USER_LIST から自動入力
+async function _srApplyOtherMemberAutofill(docId) {
+  const genderSel = document.getElementById('sr-gender');
+  const roleSel   = document.getElementById('sr-role');
+  if (!docId) {
+    // 未選択時はクリア + 編集可
+    if (genderSel) { genderSel.value = ''; genderSel.disabled = false; genderSel.style.background = ''; }
+    if (roleSel)   { roleSel.value   = '伝道者'; roleSel.disabled   = false; roleSel.style.background = ''; roleSel.dispatchEvent(new Event('change')); }
+    return;
+  }
+  try {
+    const userList = await getUserListCached();
+    const m = userList.find(u => u.docId === docId);
+    if (!m) return;
+    const g = m.gender === '男' ? '男性' : (m.gender === '女' ? '女性' : '');
+    if (genderSel) { genderSel.value = g; genderSel.disabled = true; genderSel.style.background = '#f5f5f5'; }
+    let role = '伝道者';
+    if (typeof deriveIsRegularPioneer === 'function' && deriveIsRegularPioneer(m)) role = '正規開拓者';
+    else if (typeof deriveIsAuxPioneer === 'function' && deriveIsAuxPioneer(m)) role = '補助開拓者';
+    if (roleSel) {
+      roleSel.value = role;
+      roleSel.disabled = true;
+      roleSel.style.background = '#f5f5f5';
+      roleSel.dispatchEvent(new Event('change'));
+    }
+  } catch(_) {}
 }
 
 async function initServiceReportForm() {
@@ -2613,11 +2665,30 @@ async function initServiceReportForm() {
   // デフォルト：自分モードのフィールド表示
   document.getElementById('sr-name-row').classList.remove('hidden');
   document.getElementById('sr-other-name-row').classList.add('hidden');
-  document.getElementById('sr-other-furigana-row').classList.add('hidden');
   document.getElementById('sr-group-row').classList.remove('hidden');
   document.getElementById('sr-other-group-row').classList.add('hidden');
   // 自分モード: USER_LIST から性別/立場を自動セット & 入力不可に
   _srApplySelfModeAutofill(true);
+
+  // グループ選択 → 成員プルダウン更新（一度だけ wire）
+  const grpSel = document.getElementById('sr-other-group');
+  if (grpSel && !grpSel._srWired) {
+    grpSel.addEventListener('change', () => {
+      const g = grpSel.value;
+      if (g) _srLoadMembersForGroup(g);
+      // 成員未選択にリセット
+      _srApplyOtherMemberAutofill('');
+    });
+    grpSel._srWired = true;
+  }
+  // 成員選択 → 性別/立場 autofill（一度だけ wire）
+  const memSel = document.getElementById('sr-other-member');
+  if (memSel && !memSel._srWired) {
+    memSel.addEventListener('change', () => {
+      _srApplyOtherMemberAutofill(memSel.value);
+    });
+    memSel._srWired = true;
+  }
 
   // 月プルダウン（デフォルト：先月）
   const monthSel = document.getElementById('sr-month');
@@ -2650,12 +2721,19 @@ async function initServiceReportForm() {
   const btn = document.getElementById('sr-submit');
   btn.onclick = async () => {
     const isOther = document.getElementById('sr-target').value === 'other';
-    let submitName, submitGroup;
+    let submitName, submitGroup, submitFurigana = '';
     if (isOther) {
-      submitName = document.getElementById('sr-other-name').value.trim();
       submitGroup = document.getElementById('sr-other-group').value;
-      if (!submitName) { alert('氏名を入力してください'); return; }
       if (!submitGroup) { alert('グループを選択してください'); return; }
+      const memberDocId = document.getElementById('sr-other-member').value;
+      if (!memberDocId) { alert('成員を選択してください'); return; }
+      try {
+        const userList = await getUserListCached();
+        const m = userList.find(u => u.docId === memberDocId);
+        if (!m) { alert('成員データが見つかりません'); return; }
+        submitName = String(m.name || '').trim();
+        submitFurigana = String(m.furigana || '').trim();
+      } catch (e) { alert('USER_LIST 読込エラー: ' + e.message); return; }
     } else {
       submitName = memberUserName || '不明';
       submitGroup = memberUserGroup || '';
@@ -2694,7 +2772,7 @@ async function initServiceReportForm() {
     try {
       const reportData = {
         name: submitName,
-        furigana: isOther ? (document.getElementById('sr-other-furigana').value.trim()) : '',
+        furigana: isOther ? submitFurigana : '',
         groupName: submitGroup,
         gender,
         month,
@@ -2715,9 +2793,9 @@ async function initServiceReportForm() {
       document.getElementById('sr-bible').value = '';
       document.getElementById('sr-remarks').value = '';
       if (isOther) {
-        document.getElementById('sr-other-name').value = '';
-        document.getElementById('sr-other-furigana').value = '';
         document.getElementById('sr-other-group').value = '';
+        const memSel = document.getElementById('sr-other-member');
+        if (memSel) memSel.innerHTML = '<option value="">グループを先に選択</option>';
       }
       document.getElementById('sr-target').value = 'self';
       navigate('home');
