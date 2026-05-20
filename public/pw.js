@@ -448,7 +448,8 @@ function renderPWAssignment(slot) {
     });
   }
 
-  let html = '';
+  // 取決め日付＋時刻を本体先頭に表示
+  let html = `<div class="pw-assignment-slot-title">${esc(slot.dateLabel || '')}　${esc(slot.time || '')}</div>`;
   slot.fullPlaces.forEach(fp => {
     const data = subMap[fp] || { '司会者': null, '参加者': [null,null,null,null,null] };
     const cond = applicantsForFullPlace(fp, slot.conductorApplicants);
