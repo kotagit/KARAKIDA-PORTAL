@@ -358,6 +358,135 @@ async function awReviewPublishAll() {
   } catch(e) { alert('一括公開エラー: ' + e.message); }
 }
 
+// 公開済の予定表を印刷用 HTML として新規ウィンドウで開き、印刷ダイアログ起動
+function awReviewDownloadPdf() {
+  if (!awSharedMonth) { alert('月が選択されていません'); return; }
+  const targets = awFilterWeeksByMonth(awWeeks, awSharedMonth)
+    .filter(w => w.programStatus === 'published');
+  if (targets.length === 0) {
+    alert('公開済みの週がありません。先に「全週承認・公開」を実行してください。');
+    return;
+  }
+
+  const PAIR_OF = { H:'I', J:'K', L:'M', N:'O', U:'V' };
+  const PAIR_PARTNER_SET = new Set(Object.values(PAIR_OF));
+
+  function renderWeek(week) {
+    const slots = week.slots || {};
+    const topics = week.topics || {};
+    const items = week.items || [];
+    const convention = week.conventionType || '';
+    const isCircuitVisit = !!week.circuitVisit;
+    const chairName = slots['A'] || '';
+
+    let body = '';
+    if (convention) {
+      body = `<div class="conv-box">${esc(convention)}</div>`;
+    } else {
+      let prevSec = '', minutesOffset = 0;
+      items.forEach(item => {
+        const sec = item.section;
+        if (sec && sec !== prevSec && sec !== '開会') {
+          if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
+          const color = AW_SECTION_COLORS[sec] || '#333';
+          body += `<div class="sec-hdr" style="background:${esc(color)}">${esc(sec)}</div>`;
+          prevSec = sec;
+        }
+        const h = 19 + Math.floor(minutesOffset / 60);
+        const mi = ((minutesOffset % 60) + 60) % 60;
+        const timeStr = `${h}:${mi.toString().padStart(2,'0')}`;
+
+        let assigneeText = '';
+        if (item.title === '閉会の言葉') {
+          assigneeText = slots['A'] || '';
+        } else if (item.codes && item.codes.length > 0) {
+          const parts = [];
+          const isSongWithPrayer = item.type === 'song' && item.codes.includes('B');
+          if (isSongWithPrayer) {
+            const prayerName = slots['B'] || '';
+            if (prayerName) parts.push(prayerName);
+          } else {
+            item.codes.forEach(code => {
+              const base = awGetBase(code);
+              if (PAIR_PARTNER_SET.has(base)) return;
+              const partnerBase = PAIR_OF[base];
+              const partnerCode = code.includes('_') ? code.replace(base, partnerBase) : partnerBase;
+              const name = slots[code] || slots[base] || '';
+              const partnerName = slots[partnerCode] || slots[partnerBase] || '';
+              if (partnerName) parts.push(`${name} / ${partnerName}`);
+              else if (name) parts.push(name);
+            });
+          }
+          assigneeText = parts.join('、');
+        }
+
+        const itemCodes = item.codes || [];
+        let topicText = '';
+        if (itemCodes.includes('T')) topicText = topics['T'] || '';
+        else if (item.title && item.title.includes('会衆で考えたいこと')) {
+          const tCode = itemCodes.find(c => topics[awGetBase(c)]);
+          if (tCode) topicText = topics[awGetBase(tCode)] || '';
+        }
+
+        body += `<div class="row">
+          <div class="time">${esc(timeStr)}</div>
+          <div class="info">${item.number ? `<span class="num">${esc(item.number)}.</span>` : ''}<span class="title">${esc(item.title || '')}</span>${item.minutes ? `<span class="min">（${esc(item.minutes)}分）</span>` : ''}</div>
+          <div class="who">${esc(assigneeText)}</div>
+        </div>`;
+        if (topicText) {
+          body += `<div class="topic"><b>主題</b> ${esc(topicText)}</div>`;
+        }
+        minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes||'0')||0);
+      });
+    }
+
+    return `<section class="week">
+      <header class="week-hdr">
+        <div class="week-title">${esc(awGetThursdayLabel(week))}${isCircuitVisit ? '<span class="cv-tag">巡回訪問</span>' : ''}</div>
+        <div class="week-sub">${esc(week.bibleChapter || '')}</div>
+        <div class="week-chair">司会者：${esc(chairName)}</div>
+      </header>
+      ${body}
+    </section>`;
+  }
+
+  const pages = targets.map(renderWeek).join('');
+  const title = `集会予定表 ${awSharedMonth.year}年${awSharedMonth.month + 1}月`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${esc(title)}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif; color:#222; }
+  @page { size: A4 portrait; margin: 10mm 8mm; }
+  .week { page-break-after: always; padding: 4mm; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 6mm; }
+  .week:last-child { page-break-after: auto; }
+  .week-hdr { background: #047CBC; color:#fff; padding: 6px 10px; margin: -4mm -4mm 6px; border-radius: 4px 4px 0 0; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  .week-title { font-size: 14px; font-weight: 700; }
+  .cv-tag { margin-left: 8px; font-size: 11px; background:#fff; color:#047CBC; padding: 1px 6px; border-radius: 8px; }
+  .week-sub { font-size: 11px; opacity: 0.9; }
+  .week-chair { font-size: 12px; font-weight: 700; }
+  .sec-hdr { color:#fff; font-size: 11px; font-weight:700; padding: 3px 8px; margin: 6px 0 4px; border-radius: 3px; }
+  .row { display: grid; grid-template-columns: 38px 1fr 1fr; gap: 6px; padding: 3px 4px; border-bottom: 1px dashed #ddd; font-size: 11px; align-items: baseline; }
+  .time { color:#777; }
+  .num { color:#999; margin-right: 4px; }
+  .title { font-weight: 600; }
+  .min { color:#999; margin-left: 4px; }
+  .who { font-size: 11px; color:#222; }
+  .topic { padding: 2px 8px 4px; font-size: 10px; color:#444; background: #f5f8fa; border-left: 3px solid #047CBC; margin: 0 0 4px; }
+  .topic b { font-size: 10px; margin-right: 4px; color: #047CBC; }
+  .conv-box { text-align:center; font-size:24px; font-weight:700; color:#888; padding: 40px 0; border: 2px dashed #aaa; border-radius: 6px; margin: 8px 0; }
+  @media screen { body { background:#eee; padding:20px; } .week { background:#fff; width:210mm; margin: 0 auto 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); padding: 8mm; min-height: 280mm; } .week-hdr { margin: -8mm -8mm 8px; } }
+</style></head><body>${pages}
+<script>window.onafterprint=function(){};</script>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('ポップアップがブロックされました。ポップアップを許可してください。'); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 400);
+}
+
 // ── S-89 生成 ──────────────────────────────
 const S89_LEAD_CODES = new Set(['E','H','J','L','N','Q']);
 const S89_PARTNER_MAP = { H:'I', J:'K', L:'M', N:'O' };
@@ -2803,6 +2932,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', () => navigate('admin-mwb-hub'));
   document.getElementById('review-publish-all-btn')
     ?.addEventListener('click', awReviewPublishAll);
+  document.getElementById('review-print-pdf-btn')
+    ?.addEventListener('click', awReviewDownloadPdf);
   document.getElementById('aw-program-confirm-all-btn')
     ?.addEventListener('click', awConfirmAllPrograms);
   document.getElementById('aw-program-edit-all-btn')
