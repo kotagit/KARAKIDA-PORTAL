@@ -2717,6 +2717,24 @@ async function initServiceReportForm() {
   roleSel.onchange = toggleRoleFields;
   toggleRoleFields();
 
+  // 特別な奉仕の切替（選択時に時間入力を表示、その他選択時は記入欄も表示）
+  const specSel = document.getElementById('sr-special-service');
+  const specHoursRow = document.getElementById('sr-special-hours-row');
+  const specOtherRow = document.getElementById('sr-special-other-row');
+  function toggleSpecialFields() {
+    const v = specSel.value;
+    specHoursRow.classList.toggle('hidden', !v);
+    specOtherRow.classList.toggle('hidden', v !== 'その他');
+    if (!v) {
+      document.getElementById('sr-special-hours').value = '';
+      document.getElementById('sr-special-other').value = '';
+    } else if (v !== 'その他') {
+      document.getElementById('sr-special-other').value = '';
+    }
+  }
+  specSel.onchange = toggleSpecialFields;
+  toggleSpecialFields();
+
   // 送信
   const btn = document.getElementById('sr-submit');
   btn.onclick = async () => {
@@ -2745,11 +2763,15 @@ async function initServiceReportForm() {
     const participation = document.getElementById('sr-participation').value;
     const hours = document.getElementById('sr-hours').value.trim();
     const bible = document.getElementById('sr-bible').value.trim();
+    const specialService = document.getElementById('sr-special-service').value;
+    const specialOther = document.getElementById('sr-special-other').value.trim();
+    const specialHoursRaw = document.getElementById('sr-special-hours').value.trim();
     const remarks = document.getElementById('sr-remarks').value.trim();
 
     if (!gender) { alert('性別を選択してください'); return; }
     if (role === '伝道者' && !participation) { alert('伝道に参加したか選択してください'); return; }
     if (role !== '伝道者' && !hours) { alert('時間を入力してください'); return; }
+    if (specialService === 'その他' && !specialOther) { alert('特別な奉仕（その他）の内容を入力してください'); return; }
 
     const isEv = role === '伝道者';
     let msg = '【送信内容の確認】\n';
@@ -2762,6 +2784,11 @@ async function initServiceReportForm() {
     if (isEv) msg += '伝道に参加: ' + participation + '\n';
     else msg += '時間: ' + hours + '時間\n';
     msg += '聖書研究: ' + (bible || '0') + '\n';
+    if (specialService) {
+      const specLabel = specialService === 'その他' ? ('その他（' + specialOther + '）') : specialService;
+      msg += '特別な奉仕: ' + specLabel + '\n';
+      if (specialHoursRaw) msg += '特別な奉仕の時間: ' + specialHoursRaw + '時間\n';
+    }
     if (remarks) msg += '備考: ' + remarks + '\n';
     msg += '\n送信しますか？';
     if (!(await customConfirm(msg))) return;
@@ -2770,6 +2797,7 @@ async function initServiceReportForm() {
     btn.innerHTML = '<span class="material-icons" style="font-size:18px">hourglass_empty</span> 送信中...';
 
     try {
+      const year = new Date().getFullYear();
       const reportData = {
         name: submitName,
         furigana: isOther ? submitFurigana : '',
@@ -2780,17 +2808,47 @@ async function initServiceReportForm() {
         participation: isEv ? participation : null,
         hours: isEv ? null : parseInt(hours) || 0,
         bibleStudy: parseInt(bible) || 0,
+        specialService: specialService || '',
+        specialServiceOther: specialService === 'その他' ? specialOther : '',
+        specialHours: specialService ? (parseInt(specialHoursRaw) || 0) : 0,
         remarks,
-        year: new Date().getFullYear(),
+        year,
         timestamp: firebase.firestore.Timestamp.now(),
       };
       if (isOther) reportData.submittedBy = memberUserName || '';
+
+      // 同じ氏名・同じ年・同じ月の既存レポートを削除（承認済/承認待ち両方）
+      // 新しいタイムスタンプで上書きし、再度承認待ちとする
+      const [existingApproved, existingDraft] = await Promise.all([
+        db.collection('PREACHING_REPORT')
+          .where('name', '==', submitName)
+          .where('year', '==', year)
+          .where('month', '==', month).get(),
+        db.collection('PREACHING_REPORT_DRAFTS')
+          .where('name', '==', submitName)
+          .where('year', '==', year)
+          .where('month', '==', month).get(),
+      ]);
+      const batch = db.batch();
+      existingApproved.forEach(d => batch.delete(d.ref));
+      existingDraft.forEach(d => batch.delete(d.ref));
+      if (!existingApproved.empty || !existingDraft.empty) {
+        await batch.commit();
+      }
+
       await db.collection('PREACHING_REPORT_DRAFTS').add(reportData);
-      alert('送信しました（管理者の承認後に反映されます）');
+      const overwriteMsg = (!existingApproved.empty || !existingDraft.empty)
+        ? '既存の同年同月の報告を上書きし、承認待ちにしました'
+        : '送信しました（管理者の承認後に反映されます）';
+      alert(overwriteMsg);
       document.getElementById('sr-gender').value = '';
       document.getElementById('sr-participation').value = '';
       document.getElementById('sr-hours').value = '';
       document.getElementById('sr-bible').value = '';
+      document.getElementById('sr-special-service').value = '';
+      document.getElementById('sr-special-other').value = '';
+      document.getElementById('sr-special-hours').value = '';
+      toggleSpecialFields();
       document.getElementById('sr-remarks').value = '';
       if (isOther) {
         document.getElementById('sr-other-group').value = '';
@@ -3571,6 +3629,7 @@ async function loadReportCheckData() {
         hours: data.hours,
         bibleStudy: data.bibleStudy,
         remarks: data.remarks || '',
+        submittedBy: String(data.submittedBy || '').trim(),
         status: isPending ? 'pending' : 'approved',
         docId: isPending ? d.id : '', // pending のときだけ承認ボタンで使う docId を保持
         _ts: ts,
@@ -3644,8 +3703,11 @@ function renderReportCheck() {
         } else {
           statusCell = '<span class="rpt-badge-done">✓ 提出済</span>';
         }
+        const nameCell = r.submittedBy
+          ? esc(item.name) + '<div class="rpt-proxy-by">代理: ' + esc(r.submittedBy) + '</div>'
+          : esc(item.name);
         html += '<tr>';
-        html += '<td>' + esc(item.name) + '</td>';
+        html += '<td>' + nameCell + '</td>';
         html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
         html += '<td class="' + activityCls + '">' + esc(activity) + '</td>';
         html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
