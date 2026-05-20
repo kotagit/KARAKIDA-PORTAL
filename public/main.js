@@ -3532,9 +3532,12 @@ async function loadReportCheckData() {
   }
 
   try {
-    const [userList, reportSnap] = await Promise.all([
+    // 承認済 (PREACHING_REPORT) と承認待ち (PREACHING_REPORT_DRAFTS) の両方を取得。
+    // 承認待ちも「提出済 (承認待ち)」として表示し、未提出と区別する。
+    const [userList, approvedSnap, draftSnap] = await Promise.all([
       getUserListCached(),
       db.collection('PREACHING_REPORT').where('month', '==', month).get(),
+      db.collection('PREACHING_REPORT_DRAFTS').where('month', '==', month).get(),
     ]);
 
     const members = [];
@@ -3552,21 +3555,29 @@ async function loadReportCheckData() {
     });
 
     const reportMap = {};
-    reportSnap.docs.forEach(d => {
+    function mergeReport(d, isPending) {
       const data = d.data();
+      // year フィルタ: data.year がある場合のみマッチを要求（古い記録には year が無い場合あり）
+      if (typeof data.year === 'number' && data.year !== year) return;
       const name = String(data.name || '').trim();
       const ts = data.timestamp ? (data.timestamp.seconds || 0) : 0;
-      if (!reportMap[name] || ts > reportMap[name]._ts) {
-        reportMap[name] = {
-          role: data.role || '',
-          participation: data.participation || '',
-          hours: data.hours,
-          bibleStudy: data.bibleStudy,
-          remarks: data.remarks || '',
-          _ts: ts,
-        };
-      }
-    });
+      const cur = reportMap[name];
+      // 承認済を優先（pending よりタイムスタンプが古くても承認済を保持）
+      if (cur && cur.status === 'approved') return;
+      if (cur && cur.status === 'pending' && isPending && ts <= cur._ts) return;
+      reportMap[name] = {
+        role: data.role || '',
+        participation: data.participation || '',
+        hours: data.hours,
+        bibleStudy: data.bibleStudy,
+        remarks: data.remarks || '',
+        status: isPending ? 'pending' : 'approved',
+        docId: isPending ? d.id : '', // pending のときだけ承認ボタンで使う docId を保持
+        _ts: ts,
+      };
+    }
+    approvedSnap.docs.forEach(d => mergeReport(d, false));
+    draftSnap.docs.forEach(d => mergeReport(d, true));
 
     rptChkData = { members, reportMap, month, year };
     renderReportCheck();
@@ -3625,12 +3636,20 @@ function renderReportCheck() {
         } else if (r.hours != null) {
           activity = String(r.hours);
         }
+        // ステータスバッジ + 承認待ちなら承認ボタン
+        let statusCell = '';
+        if (r.status === 'pending') {
+          statusCell = '<span class="rpt-badge-pending">⌛ 承認待ち</span>'
+            + ' <button class="rpt-approve-btn" data-docid="' + esc(r.docId) + '">承認</button>';
+        } else {
+          statusCell = '<span class="rpt-badge-done">✓ 提出済</span>';
+        }
         html += '<tr>';
         html += '<td>' + esc(item.name) + '</td>';
         html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
         html += '<td class="' + activityCls + '">' + esc(activity) + '</td>';
         html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
-        html += '<td><span class="rpt-badge-done">✓ 提出済</span></td>';
+        html += '<td>' + statusCell + '</td>';
         html += '</tr>';
         if (r.remarks) {
           html += '<tr><td colspan="5" class="rpt-remarks">備考: ' + esc(r.remarks) + '</td></tr>';
@@ -3650,6 +3669,33 @@ function renderReportCheck() {
   });
 
   view.innerHTML = html;
+
+  // 承認ボタンに wire
+  view.querySelectorAll('.rpt-approve-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const docId = btn.dataset.docid;
+      if (!docId) return;
+      if (!(await customConfirm('この報告を承認して PREACHING_REPORT に反映しますか？'))) return;
+      btn.disabled = true;
+      btn.textContent = '承認中...';
+      try {
+        const docRef = db.collection('PREACHING_REPORT_DRAFTS').doc(docId);
+        const snap = await docRef.get();
+        if (!snap.exists) { alert('データが見つかりません'); return; }
+        const d = snap.data();
+        const reportData = { ...d, approvedAt: firebase.firestore.Timestamp.now() };
+        await db.collection('PREACHING_REPORT').add(reportData);
+        await docRef.delete();
+        // データを再読み込み
+        await loadReportCheckData();
+      } catch (err) {
+        alert('承認エラー: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = '承認';
+      }
+    });
+  });
 }
 
 // ── S-13 区域割当ての記録 ────────────────────────
