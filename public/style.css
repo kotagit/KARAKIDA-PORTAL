@@ -2314,6 +2314,19 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .al-filter-btn.al-filter-active {
   background: var(--primary); color: white; border-color: var(--primary);
 }
+.al-sort-divider {
+  width: 1px; height: 22px; background: var(--border); margin: 0 4px;
+}
+.al-sort-btn {
+  font-size: 12px; padding: 6px 12px;
+  background: #f5f5f5; color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px;
+  cursor: pointer; font-weight: 600;
+}
+.al-sort-btn:hover { background: #eee; }
+.al-sort-btn.al-sort-active {
+  background: #00695c; color: white; border-color: #00695c;
+}
 .al-tool-btn { font-size: 12px; padding: 6px 10px; }
 
 /* 成員編集リスト */
