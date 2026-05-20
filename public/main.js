@@ -6858,10 +6858,10 @@ function renderDeptEditTable() {
     }
   });
 
-  // 奉仕場所（annai/avs/parking は組織表タブ内の各部門配下に移動済み）
+  // 奉仕場所（annai/avs/parking/cleaning は組織表タブ内へ移動済み）
   addSection('奉仕場所', 'meb-grp-pos');
   const DEPT_ID_TO_LABEL = { annai:'案内', avs:'AV', parking:'駐車場', cleaning:'清掃' };
-  const POS_MOVED_TO_ORG = new Set(['annai', 'avs', 'parking']);
+  const POS_MOVED_TO_ORG = new Set(['annai', 'avs', 'parking', 'cleaning']);
   ME_POSITION_DEFS.filter(p => !POS_MOVED_TO_ORG.has(p.dept)).forEach(p => {
     rows.push({
       kind: 'check',
@@ -6889,21 +6889,10 @@ function renderDeptEditTable() {
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
   let lastDept = '';
-  function pushElderStudentRow() {
-    rows.push({
-      kind: 'check',
-      label: '生活と奉仕の集会の生徒',
-      sectionCls: 'meb-grp-org',
-      alignRight: true,
-      get: m => !!(meBulkCurrentValue(m, 'isLifeMeetingStudent') ?? m.isLifeMeetingStudent),
-      set: (m, on) => meBulkRecordChange(m.docId, 'isLifeMeetingStudent', on)
-    });
-  }
   ORG_DEPARTMENTS.forEach(d => {
     // 開拓者セクションは資格タグ内の「正規開拓者」と重複するためスキップ
     if (d.section === '開拓者') return;
     if (d.section !== lastSection) {
-      if (lastSection === '長老団') pushElderStudentRow();
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
                 : d.section === '長老団' ? 'meb-grp-org-elder'
                 : d.section === '野外宣教グループ' ? 'meb-grp-org-group'
@@ -6936,38 +6925,44 @@ function renderDeptEditTable() {
     });
 
     // 部門の役職（責任者/奉仕者など）の後に、その部門の奉仕場所行を追加
-    //   案内 → 会場/入口/Zoom
-    //   AVS  → ステ/音響/ビデ
-    //   駐車場 → 前/後
+    //   案内 → 会場/入口/Zoom（既存役職の続きとして isSub=true）
+    //   AVS  → ステ/音響/ビデ（同上）
+    //   駐車場 → 前/後（同上）、その下に 清掃 グ（新部門として deptLabel='清掃'）
     const ORG_TO_POS_DEPT = { annai: 'annai', stage_av: 'avs', parking: 'parking' };
     const posDept = ORG_TO_POS_DEPT[d.id];
+    function pushPosRow(p, opts = {}) {
+      rows.push({
+        kind: 'check',
+        label: p.label,
+        deptLabel: opts.deptLabel || '',
+        isSub: !opts.deptLabel,
+        sectionCls: 'meb-grp-org',
+        get: m => {
+          const o = meBulkCurrentValue(m, 'deptPositions') || {};
+          return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
+        },
+        set: (m, on) => {
+          const cur = meBulkCurrentValue(m, 'deptPositions') || {};
+          const newObj = { ...cur };
+          const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
+          const idx = arr.indexOf(p.pos);
+          if (on && idx === -1) arr.push(p.pos);
+          else if (!on && idx !== -1) arr.splice(idx, 1);
+          if (arr.length === 0) delete newObj[p.dept];
+          else newObj[p.dept] = arr;
+          meBulkRecordChange(m.docId, 'deptPositions', newObj);
+        }
+      });
+    }
     if (posDept) {
-      ME_POSITION_DEFS.filter(p => p.dept === posDept).forEach(p => {
-        rows.push({
-          kind: 'check',
-          label: p.label,
-          isSub: true,
-          sectionCls: 'meb-grp-org',
-          get: m => {
-            const o = meBulkCurrentValue(m, 'deptPositions') || {};
-            return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
-          },
-          set: (m, on) => {
-            const cur = meBulkCurrentValue(m, 'deptPositions') || {};
-            const newObj = { ...cur };
-            const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
-            const idx = arr.indexOf(p.pos);
-            if (on && idx === -1) arr.push(p.pos);
-            else if (!on && idx !== -1) arr.splice(idx, 1);
-            if (arr.length === 0) delete newObj[p.dept];
-            else newObj[p.dept] = arr;
-            meBulkRecordChange(m.docId, 'deptPositions', newObj);
-          }
-        });
+      ME_POSITION_DEFS.filter(p => p.dept === posDept).forEach(p => pushPosRow(p));
+    }
+    if (d.id === 'parking') {
+      ME_POSITION_DEFS.filter(p => p.dept === 'cleaning').forEach((p, i) => {
+        pushPosRow(p, { deptLabel: i === 0 ? '清掃' : '' });
       });
     }
   });
-  if (lastSection === '長老団') pushElderStudentRow();
 
   // システム
   addSection('システム', 'meb-grp-status');
