@@ -2267,10 +2267,12 @@ function awRenderProgramList() {
   awRenderStepBar('program-step-bar', 1);
 
   if (awWeeks.length === 0) {
+    awUpdateProgramToolbarState([]);
     list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>新規作成する場合は、インポートからZIPファイルをインポートしてください</div>';
     return;
   }
   if (!awSharedMonth) {
+    awUpdateProgramToolbarState([]);
     list.innerHTML = awBackToHubEmpty();
     return;
   }
@@ -2278,11 +2280,11 @@ function awRenderProgramList() {
   const filtered = awFilterWeeksByMonth(awWeeks, awSharedMonth);
   list.innerHTML = '';
 
-  // ツールバーの状態表示（編集ボタン / バッジ / 表のグレーアウト）を更新
+  // ツールバーの状態表示（インポート / 確定 / 編集 / バッジ / dim）を更新
   awUpdateProgramToolbarState(filtered);
 
   if (filtered.length === 0) {
-    list.innerHTML += '<div class="empty-state">この月のプログラムはありません</div>';
+    list.innerHTML += '<div class="empty-state">この月のプログラムはありません。インポートから ZIP を取り込んでください。</div>';
     return;
   }
   filtered.forEach(week => awBuildProgramSection(week, list));
@@ -2498,15 +2500,19 @@ function awComputeProgramOverallState(filteredWeeks) {
 
 function awUpdateProgramToolbarState(filteredWeeks) {
   const state = awComputeProgramOverallState(filteredWeeks);
+  const importBtn  = document.getElementById('aw-import-btn');
   const confirmBtn = document.getElementById('aw-program-confirm-all-btn');
-  const editBtn = document.getElementById('aw-program-edit-all-btn');
-  const badge = document.getElementById('aw-program-state-badge');
-  const list = document.getElementById('program-list');
+  const editBtn    = document.getElementById('aw-program-edit-all-btn');
+  const badge      = document.getElementById('aw-program-state-badge');
+  const list       = document.getElementById('program-list');
 
+  const isEmpty  = filteredWeeks.length === 0;
   const isLocked = state !== 'editing';
 
-  if (confirmBtn) confirmBtn.style.display = isLocked ? 'none' : '';
-  if (editBtn)    editBtn.style.display    = isLocked ? '' : 'none';
+  // データなし: インポートだけ。データあり: インポートを隠し、状態に応じて確定 or 編集を出す
+  if (importBtn)  importBtn.style.display  = isEmpty ? '' : 'none';
+  if (confirmBtn) confirmBtn.style.display = (isEmpty || isLocked) ? 'none' : '';
+  if (editBtn)    editBtn.style.display    = (isEmpty || !isLocked) ? 'none' : '';
 
   if (badge) {
     const map = {
