@@ -345,7 +345,8 @@ function navigate(page, pushHistory) {
   } else if (page.startsWith('user-dept-')) {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'bumon';
   } else if (page.startsWith('jouhou-')) {
-    backBtn._backTarget = 'jouhou';
+    // 情報はホームのアコーディオン経由でアクセスするため、戻り先はホーム
+    backBtn._backTarget = 'home';
   } else if (page === 'public-talk-view') {
     backBtn._backTarget = 'home';
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply' || page === 'attendance-form') {
