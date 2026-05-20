@@ -1099,29 +1099,42 @@ body {
   overflow-x: auto; padding: 0 8px 12px;
 }
 .pw-grid-row {
-  display: flex; border-bottom: 1px solid #e0e0e0;
+  display: flex; border-bottom: 1px solid #eef2f5;
 }
 .pw-grid-row:last-child { border-bottom: none; }
+.pw-grid-row:nth-child(even):not(.pw-grid-header):not(.pw-grid-conductor) {
+  background: #fafbfc;
+}
 .pw-grid-header {
-  background: #e0f2f1; border-bottom: 2px solid #00796b;
+  background: #f4f7fa; border-bottom: 2px solid var(--primary);
 }
 .pw-grid-conductor {
-  border-bottom: 2px solid #e0e0e0;
+  background: #eaf4fb; border-bottom: 1px solid #d6e6f2;
 }
-.pw-grid { border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; overflow: hidden; }
+.pw-grid { border: 1px solid #e5ebf0; border-radius: 0 0 10px 10px; overflow: hidden; }
 .pw-grid-cell {
   flex: 1; text-align: center;
   font-size: 13px; padding: 0 4px; box-sizing: border-box;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid #eef2f5;
   height: 32px; line-height: 32px;
   overflow: hidden; white-space: nowrap;
 }
 .pw-grid-cell:last-child { border-right: none; }
 .pw-grid-place {
-  font-size: 12px; font-weight: 700; color: #00695c;
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  letter-spacing: 0.02em;
 }
 .pw-grid-conductor .pw-grid-cell {
-  font-weight: 700; color: var(--primary); font-size: 13px;
+  font-weight: 700; color: var(--primary-dark); font-size: 13px;
+}
+
+/* 公共エリア伝道：セクションヘッダーをグラデーションに */
+#page-senkyo-public .aw-inline-section {
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(4, 124, 188, 0.12);
+}
+#page-senkyo-public .aw-inline-header {
+  background: linear-gradient(135deg, #047CBC 0%, #1e96d8 100%);
 }
 
 /* ── 組織表 閲覧（プレビュー形式） ── */
