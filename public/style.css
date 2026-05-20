@@ -3626,6 +3626,9 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
   background: #ffe4e4; border-color: #d32f2f;
 }
 
+/* customConfirm はどの上位モーダルからでも常に最前面に出るようにする */
+#custom-confirm-modal { z-index: 2000; }
+
 /* ── ステップバー (4 ステップ進行表示) ── */
 .aw-stepbar {
   display: flex; align-items: stretch; gap: 0;
