@@ -598,13 +598,15 @@ async function pwManualPick(name) {
         day: slot.dateStr,
         dayofweek: slot.weekday,
         starttime: slot.time,
-        place: slot.placesArr.join('、'),
+        place: slot.place || (Array.isArray(slot.places) ? slot.places.join('、') : ''),
         preferredLocation: (slot.fullPlaceParentMap || {})[fp] || fp,
         role: key === '司会者' ? '司会者（カート有）' : '参加者',
         manual: true,
         timestamp: firebase.firestore.Timestamp.now(),
       });
       // 申込者キャッシュにも追加（今回画面でドロップダウンに乗せるため）
+      slot.allApplicants = slot.allApplicants || [];
+      slot.conductorApplicants = slot.conductorApplicants || [];
       if (!slot.allApplicants.includes(name)) slot.allApplicants.push(name);
       if (key === '司会者' && !slot.conductorApplicants.includes(name)) slot.conductorApplicants.push(name);
       slot.applicantLocMap = slot.applicantLocMap || {};
