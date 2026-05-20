@@ -2556,6 +2556,12 @@ function awBackToHubEmpty() {
 
 // ── 生活と奉仕の集会 進行管理ハブ ────────────
 async function initMwbHubPage() {
+  // ハブに戻るたびに月選択をリセット（毎回プルダウンから選ぶ運用）
+  awSharedMonth = null;
+  awProgramSelectedMonth = null;
+  awAssignSelectedMonth = null;
+  if (typeof s89SelectedMonth !== 'undefined') s89SelectedMonth = null;
+
   const selEl = document.getElementById('mwb-hub-month-selector');
   if (selEl) selEl.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
