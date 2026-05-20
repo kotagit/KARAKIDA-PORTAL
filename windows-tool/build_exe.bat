@@ -1,41 +1,39 @@
 @echo off
-REM Windows .exe ビルド スクリプト
-REM 使い方: PowerShell or cmd で build_exe.bat を実行
-
+chcp 65001 > nul
 setlocal
 
-echo === MWB Excel ツール .exe ビルド ===
+echo === MWB Excel Tool Build ===
 echo.
 
-REM 仮想環境作成 (なければ)
+REM Create venv if not exists
 if not exist venv (
-    echo [1/4] 仮想環境を作成中...
-    python -m venv venv || goto :error
+    echo [1/4] Creating virtual environment...
+    python -m venv venv
+    if errorlevel 1 goto :error
 )
 
-echo [2/4] 依存パッケージをインストール中...
+echo [2/4] Installing dependencies...
 call venv\Scripts\activate.bat
-pip install --quiet --upgrade pip
-pip install --quiet -r requirements.txt || goto :error
-pip install --quiet pyinstaller || goto :error
+python -m pip install --quiet --upgrade pip
+if errorlevel 1 goto :error
+python -m pip install --quiet -r requirements.txt
+if errorlevel 1 goto :error
+python -m pip install --quiet pyinstaller
+if errorlevel 1 goto :error
 
-echo [3/4] PyInstaller で .exe を生成中...
-pyinstaller ^
-    --onefile ^
-    --windowed ^
-    --name "MWB_Excel変換" ^
-    --noconfirm ^
-    mwb_to_excel.py || goto :error
+echo [3/4] Building .exe with PyInstaller...
+pyinstaller --onefile --windowed --name MWB_Excel_Tool --noconfirm mwb_to_excel.py
+if errorlevel 1 goto :error
 
-echo [4/4] 完了
+echo [4/4] Done.
 echo.
-echo 出力: dist\MWB_Excel変換.exe
+echo Output: dist\MWB_Excel_Tool.exe
 echo.
 pause
 exit /b 0
 
 :error
 echo.
-echo *** エラーが発生しました ***
+echo *** Build failed ***
 pause
 exit /b 1
