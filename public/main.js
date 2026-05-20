@@ -6608,10 +6608,10 @@ async function loadAccessLog() {
       return;
     }
 
-    // 状態保存（フィルタ用）
-    _alState = { users };
+    // 状態保存（フィルタ・ソート用）
+    _alState = { users, filter: 'all', text: '', sort: 'group' };
 
-    // ツールバー（フィルタ + 一括削除）
+    // ツールバー（フィルタ + ソート + 一括削除）
     let html = '';
     html += `<div class="al-toolbar">
       <div class="al-filter-group">
@@ -6619,6 +6619,9 @@ async function loadAccessLog() {
         <button class="al-filter-btn al-filter-active" data-filter="all">全員</button>
         <button class="al-filter-btn" data-filter="done">履歴あり</button>
         <button class="al-filter-btn" data-filter="none">履歴なし</button>
+        <span class="al-sort-divider"></span>
+        <button class="al-sort-btn al-sort-active" data-sort="group" title="グループ → ふりがな順">グループ順</button>
+        <button class="al-sort-btn" data-sort="latest" title="最新アクセス時刻の降順">アクセス順</button>
       </div>`;
     if (isPortalAdmin) {
       html += `<div class="al-tool-group">
@@ -6649,6 +6652,14 @@ async function loadAccessLog() {
       _alState.text = e.target.value.trim().toLowerCase();
       _alRenderList();
     });
+    document.querySelectorAll('.al-sort-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.al-sort-btn').forEach(b => b.classList.remove('al-sort-active'));
+        btn.classList.add('al-sort-active');
+        _alState.sort = btn.dataset.sort;
+        _alRenderList();
+      });
+    });
     if (isPortalAdmin) {
       document.getElementById('al-delete-old-30')?.addEventListener('click', () => deleteAccessLogsOlderThan(30));
       document.getElementById('al-delete-old-90')?.addEventListener('click', () => deleteAccessLogsOlderThan(90));
@@ -6658,14 +6669,14 @@ async function loadAccessLog() {
   }
 }
 
-let _alState = { users: [], filter: 'all', text: '' };
+let _alState = { users: [], filter: 'all', text: '', sort: 'group' };
 
 function _alRenderList() {
   const container = document.getElementById('al-list-container');
   if (!container) return;
-  const { users, filter, text } = _alState;
+  const { users, filter, text, sort } = _alState;
 
-  const filtered = users.filter(u => {
+  let filtered = users.filter(u => {
     if (filter === 'done' && u.noHistory) return false;
     if (filter === 'none' && !u.noHistory) return false;
     if (text) {
@@ -6675,16 +6686,25 @@ function _alRenderList() {
     return true;
   });
 
+  if (sort === 'latest') {
+    filtered = filtered.slice().sort((a, b) => {
+      const ta = a.latestLog?.dt?.getTime() || 0;
+      const tb = b.latestLog?.dt?.getTime() || 0;
+      return tb - ta; // 降順、履歴なし(0)は末尾
+    });
+  }
+
   if (filtered.length === 0) {
     container.innerHTML = '<div class="empty-state">該当する成員がいません</div>';
     return;
   }
 
+  const showGroupHeaders = sort !== 'latest';
   let html = '<div class="access-log-list">';
   let lastGroup = null;
   filtered.forEach((u, idx) => {
     const grp = u.group || '未分類';
-    if (grp !== lastGroup) {
+    if (showGroupHeaders && grp !== lastGroup) {
       html += `<div class="access-log-group-header">${esc(grp)}</div>`;
       lastGroup = grp;
     }
