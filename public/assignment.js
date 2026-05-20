@@ -2600,13 +2600,30 @@ async function awDeleteAllProgramsInMonth() {
   if (targets.length === 0) { alert('削除する週がありません'); return false; }
   const monthLabel = `${awSharedMonth.year}年${awSharedMonth.month + 1}月`;
   if (!(await customConfirm(
-    `⚠️ ${monthLabel} の全 ${targets.length} 週分のプログラムを削除しますか？\n\n` +
-    `・項目データ・担当者割当・公開状態がすべて消えます\n` +
-    `・元に戻すには ZIP の再インポートが必要です`
+    `⚠️ ${monthLabel} の全 ${targets.length} 週分を削除しますか？\n\n` +
+    `・プログラム本体（mwbWeeks）\n` +
+    `・各週の担当者割当履歴（assignmentHistory）\n` +
+    `すべて消えます。元に戻すには ZIP の再インポートが必要です。`
   ))) return false;
   let count = 0;
+  let assignmentDeleted = 0;
   try {
     for (const week of targets) {
+      // 担当者割当履歴（assignmentHistory）を集会日の前後で検索して削除
+      const meetDate = awGetMeetingDate(week);
+      if (meetDate) {
+        const searchStart = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() - 1, 0, 0, 0));
+        const searchEnd   = new Date(Date.UTC(meetDate.getFullYear(), meetDate.getMonth(), meetDate.getDate() + 1, 0, 0, 0));
+        const hSnap = await db.collection('assignmentHistory')
+          .where('date', '>=', firebase.firestore.Timestamp.fromDate(searchStart))
+          .where('date', '<',  firebase.firestore.Timestamp.fromDate(searchEnd))
+          .get();
+        for (const doc of hSnap.docs) {
+          await doc.ref.delete();
+          assignmentDeleted++;
+        }
+      }
+      // プログラム本体を削除
       await db.collection('mwbWeeks').doc(week.id).delete();
       count++;
     }
@@ -2614,7 +2631,7 @@ async function awDeleteAllProgramsInMonth() {
     const targetIds = new Set(targets.map(w => w.id));
     awWeeks = awWeeks.filter(w => !targetIds.has(w.id));
     awRenderProgramList();
-    alert(`${count}週分を削除しました`);
+    alert(`${count}週分のプログラムと ${assignmentDeleted}件の担当者割当を削除しました`);
     return true;
   } catch(e) { alert('削除エラー: ' + e.message); return false; }
 }
