@@ -346,21 +346,16 @@ async function initS89Page() {
       if (preview) preview.innerHTML = '<div class="empty-state">公開済みの割当データがありません<br><span style="font-size:13px;color:var(--text-light)">プログラム表作成で「公開」してください</span></div>';
       return;
     }
-    if (!s89SelectedMonth) s89SelectedMonth = awAutoSelectMonth(months);
-    awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, (y, m) => {
-      s89SelectedMonth = { year: y, month: m };
-      s89RenderPreview();
-      awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, arguments.callee);
-    });
-    // 月タイル再描画のためクロージャ修正
+    awEnsureSharedMonth(months);
     const renderTiles = () => {
-      awRenderMonthTiles('s89-month-selector', months, s89SelectedMonth, (y, m) => {
-        s89SelectedMonth = { year: y, month: m };
+      awRenderMonthTiles('s89-month-selector', months, awSharedMonth, (y, m) => {
+        awSetSharedMonth(y, m);
         s89RenderPreview();
         renderTiles();
       });
     };
     renderTiles();
+    awRenderStepBar('s89-step-bar', 4);
     s89RenderPreview();
   } catch(e) {
     if (preview) preview.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -583,11 +578,12 @@ function awRenderCreateList() {
   }
 
   const months = awExtractMonths(awWeeks);
-  if (!awAssignSelectedMonth) awAssignSelectedMonth = awAutoSelectMonth(months);
-  awRenderMonthTiles('assign-month-selector', months, awAssignSelectedMonth, (y, m) => {
-    awAssignSelectedMonth = { year: y, month: m };
+  awEnsureSharedMonth(months);
+  awRenderMonthTiles('assign-month-selector', months, awSharedMonth, (y, m) => {
+    awSetSharedMonth(y, m);
     awRenderCreateList();
   });
+  awRenderStepBar('assign-step-bar', 2);
 
   const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   list.innerHTML = '';
@@ -1995,6 +1991,73 @@ async function initProgramPage() {
 // 各週の主題データを保持（一括確定で使用）
 const awProgramTopics = {};
 
+// 4ステップ間で共有する選択中の月（year, month）
+// awProgramSelectedMonth / awAssignSelectedMonth / s89SelectedMonth はこれの参照に揃える
+let awSharedMonth = null;
+function awSetSharedMonth(year, month) {
+  if (year == null || month == null) return;
+  awSharedMonth = { year, month };
+  awProgramSelectedMonth = awSharedMonth;
+  awAssignSelectedMonth  = awSharedMonth;
+  s89SelectedMonth       = awSharedMonth;
+}
+// 月リストを受け取り、共有月が未設定 or リストに無い場合は自動選択
+function awEnsureSharedMonth(months) {
+  if (awSharedMonth) {
+    const found = months.some(m => m.year === awSharedMonth.year && m.month === awSharedMonth.month);
+    if (found) return;
+  }
+  const auto = awAutoSelectMonth(months);
+  if (auto) awSetSharedMonth(auto.year, auto.month);
+}
+
+// ── ステップバー描画 ─────────────────────────
+function awComputeStepProgress() {
+  if (!awSharedMonth || !Array.isArray(awWeeks)) {
+    return { total: 0, confirmed: 0, draft: 0, published: 0 };
+  }
+  const monthWeeks = awFilterWeeksByMonth(awWeeks, awSharedMonth)
+    .filter(w => !w.conventionType);
+  let confirmed = 0, draft = 0, published = 0;
+  monthWeeks.forEach(w => {
+    if (w.programStatus === 'confirmed' || w.programStatus === 'published') confirmed++;
+    if (w.programStatus === 'confirmed' && w.hasAssignmentHistory) draft++;
+    if (w.programStatus === 'published') published++;
+  });
+  return { total: monthWeeks.length, confirmed, draft, published };
+}
+
+function awRenderStepBar(containerId, currentStep) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const p = awComputeStepProgress();
+  const steps = [
+    { n: 1, label: 'プログラム表', page: 'admin-program',    count: `${p.confirmed}/${p.total} 確定済`, enabled: true },
+    { n: 2, label: '担当者策定',   page: 'admin-assignment', count: `${p.draft}/${p.total} 下書き`,   enabled: p.confirmed > 0 },
+    { n: 3, label: '確認・公開',   page: '',                  count: `（未実装）`,                       enabled: false },
+    { n: 4, label: 'S-89',         page: 'admin-s89',         count: `${p.published}/${p.total} 公開済`, enabled: p.published > 0 },
+  ];
+  let html = '<div class="aw-stepbar">';
+  steps.forEach((s, i) => {
+    const cls = [
+      'aw-stepbar-item',
+      s.n === currentStep ? 'aw-stepbar-current' : '',
+      !s.enabled ? 'aw-stepbar-disabled' : '',
+    ].filter(Boolean).join(' ');
+    const onclick = (s.enabled && s.n !== currentStep && s.page) ? `onclick="navigate('${s.page}')"` : '';
+    html += `<div class="${cls}" ${onclick}>
+      <div class="aw-stepbar-num">${s.n}</div>
+      <div class="aw-stepbar-body">
+        <div class="aw-stepbar-label">${esc(s.label)}</div>
+        <div class="aw-stepbar-count">${esc(s.count)}</div>
+      </div>
+    </div>`;
+    if (i < steps.length - 1) html += '<div class="aw-stepbar-arrow">→</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 let awProgramSelectedMonth = null;
 let awAssignSelectedMonth = null;
 
@@ -2051,13 +2114,14 @@ function awRenderProgramList() {
   }
 
   const months = awExtractMonths(awWeeks);
-  if (!awProgramSelectedMonth) awProgramSelectedMonth = awAutoSelectMonth(months);
-  awRenderMonthTiles('program-month-selector', months, awProgramSelectedMonth, (y, m) => {
-    awProgramSelectedMonth = { year: y, month: m };
+  awEnsureSharedMonth(months);
+  awRenderMonthTiles('program-month-selector', months, awSharedMonth, (y, m) => {
+    awSetSharedMonth(y, m);
     awRenderProgramList();
   });
+  awRenderStepBar('program-step-bar', 1);
 
-  const filtered = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
+  const filtered = awFilterWeeksByMonth(awWeeks, awSharedMonth);
   list.innerHTML = '';
 
   // 一括確定／公開ボタン
