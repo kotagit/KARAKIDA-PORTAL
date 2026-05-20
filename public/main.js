@@ -7931,6 +7931,13 @@ function _psimBuildStateForAttr(category, value) {
     s.appointment = (value === 'publisher') ? '' : value;
   } else if (category === 'status') {
     s.status = [value];
+    // ADMIN は WEB を含意（実運用では ADMIN は必ず WEB も持つ）。
+    // PSIM_FEATURES の管理画面項目が cond: f => f.isAdmin && f.isPortalAdmin
+    // などになっているため、WEB を一緒に立てないと管理画面項目がシードに
+    // 含まれず、status:ADMIN 行のチェックが 0 件になってしまう。
+    if (value === 'ADMIN' && !s.status.includes('WEB')) {
+      s.status.push('WEB');
+    }
   } else if (category === 'orgRoles') {
     s.orgRoleKeys = [value];
   }
