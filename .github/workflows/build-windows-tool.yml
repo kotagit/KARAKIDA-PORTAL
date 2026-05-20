@@ -1,0 +1,40 @@
+name: Build windows-tool .exe
+
+on:
+  push:
+    paths:
+      - 'windows-tool/**'
+      - '.github/workflows/build-windows-tool.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows-tool
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --windowed --name MWB_Excel_Tool --noconfirm mwb_to_excel.py
+
+      - name: Upload .exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MWB_Excel_Tool-windows
+          path: windows-tool/dist/MWB_Excel_Tool.exe
+          retention-days: 30

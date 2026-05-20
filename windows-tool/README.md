@@ -15,6 +15,20 @@
 3. 「Excel に変換」を押す
 4. 保存先を指定 → 完了
 
+## .exe を入手する方法
+
+### GitHub Actions ビルド成果物（推奨）
+`windows-tool/` 配下に変更を push すると、GitHub Actions が自動で `.exe` をビルドします。
+
+1. GitHub の **Actions** タブを開く
+2. 最新の `Build windows-tool .exe` ワークフローをクリック
+3. 一番下の **Artifacts** から `MWB_Excel_Tool-windows` をダウンロード
+4. ZIP を展開 → `MWB_Excel_Tool.exe` を取り出す
+
+これだけで配布可能。Windows 端末でのビルド作業は不要。
+
+### 手動ビルド（自分の Windows 端末で作る場合）
+
 ## 開発者向け: ビルド方法
 
 ### 前提
