@@ -6893,6 +6893,7 @@ function renderDeptEditTable() {
       kind: 'check',
       label: '生活と奉仕の集会の生徒',
       sectionCls: 'meb-grp-org',
+      alignRight: true,
       get: m => !!(meBulkCurrentValue(m, 'isLifeMeetingStudent') ?? m.isLifeMeetingStudent),
       set: (m, on) => meBulkRecordChange(m.docId, 'isLifeMeetingStudent', on)
     });
@@ -7007,8 +7008,9 @@ function renderDeptEditTable() {
     // ラベルセル
     const subText = row.deptLabel || row.subLabel || '';
     const isSub = row.isSub || false;
+    const innerStyle = row.alignRight ? ' style="justify-content:flex-end"' : '';
     html += `<tr data-sec-content="${curSec}">`;
-    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner">`
+    html += `<td class="meb-sticky-col meb-row-label ${esc(row.sectionCls || '')}"><div class="meb-row-inner"${innerStyle}>`
          +  (subText ? `<span class="meb-row-dept">${esc(subText)}</span>` : '')
          +  `<span class="meb-row-pos${isSub ? '' : ' meb-row-pos-main'}">${esc(row.label)}</span>`
          +  `</div></td>`;
