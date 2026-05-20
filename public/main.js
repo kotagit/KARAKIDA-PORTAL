@@ -6282,7 +6282,6 @@ function openMemberEditModal(id) {
   groupSel.innerHTML = opts.map(g => `<option value="${esc(g)}" ${g === curGroup ? 'selected' : ''}>${g === '' ? '（未所属）' : esc(g)}</option>`).join('');
 
   document.getElementById('me-gender').value   = member?.gender   || '';
-  document.getElementById('me-family').value   = member?.familyGroup || '';
   document.getElementById('me-mail').value     = member?.mail     || '';
   document.getElementById('me-address').value  = member?.address  || '';
   document.getElementById('me-stability').value = member?.stability || '';
@@ -6394,7 +6393,6 @@ async function saveMemberEdit(e) {
   const furigana = document.getElementById('me-furigana').value.trim();
   const group    = document.getElementById('me-group').value.trim();
   const gender   = document.getElementById('me-gender').value;
-  const familyGroup = document.getElementById('me-family').value.trim();
   const mail     = document.getElementById('me-mail').value.trim();
   const address  = document.getElementById('me-address').value.trim();
   const stability = document.getElementById('me-stability').value;
@@ -6414,7 +6412,6 @@ async function saveMemberEdit(e) {
 
   const data = {
     name, furigana, group, gender,
-    familyGroup,
     mail: mail.toLowerCase(),
     address,
     stability, hasCar,
@@ -6898,18 +6895,8 @@ function renderDeptEditTable() {
     }
   });
 
-  // 家族グループ（夫婦・親子は同じ値。異性ペアの自動生成で使用）
-  addSection('家族グループ', 'meb-grp-family');
-  rows.push({
-    kind: 'text',
-    label: '家族グループ',
-    placeholder: '例: 家A',
-    sectionCls: 'meb-grp-family',
-    get: m => meBulkCurrentValue(m, 'familyGroup') ?? (m.familyGroup || ''),
-    set: (m, val) => meBulkRecordChange(m.docId, 'familyGroup', val || '')
-  });
-
   // 奉仕場所は廃止（annai/avs/parking/cleaning は組織表タブ内へ移動済み）
+  // 家族グループは専用ページ（admin-family-groups）で管理
 
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
@@ -7118,9 +7105,6 @@ function renderDeptEditTable() {
           html += `<option value="${o.value}" ${o.value === val ? 'selected' : ''}>${esc(o.label)}</option>`;
         });
         html += '</select></td>';
-      } else if (row.kind === 'text') {
-        const cur = row.get(m) || '';
-        html += `<td class="meb-status-col meb-text-col"><input type="text" class="meb-tr-text" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}" value="${esc(cur)}" placeholder="${esc(row.placeholder || '')}"></td>`;
       } else {
         const checked = row.get(m) ? 'checked' : '';
         html += `<td class="meb-status-col"><input type="checkbox" class="meb-tr-cb" data-row="${rows.indexOf(row)}" data-mid="${esc(m.docId)}" ${checked}></td>`;
@@ -7143,13 +7127,6 @@ function renderDeptEditTable() {
       const row = rows[+sel.dataset.row];
       const member = meBulkOriginal(sel.dataset.mid);
       if (row && member) row.set(member, sel.value);
-    });
-  });
-  tbody.querySelectorAll('.meb-tr-text').forEach(inp => {
-    inp.addEventListener('change', () => {
-      const row = rows[+inp.dataset.row];
-      const member = meBulkOriginal(inp.dataset.mid);
-      if (row && member) row.set(member, inp.value.trim());
     });
   });
 
