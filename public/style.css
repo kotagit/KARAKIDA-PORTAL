@@ -3515,7 +3515,7 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 }
 .fg-add-select:focus { border-color: var(--primary, #047CBC); outline: none; }
 
-/* ── 進行管理ハブ ── */
+/* ── 集会予定表策定ハブ ── */
 .mwb-hub-month-picker {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   margin: 48px auto 24px; padding: 0;

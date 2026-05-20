@@ -83,7 +83,7 @@ const PAGE_TITLES = {
   'admin-field-service': '野外奉仕取決表',
   'senkyo-field': '野外奉仕取決表',
   'pw-apply': '公共エリア伝道申込み',
-  'admin-mwb-hub': '生活と奉仕の集会 進行管理',
+  'admin-mwb-hub': '生活と奉仕の集会 集会予定表策定',
   'admin-program': 'プログラム表作成',
   'admin-assignment': '担当者策定', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -883,7 +883,7 @@ const HOME_MENU_ITEMS = [
 
   // 管理画面 サブ項目 — 集会
   { key: 'admin-announcements',   label: '発表（編集）',               group: '管理画面: 集会',  selector: '#admin-manage-announcements' },
-  { key: 'admin-mwb-hub',         label: '進行管理',                   group: '管理画面: 集会',  selector: '#admin-manage-mwb-hub' },
+  { key: 'admin-mwb-hub',         label: '集会予定表策定',                   group: '管理画面: 集会',  selector: '#admin-manage-mwb-hub' },
   { key: 'admin-public-talk',     label: '公開講演予定表策定',         group: '管理画面: 集会',  selector: '#admin-manage-public-talk' },
   { key: 'admin-s99',             label: 'S-99 講演一覧',              group: '管理画面: 集会',  selector: '#admin-manage-s99' },
 
