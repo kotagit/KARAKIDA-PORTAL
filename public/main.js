@@ -6414,7 +6414,10 @@ async function loadGroupMembers() {
 
 // ── 出席人数登録ページ ──
 function initAttendanceForm() {
-  document.getElementById('attf-date').value = new Date().toISOString().split('T')[0];
+  // ローカル日付の YYYY-MM-DD（toISOString は UTC なので深夜帯に前日ズレする）
+  const _d = new Date();
+  const _today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+  document.getElementById('attf-date').value = _today;
   document.getElementById('attf-venue').value = 'kingdom_hall';
   document.getElementById('attf-type').value = 'midweek';
   document.getElementById('attf-count').value = '';
