@@ -2109,6 +2109,13 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .pw-date-tag-inline {
   margin-bottom: 0; padding: 5px 14px; font-size: 14px;
 }
+/* 日付＋時間をひとつのタグに収める */
+.pw-when-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: 14px;
+}
+.pw-when-tag .pw-when-date { font-size: 13px; font-weight: 700; }
+.pw-when-tag .pw-when-time { font-size: 16px; font-weight: 800; }
 .pw-slot-card {
   display: flex; align-items: center; gap: 10px;
   background: white; border-radius: 10px; padding: 12px 14px;
