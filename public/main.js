@@ -6540,8 +6540,9 @@ async function loadAccessLog() {
   if (!view) return;
   view.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
+    // 古いログが limit から外れて「履歴なし」誤判定されないよう全件取得
     const [snap, userList] = await Promise.all([
-      db.collection('LOGIN_LOG').orderBy('loginAt', 'desc').limit(500).get(),
+      db.collection('LOGIN_LOG').orderBy('loginAt', 'desc').get(),
       getUserListCached(),
     ]);
 
