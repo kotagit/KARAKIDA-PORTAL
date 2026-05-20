@@ -2107,7 +2107,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 /* カード内インライン日付タグ */
 .pw-date-tag-inline {
-  margin-bottom: 0; padding: 3px 10px; font-size: 11px;
+  margin-bottom: 0; padding: 5px 14px; font-size: 14px;
 }
 .pw-slot-card {
   display: flex; align-items: center; gap: 10px;
@@ -2119,7 +2119,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .pw-slot-card:hover { background: #f5f9fc; }
 .pw-slot-icon { font-size: 22px; color: var(--primary); flex-shrink: 0; }
-.pw-slot-time { font-size: 15px; font-weight: 700; flex: 1; }
+.pw-slot-time { font-size: 18px; font-weight: 700; }
 .pw-place-badge {
   font-size: 12px; font-weight: 700; padding: 4px 12px;
   border-radius: 6px; white-space: nowrap;
