@@ -2570,24 +2570,7 @@ function awRenderMwbHub() {
     m.year > today.getFullYear() ||
     (m.year === today.getFullYear() && m.month >= today.getMonth())
   );
-
-  // 共有月がフィルタ後リストに無ければクリア（自動選択しない）
-  if (awSharedMonth) {
-    const stillValid = months.some(m => m.year === awSharedMonth.year && m.month === awSharedMonth.month);
-    if (!stillValid) awSharedMonth = null;
-  }
-
   awRenderMwbHubMonthDropdown(months);
-
-  const stepEl = document.getElementById('mwb-hub-step-bar');
-  const helpEl = document.getElementById('mwb-hub-help');
-  if (awSharedMonth) {
-    if (stepEl) { stepEl.style.display = ''; awRenderStepBar('mwb-hub-step-bar', 0); }
-    if (helpEl) helpEl.style.display = '';
-  } else {
-    if (stepEl) stepEl.style.display = 'none';
-    if (helpEl) helpEl.style.display = 'none';
-  }
 }
 
 function awRenderMwbHubMonthDropdown(months) {
@@ -2611,10 +2594,10 @@ function awRenderMwbHubMonthDropdown(months) {
   el.innerHTML = html;
   el.querySelector('#mwb-hub-month-select').addEventListener('change', (e) => {
     const v = e.target.value;
-    if (!v) { awSharedMonth = null; awRenderMwbHub(); return; }
+    if (!v) { awSharedMonth = null; return; }
     const [y, m] = v.split('-').map(Number);
     awSetSharedMonth(y, m);
-    awRenderMwbHub();
+    navigate('admin-program');
   });
 }
 
