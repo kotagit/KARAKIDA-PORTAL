@@ -2724,11 +2724,10 @@ async function initServiceReportForm() {
   roleSel.onchange = toggleRoleFields;
   toggleRoleFields();
 
-  // 特別な奉仕：タグ選択（hidden input に値を保持）
+  // 特別な奉仕：プルダウン選択
   const specSel = document.getElementById('sr-special-service');
   const specHoursRow = document.getElementById('sr-special-hours-row');
   const specOtherRow = document.getElementById('sr-special-other-row');
-  const specTagGroup = document.getElementById('sr-special-service-tags');
   function toggleSpecialFields() {
     const v = specSel.value;
     specHoursRow.classList.toggle('hidden', !v);
@@ -2740,17 +2739,7 @@ async function initServiceReportForm() {
       document.getElementById('sr-special-other').value = '';
     }
   }
-  if (specTagGroup && !specTagGroup._srWired) {
-    specTagGroup.addEventListener('click', (e) => {
-      const t = e.target.closest('.sr-tag');
-      if (!t) return;
-      specTagGroup.querySelectorAll('.sr-tag').forEach(b => b.classList.remove('sr-tag-active'));
-      t.classList.add('sr-tag-active');
-      specSel.value = t.dataset.value || '';
-      toggleSpecialFields();
-    });
-    specTagGroup._srWired = true;
-  }
+  specSel.onchange = toggleSpecialFields;
   toggleSpecialFields();
 
   // 送信
@@ -2871,12 +2860,6 @@ async function initServiceReportForm() {
       document.getElementById('sr-special-service').value = '';
       document.getElementById('sr-special-other').value = '';
       document.getElementById('sr-special-hours').value = '';
-      // タグの active 状態を「なし」にリセット
-      if (specTagGroup) {
-        specTagGroup.querySelectorAll('.sr-tag').forEach(b => b.classList.remove('sr-tag-active'));
-        const noneTag = specTagGroup.querySelector('.sr-tag[data-value=""]');
-        if (noneTag) noneTag.classList.add('sr-tag-active');
-      }
       toggleSpecialFields();
       document.getElementById('sr-remarks').value = '';
       if (isOther) {

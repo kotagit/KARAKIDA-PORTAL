@@ -985,22 +985,21 @@
           <div class="sr-field">
             <label class="sr-label">特別な奉仕</label>
             <div class="sr-input-wrap">
-              <div class="sr-tag-group" id="sr-special-service-tags">
-                <button type="button" class="sr-tag sr-tag-active" data-value="">なし</button>
-                <button type="button" class="sr-tag" data-value="CAV" title="巡回大会">CAV</button>
-                <button type="button" class="sr-tag" data-value="RCV" title="地区大会">RCV</button>
-                <button type="button" class="sr-tag" data-value="SCV" title="特別大会ボランティア">SCV</button>
-                <button type="button" class="sr-tag" data-value="PSS" title="開拓者学校">PSS</button>
-                <button type="button" class="sr-tag" data-value="RP" title="正規開拓者">RP</button>
-                <button type="button" class="sr-tag" data-value="AP" title="補助開拓者">AP</button>
-                <button type="button" class="sr-tag" data-value="PVG" title="患者訪問グループ">PVG</button>
-                <button type="button" class="sr-tag" data-value="KMS" title="王国宣教学校">KMS</button>
-                <button type="button" class="sr-tag" data-value="SCE" title="会衆の長老のための学校">SCE</button>
-                <button type="button" class="sr-tag" data-value="SPC" title="特別な伝道キャンペーン">SPC</button>
-                <button type="button" class="sr-tag" data-value="LDCV" title="LDCボランティア">LDCV</button>
-                <button type="button" class="sr-tag" data-value="その他">その他</button>
-              </div>
-              <input type="hidden" id="sr-special-service" value="">
+              <select id="sr-special-service">
+                <option value="">なし</option>
+                <option value="CAV">CAV（巡回大会）</option>
+                <option value="RCV">RCV（地区大会）</option>
+                <option value="SCV">SCV（特別大会ボランティア）</option>
+                <option value="PSS">PSS（開拓者学校）</option>
+                <option value="RP">RP（正規開拓者）</option>
+                <option value="AP">AP（補助開拓者）</option>
+                <option value="PVG">PVG（患者訪問グループ）</option>
+                <option value="KMS">KMS（王国宣教学校）</option>
+                <option value="SCE">SCE（会衆の長老のための学校）</option>
+                <option value="SPC">SPC（特別な伝道キャンペーン）</option>
+                <option value="LDCV">LDCV（LDCボランティア）</option>
+                <option value="その他">その他</option>
+              </select>
             </div>
           </div>
           <div class="sr-field hidden" id="sr-special-other-row">
