@@ -246,6 +246,11 @@ function awRenderReviewPage() {
   if (!list) return;
   awRenderStepBar('review-step-bar', 3);
 
+  if (!awSharedMonth) {
+    list.innerHTML = awBackToHubEmpty();
+    return;
+  }
+
   // 下書き対象 = programStatus 'confirmed' AND hasAssignmentHistory
   // 公開済も併せて表示（取消可能にするため）
   const targetWeeks = awWeeks.filter(w =>
@@ -253,23 +258,10 @@ function awRenderReviewPage() {
     w.programStatus === 'published'
   );
 
-  if (targetWeeks.length === 0) {
-    list.innerHTML = '<div class="empty-state"><span class="material-icons">drafts</span>確認待ちの週はありません<br><span style="font-size:13px;color:var(--text-light)">先に「担当者策定」で下書き保存してください</span></div>';
-    document.getElementById('review-month-selector').innerHTML = '';
-    return;
-  }
-
-  const months = awExtractMonths(targetWeeks);
-  awEnsureSharedMonth(months);
-  awRenderMonthTiles('review-month-selector', months, awSharedMonth, (y, m) => {
-    awSetSharedMonth(y, m);
-    awRenderReviewPage();
-  });
-
   const filtered = awFilterWeeksByMonth(targetWeeks, awSharedMonth);
   list.innerHTML = '';
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty-state">この月の確認待ち / 公開済の週はありません</div>';
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">drafts</span>この月の確認待ち / 公開済の週はありません<br><span style="font-size:13px;color:var(--text-light)">先に「担当者策定」で下書き保存してください</span></div>';
     return;
   }
   filtered.forEach(week => awBuildReviewSection(week, list));
@@ -532,28 +524,21 @@ function awGenerateS89() {
 // S-89専用ページ
 async function initS89Page() {
   const preview = document.getElementById('s89-preview-list');
-  const monthEl = document.getElementById('s89-month-selector');
   if (preview) preview.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await Promise.all([awLoadCodes(), awLoadWeeks()]);
     // 公開済み かつ 割当確定済みの週のみ
     s89Weeks = awWeeks.filter(w => w.programStatus === 'published' && w.hasAssignmentHistory);
-    const months = awExtractMonths(s89Weeks);
-    if (months.length === 0) {
-      if (monthEl) monthEl.innerHTML = '';
-      if (preview) preview.innerHTML = '<div class="empty-state">公開済みの割当データがありません<br><span style="font-size:13px;color:var(--text-light)">プログラム表作成で「公開」してください</span></div>';
+    awRenderStepBar('s89-step-bar', 4);
+
+    if (!awSharedMonth) {
+      if (preview) preview.innerHTML = awBackToHubEmpty();
       return;
     }
-    awEnsureSharedMonth(months);
-    const renderTiles = () => {
-      awRenderMonthTiles('s89-month-selector', months, awSharedMonth, (y, m) => {
-        awSetSharedMonth(y, m);
-        s89RenderPreview();
-        renderTiles();
-      });
-    };
-    renderTiles();
-    awRenderStepBar('s89-step-bar', 4);
+    if (s89Weeks.length === 0) {
+      if (preview) preview.innerHTML = '<div class="empty-state">公開済みの割当データがありません<br><span style="font-size:13px;color:var(--text-light)">「確認・公開」で公開してください</span></div>';
+      return;
+    }
     s89RenderPreview();
   } catch(e) {
     if (preview) preview.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -769,19 +754,16 @@ function awMakeWeekRow(innerHTML, onClick) {
 function awRenderCreateList() {
   const list = document.getElementById('assignment-create-list');
   if (!list) return;
+  awRenderStepBar('assign-step-bar', 2);
+
   if (awWeeks.length === 0) {
     list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
-    document.getElementById('assign-month-selector').innerHTML = '';
     return;
   }
-
-  const months = awExtractMonths(awWeeks);
-  awEnsureSharedMonth(months);
-  awRenderMonthTiles('assign-month-selector', months, awSharedMonth, (y, m) => {
-    awSetSharedMonth(y, m);
-    awRenderCreateList();
-  });
-  awRenderStepBar('assign-step-bar', 2);
+  if (!awSharedMonth) {
+    list.innerHTML = awBackToHubEmpty();
+    return;
+  }
 
   const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
   list.innerHTML = '';
@@ -2164,23 +2146,10 @@ function skRenderPublicTalkCard(pt, container) {
 
 async function initProgramPage() {
   const list = document.getElementById('program-list');
-  const monthEl = document.getElementById('program-month-selector');
-  if (list) list.innerHTML = '';
-  if (monthEl) monthEl.innerHTML = '';
+  if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await Promise.all([awLoadCodes(), awLoadWeeks()]);
-    if (awWeeks.length > 0) {
-      // データあり — 月タイルだけ出し、選択で表示
-      const months = awExtractMonths(awWeeks);
-      awProgramSelectedMonth = null;
-      awRenderMonthTiles('program-month-selector', months, null, (y, m) => {
-        awProgramSelectedMonth = { year: y, month: m };
-        awRenderProgramList();
-      });
-      if (list) list.innerHTML = '<div class="empty-state">月を選択してください。新規作成する場合は、インポートからZIPファイルをインポートしてください。</div>';
-    } else {
-      if (list) list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>新規作成する場合は、インポートからZIPファイルをインポートしてください。</div>';
-    }
+    awRenderProgramList();
   } catch(e) {
     if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
@@ -2199,16 +2168,6 @@ function awSetSharedMonth(year, month) {
   awAssignSelectedMonth  = awSharedMonth;
   s89SelectedMonth       = awSharedMonth;
 }
-// 月リストを受け取り、共有月が未設定 or リストに無い場合は自動選択
-function awEnsureSharedMonth(months) {
-  if (awSharedMonth) {
-    const found = months.some(m => m.year === awSharedMonth.year && m.month === awSharedMonth.month);
-    if (found) return;
-  }
-  const auto = awAutoSelectMonth(months);
-  if (auto) awSetSharedMonth(auto.year, auto.month);
-}
-
 // ── ステップバー描画 ─────────────────────────
 function awComputeStepProgress() {
   if (!awSharedMonth || !Array.isArray(awWeeks)) {
@@ -2271,22 +2230,6 @@ function awExtractMonths(weeks) {
   });
 }
 
-function awRenderMonthTiles(selectorId, months, selected, onSelect) {
-  const el = document.getElementById(selectorId);
-  if (!el) return;
-  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  let html = '<div class="sk-month-tiles">';
-  months.forEach(({ year, month }) => {
-    const isSel = selected && selected.year === year && selected.month === month;
-    html += `<button class="sk-month-tile${isSel ? ' selected' : ''}" data-y="${year}" data-m="${month}">${year}年${monthNames[month]}</button>`;
-  });
-  html += '</div>';
-  el.innerHTML = html;
-  el.querySelectorAll('.sk-month-tile').forEach(btn => {
-    btn.addEventListener('click', () => onSelect(parseInt(btn.dataset.y), parseInt(btn.dataset.m)));
-  });
-}
-
 function awFilterWeeksByMonth(weeks, selected) {
   if (!selected) return weeks;
   return weeks.filter(w => {
@@ -2295,29 +2238,19 @@ function awFilterWeeksByMonth(weeks, selected) {
   });
 }
 
-function awAutoSelectMonth(months) {
-  const today = new Date();
-  const curKey = today.getFullYear() + '-' + today.getMonth();
-  const match = months.find(m => m.year + '-' + m.month === curKey);
-  return match || (months.length > 0 ? months[months.length - 1] : null);
-}
-
 function awRenderProgramList() {
   const list = document.getElementById('program-list');
   if (!list) return;
+  awRenderStepBar('program-step-bar', 1);
+
   if (awWeeks.length === 0) {
-    list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>ZIPファイルをインポートしてください</div>';
-    document.getElementById('program-month-selector').innerHTML = '';
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">upload_file</span>新規作成する場合は、インポートからZIPファイルをインポートしてください</div>';
     return;
   }
-
-  const months = awExtractMonths(awWeeks);
-  awEnsureSharedMonth(months);
-  awRenderMonthTiles('program-month-selector', months, awSharedMonth, (y, m) => {
-    awSetSharedMonth(y, m);
-    awRenderProgramList();
-  });
-  awRenderStepBar('program-step-bar', 1);
+  if (!awSharedMonth) {
+    list.innerHTML = awBackToHubEmpty();
+    return;
+  }
 
   const filtered = awFilterWeeksByMonth(awWeeks, awSharedMonth);
   list.innerHTML = '';
@@ -2601,6 +2534,11 @@ async function awConfirmEditProgram(week) {
     alert('状態変更エラー: ' + e.message);
     return false;
   }
+}
+
+// 月未選択時のフォールバック（ハブへ戻るボタン）
+function awBackToHubEmpty() {
+  return '<div class="empty-state" style="padding:32px"><span class="material-icons">event_busy</span>月が選択されていません<br><button class="btn-primary" style="margin-top:16px" onclick="navigate(\'admin-mwb-hub\')">進行管理に戻って月を選択</button></div>';
 }
 
 // ── 生活と奉仕の集会 進行管理ハブ ────────────
