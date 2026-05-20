@@ -3508,6 +3508,16 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 }
 .fg-add-select:focus { border-color: var(--primary, #047CBC); outline: none; }
 
+/* ── 進行管理ハブ ── */
+.mwb-hub-help {
+  display: flex; align-items: center; gap: 6px;
+  margin: 16px 0 0; padding: 10px 14px;
+  background: #f5f8fa; border-left: 3px solid var(--primary, #047CBC);
+  border-radius: 4px;
+  font-size: 13px; color: var(--text-light, #666);
+}
+.mwb-hub-help .material-icons { font-size: 18px; color: var(--primary, #047CBC); }
+
 /* ── ステップバー (4 ステップ進行表示) ── */
 .aw-stepbar {
   display: flex; align-items: stretch; gap: 0;
