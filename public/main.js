@@ -918,21 +918,35 @@ const HOME_MENU_ITEMS = [
 async function applyHomeMenuVisibility() {
   const cfg = await getAppConfig();
   const vis = cfg.homeMenuVisibility || {};
+  // 1) 各メニュー項目を非表示/表示
   HOME_MENU_ITEMS.forEach(item => {
     const show = vis[item.key] !== false;
-    // 管理画面サブ項目 (key='admin-...') はオフ時にグレーアウト表示
-    // それ以外（トップ画面メニュー）はオフ時に完全非表示
-    const isAdminItem = item.key.startsWith('admin-');
     document.querySelectorAll(item.selector).forEach(el => {
-      if (isAdminItem) {
-        el.classList.toggle('home-greyed-by-settings', !show);
-        el.classList.remove('home-hidden-by-settings');
-      } else {
-        el.classList.toggle('home-hidden-by-settings', !show);
-        el.classList.remove('home-greyed-by-settings');
-      }
+      el.classList.toggle('home-hidden-by-settings', !show);
+      el.classList.remove('home-greyed-by-settings');
     });
   });
+
+  // 2) 管理画面の各セクション: 配下のローが全て隠れていればセクションタグごと非表示
+  const adminPage = document.getElementById('page-admin');
+  if (adminPage) {
+    adminPage.querySelectorAll('.admin-list-menu').forEach(menu => {
+      const rows = menu.querySelectorAll('.admin-list-row');
+      const anyVisible = [...rows].some(r => !r.classList.contains('home-hidden-by-settings'));
+      const prevTag = menu.previousElementSibling;
+      if (prevTag && prevTag.classList.contains('admin-section-tag')) {
+        prevTag.classList.toggle('home-hidden-by-settings', !anyVisible);
+      }
+      menu.classList.toggle('home-hidden-by-settings', !anyVisible);
+    });
+    // 唐木田PORTAL（ADMIN セクション）は wrapper で囲まれている
+    const portal = document.getElementById('admin-portal-section');
+    if (portal) {
+      const rows = portal.querySelectorAll('.admin-list-row');
+      const anyVisible = [...rows].some(r => !r.classList.contains('home-hidden-by-settings'));
+      portal.classList.toggle('home-hidden-by-settings', !anyVisible);
+    }
+  }
 }
 // 指定月の集会日一覧を返す
 async function getMeetingDatesForMonth(year, month) {
