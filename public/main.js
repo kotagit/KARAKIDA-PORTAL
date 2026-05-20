@@ -6883,11 +6883,12 @@ function renderDeptEditTable() {
     });
   }
   ORG_DEPARTMENTS.forEach(d => {
+    // 開拓者セクションは資格タグ内の「正規開拓者」と重複するためスキップ
+    if (d.section === '開拓者') return;
     if (d.section !== lastSection) {
       if (lastSection === '長老団') pushElderStudentRow();
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
                 : d.section === '長老団' ? 'meb-grp-org-elder'
-                : d.section === '開拓者' ? 'meb-grp-org-pioneer'
                 : d.section === '野外宣教グループ' ? 'meb-grp-org-group'
                 : 'meb-grp-org';
       addSection(d.section, cls);
