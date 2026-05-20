@@ -3458,3 +3458,50 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 .psim-item-hint {
   font-size: 11px; color: #888; text-decoration: none; font-style: italic;
 }
+
+/* ── 家族グループ管理 ── */
+.fg-hint {
+  background: #fff8e1; border-left: 4px solid #f9a825;
+  padding: 10px 12px; font-size: 13px; line-height: 1.6;
+  border-radius: 4px; margin-bottom: 12px; color: #6d4c00;
+}
+.fg-actions-bar { margin-bottom: 16px; }
+.fg-cards-container {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.fg-card {
+  background: white; border: 1px solid var(--border, #e0e0e0); border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden;
+}
+.fg-card-header {
+  display: flex; align-items: center; gap: 6px;
+  background: #f3e5f5; padding: 8px 12px; border-bottom: 1px solid var(--border, #e0e0e0);
+}
+.fg-card-title { font-weight: 700; font-size: 15px; color: #6a1b9a; flex: 1 1 auto; min-width: 0; }
+.fg-card-count { font-size: 12px; color: var(--text-light, #777); margin-right: 4px; }
+.fg-btn-rename, .fg-btn-delete { padding: 4px; }
+.fg-card-body { padding: 10px 12px; }
+.fg-member-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 24px;
+}
+.fg-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #ede7f6; color: #4527a0;
+  padding: 3px 4px 3px 8px; border-radius: 14px; font-size: 12px; font-weight: 500;
+}
+.fg-chip-gender { font-size: 10px; opacity: 0.7; }
+.fg-chip-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  width: 18px; height: 18px; border-radius: 50%; color: #6a1b9a;
+  font-size: 14px; line-height: 1; padding: 0;
+}
+.fg-chip-x:hover { background: rgba(106,27,154,0.15); }
+.fg-add-member-row { padding-top: 6px; border-top: 1px dashed var(--border, #e0e0e0); }
+.fg-add-select {
+  width: 100%; padding: 5px 8px; font-size: 13px;
+  border: 1px solid var(--border, #ccc); border-radius: 4px;
+  background: white; cursor: pointer;
+}
+.fg-add-select:focus { border-color: var(--primary, #047CBC); outline: none; }

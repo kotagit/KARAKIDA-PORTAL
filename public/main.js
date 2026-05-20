@@ -88,6 +88,7 @@ const PAGE_TITLES = {
   'admin-assignment-history': '割当履歴',
   'admin-s89': 'S-89 生成',
   'admin-schedule-editor': 'スケジュール編集',
+  'admin-family-groups': '家族グループ管理',
   'admin-attendance': '集会出席',
   'admin-attendance-monthly': '出席 月集計',
   'admin-access-log': 'アクセスログ',
@@ -391,6 +392,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment')           initAssignmentPage();
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
+  if (page === 'admin-family-groups')      initFamilyGroupsPage();
   if (page === 'admin-member-edit')        initMemberEditPage();
   if (page === 'admin-group-emergency')    loadGroupEmergency();
   if (page === 'admin-attendance')         loadAdminAttendance();
@@ -425,6 +427,10 @@ document.getElementById('admin-manage-announcements')?.addEventListener('click',
 
 document.getElementById('admin-add-announce-btn')?.addEventListener('click', () => {
   openAnnounceModal(null);
+});
+
+document.getElementById('admin-manage-family-groups')?.addEventListener('click', () => {
+  navigate('admin-family-groups');
 });
 
 document.getElementById('admin-manage-s13')?.addEventListener('click', () => {
@@ -7748,3 +7754,195 @@ function renderPermissionSimulator() {
 document.getElementById('admin-manage-permission-simulator')?.addEventListener('click', () => {
   navigate('admin-permission-simulator');
 });
+
+// ══════════════════════════════════════════════
+// 家族グループ管理
+// ══════════════════════════════════════════════
+
+let _fgMembers = []; // [{ docId, name, furigana, gender, familyGroup }]
+
+async function initFamilyGroupsPage() {
+  const container = document.getElementById('fg-cards-container');
+  if (container) container.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const all = await getUserListCached();
+    _fgMembers = all
+      .map(u => ({
+        docId: u.docId,
+        name: u.name || '',
+        furigana: u.furigana || '',
+        gender: u.gender || '',
+        familyGroup: u.familyGroup || '',
+        _inactive: (Array.isArray(u.status) ? u.status : []).includes('inactive'),
+      }))
+      .filter(m => m.name && !m._inactive);
+    renderFamilyGroups();
+  } catch (e) {
+    if (container) container.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderFamilyGroups() {
+  const container = document.getElementById('fg-cards-container');
+  if (!container) return;
+  // familyGroup → メンバー配列
+  const byGroup = new Map();
+  _fgMembers.forEach(m => {
+    if (!m.familyGroup) return;
+    if (!byGroup.has(m.familyGroup)) byGroup.set(m.familyGroup, []);
+    byGroup.get(m.familyGroup).push(m);
+  });
+  // ソート: グループ名昇順、メンバーはフリガナ昇順
+  const groups = [...byGroup.keys()].sort((a, b) => a.localeCompare(b, 'ja'));
+  if (groups.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:24px;text-align:center;color:var(--text-light)">家族グループはまだありません。<br>上の「新しい家族グループを作成」ボタンから追加してください。</div>';
+    return;
+  }
+  let html = '';
+  groups.forEach(g => {
+    const members = byGroup.get(g).sort((a, b) => (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
+    html += `<div class="fg-card" data-group="${esc(g)}">
+      <div class="fg-card-header">
+        <span class="fg-card-title">${esc(g)}</span>
+        <span class="fg-card-count">${members.length}人</span>
+        <button class="fg-btn-rename icon-btn" title="名前変更"><span class="material-icons" style="font-size:16px">edit</span></button>
+        <button class="fg-btn-delete icon-btn" title="家族グループ解散" style="color:#d32f2f"><span class="material-icons" style="font-size:16px">delete</span></button>
+      </div>
+      <div class="fg-card-body">
+        <div class="fg-member-chips">`;
+    members.forEach(m => {
+      const genderTag = m.gender === '男' ? '♂' : m.gender === '女' ? '♀' : '';
+      html += `<span class="fg-chip" data-mid="${esc(m.docId)}">${esc(m.name)} <span class="fg-chip-gender">${genderTag}</span><button class="fg-chip-x" title="削除">×</button></span>`;
+    });
+    html += `</div>
+        <div class="fg-add-member-row">
+          <select class="fg-add-select">
+            <option value="">＋ メンバーを追加…</option>`;
+    // 候補: 家族グループ未設定 or 他の家族にいる人（移動可能）
+    _fgMembers
+      .filter(m => m.familyGroup !== g)
+      .sort((a, b) => (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'))
+      .forEach(m => {
+        const note = m.familyGroup ? `（現在: ${m.familyGroup}）` : '';
+        html += `<option value="${esc(m.docId)}">${esc(m.name)}${esc(note)}</option>`;
+      });
+    html += `</select>
+        </div>
+      </div>
+    </div>`;
+  });
+  container.innerHTML = html;
+  // イベント配線
+  container.querySelectorAll('.fg-card').forEach(card => {
+    const group = card.dataset.group;
+    card.querySelector('.fg-btn-rename')?.addEventListener('click', () => fgRenameGroup(group));
+    card.querySelector('.fg-btn-delete')?.addEventListener('click', () => fgDeleteGroup(group));
+    card.querySelectorAll('.fg-chip-x').forEach(btn => {
+      const chip = btn.closest('.fg-chip');
+      const mid = chip?.dataset.mid;
+      btn.addEventListener('click', () => fgRemoveMember(mid, group));
+    });
+    card.querySelector('.fg-add-select')?.addEventListener('change', (e) => {
+      const mid = e.target.value;
+      if (mid) fgAddMember(mid, group);
+    });
+  });
+}
+
+async function fgUpdateMemberGroup(docId, newGroup) {
+  await db.collection('USER_LIST').doc(docId).update({ familyGroup: newGroup || '' });
+  applyUserListLocal(docId, { familyGroup: newGroup || '' });
+  const target = _fgMembers.find(m => m.docId === docId);
+  if (target) target.familyGroup = newGroup || '';
+}
+
+async function fgAddMember(docId, group) {
+  try {
+    await fgUpdateMemberGroup(docId, group);
+    renderFamilyGroups();
+  } catch (e) { alert('追加エラー: ' + e.message); }
+}
+
+async function fgRemoveMember(docId, group) {
+  const target = _fgMembers.find(m => m.docId === docId);
+  if (!target) return;
+  if (!confirm(`${target.name} を家族グループ「${group}」から外しますか？`)) return;
+  try {
+    await fgUpdateMemberGroup(docId, '');
+    renderFamilyGroups();
+  } catch (e) { alert('削除エラー: ' + e.message); }
+}
+
+async function fgRenameGroup(oldName) {
+  const newName = prompt(`家族グループ名「${oldName}」を変更します。\n新しい名前:`, oldName);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === oldName) return;
+  // 既存の別グループと衝突 → 合流させる挙動になる旨確認
+  const conflict = _fgMembers.some(m => m.familyGroup === trimmed);
+  if (conflict && !confirm(`「${trimmed}」は既に存在します。両グループを統合しますか？`)) return;
+  try {
+    const targets = _fgMembers.filter(m => m.familyGroup === oldName);
+    const batch = db.batch();
+    targets.forEach(m => {
+      batch.update(db.collection('USER_LIST').doc(m.docId), { familyGroup: trimmed });
+    });
+    await batch.commit();
+    targets.forEach(m => {
+      m.familyGroup = trimmed;
+      applyUserListLocal(m.docId, { familyGroup: trimmed });
+    });
+    renderFamilyGroups();
+  } catch (e) { alert('変更エラー: ' + e.message); }
+}
+
+async function fgDeleteGroup(group) {
+  const count = _fgMembers.filter(m => m.familyGroup === group).length;
+  if (!confirm(`家族グループ「${group}」を解散します（${count}人の家族グループが空になります）。よろしいですか？`)) return;
+  try {
+    const targets = _fgMembers.filter(m => m.familyGroup === group);
+    const batch = db.batch();
+    targets.forEach(m => {
+      batch.update(db.collection('USER_LIST').doc(m.docId), { familyGroup: '' });
+    });
+    await batch.commit();
+    targets.forEach(m => {
+      m.familyGroup = '';
+      applyUserListLocal(m.docId, { familyGroup: '' });
+    });
+    renderFamilyGroups();
+  } catch (e) { alert('解散エラー: ' + e.message); }
+}
+
+async function fgCreateNewGroup() {
+  const name = prompt('新しい家族グループの名前を入力してください\n（例: 家A、スズキ家）');
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  if (_fgMembers.some(m => m.familyGroup === trimmed)) {
+    alert(`「${trimmed}」は既に存在します`);
+    return;
+  }
+  // 最初のメンバーを選んでもらう（空グループだと表示されないため）
+  const candidate = _fgMembers
+    .filter(m => !m.familyGroup)
+    .sort((a, b) => (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
+  if (candidate.length === 0) {
+    alert('未所属のメンバーがいないため、新規作成できません。\n既存の家族グループから誰かを外してから再度お試しください。');
+    return;
+  }
+  const names = candidate.map((m, i) => `${i + 1}. ${m.name}${m.gender ? '（' + m.gender + '）' : ''}`).join('\n');
+  const pick = prompt(`「${trimmed}」の最初のメンバーを番号で選択してください:\n\n${names}`);
+  if (pick === null) return;
+  const idx = parseInt(pick, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= candidate.length) {
+    alert('無効な番号です');
+    return;
+  }
+  try {
+    await fgUpdateMemberGroup(candidate[idx].docId, trimmed);
+    renderFamilyGroups();
+  } catch (e) { alert('作成エラー: ' + e.message); }
+}
+
+document.getElementById('fg-add-btn')?.addEventListener('click', fgCreateNewGroup);
