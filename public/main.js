@@ -2310,7 +2310,7 @@ function initAreaInfoForm() {
       });
       alert('登録しました');
       form.reset();
-      navigate('shinsei');
+      navigate('home');
     } catch (err) {
       alert('登録エラー: ' + err.message);
     } finally {
@@ -2683,7 +2683,7 @@ async function initServiceReportForm() {
         document.getElementById('sr-other-group').value = '';
       }
       document.getElementById('sr-target').value = 'self';
-      navigate('shinsei');
+      navigate('home');
     } catch (err) {
       alert('送信エラー: ' + err.message);
     } finally {
@@ -2969,7 +2969,7 @@ async function pwApplySubmit(items) {
     }
     alert('送信しました（' + keys.length + '件）');
     pwApplySelected = {};
-    navigate('shinsei');
+    navigate('home');
   } catch (err) {
     alert('送信エラー: ' + err.message);
   } finally {
@@ -6151,6 +6151,42 @@ document.getElementById('attf-type')?.addEventListener('change', () => {
   if (sg) sg.classList.toggle('hidden', document.getElementById('attf-type').value !== 'special');
 });
 
+// 日付変更時に集会種別 (週中 / 週末) を自動判定
+//   会衆設定の meetingDays（[midweek, weekend] 想定）と曜日が一致すれば該当タイプ。
+//   既にユーザが special / memorial を選んでいる場合は触らない。
+async function _attfAutoSetMeetingType() {
+  const dateInput = document.getElementById('attf-date');
+  const typeSel   = document.getElementById('attf-type');
+  if (!dateInput || !typeSel || !dateInput.value) return;
+  // ユーザの明示選択を尊重: 既に special / memorial になっていれば触らない
+  if (typeSel.value === 'special' || typeSel.value === 'memorial') return;
+  let inferred = null;
+  try {
+    const days = await getMeetingDays(); // 例: [0, 4]（日, 木）
+    const d = new Date(dateInput.value + 'T00:00:00');
+    if (isNaN(d.getTime())) return;
+    const dow = d.getDay(); // 0=日 .. 6=土
+    // 週末判定 (0 or 6) を優先、それ以外で配列に含まれる平日なら週中
+    if (dow === 0 || dow === 6) inferred = 'weekend';
+    else if (days.includes(dow)) inferred = 'midweek';
+    else inferred = 'midweek'; // フォールバック
+  } catch(e) {
+    // 設定取得失敗時は曜日のみで判定
+    const d = new Date(dateInput.value + 'T00:00:00');
+    if (!isNaN(d.getTime())) {
+      const dow = d.getDay();
+      inferred = (dow === 0 || dow === 6) ? 'weekend' : 'midweek';
+    }
+  }
+  if (inferred && typeSel.value !== inferred) {
+    typeSel.value = inferred;
+    // special-group の表示も更新
+    const sg = document.getElementById('attf-special-group');
+    if (sg) sg.classList.toggle('hidden', typeSel.value !== 'special');
+  }
+}
+document.getElementById('attf-date')?.addEventListener('change', _attfAutoSetMeetingType);
+
 document.getElementById('attf-submit')?.addEventListener('click', async () => {
   const date  = document.getElementById('attf-date').value;
   const venue = document.getElementById('attf-venue').value;
@@ -6205,7 +6241,7 @@ document.getElementById('attf-submit')?.addEventListener('click', async () => {
     data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
     await ref.set(data, { merge: true });
     alert(`✅ 出席を登録しました\n\n${date}　${venueLabel}　${typeLabel}${detailStr}\n出席人数: ${count}名`);
-    navigate('shinsei');
+    navigate('home');
   } catch (err) {
     alert('保存エラー: ' + err.message);
   } finally {
