@@ -2095,11 +2095,15 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .gm-stab-low  { color: #c62828; }
 
 /* ── 公共エリア策定 ── */
-.pw-date-group { margin-bottom: 28px; }
+.pw-date-group { margin-bottom: 16px; }
 .pw-date-tag {
   display: inline-block; padding: 4px 14px; border-radius: 12px;
   background: var(--primary); color: white;
   font-size: 12px; font-weight: 700; margin-bottom: 10px;
+}
+/* カード内インライン日付タグ */
+.pw-date-tag-inline {
+  margin-bottom: 0; padding: 3px 10px; font-size: 11px;
 }
 .pw-slot-card {
   display: flex; align-items: center; gap: 10px;

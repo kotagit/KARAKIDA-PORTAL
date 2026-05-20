@@ -2969,7 +2969,7 @@ async function loadPwApply() {
 
     container.innerHTML = '';
 
-    // 日付グループ＋スロットカード
+    // 日付グループ＋スロットカード（日付タグはカード内へ移動）
     let curDate = '';
     let curGroup = null;
     items.forEach(item => {
@@ -2977,10 +2977,6 @@ async function loadPwApply() {
       if (dateLabel !== curDate) {
         curGroup = document.createElement('div');
         curGroup.className = 'pw-date-group';
-        const tag = document.createElement('div');
-        tag.className = 'pw-date-tag';
-        tag.textContent = dateLabel;
-        curGroup.appendChild(tag);
         container.appendChild(curGroup);
         curDate = dateLabel;
       }
@@ -3002,6 +2998,7 @@ async function loadPwApply() {
 
       card.innerHTML = `
         <div class="pwa-row-main" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
+          <span class="pw-date-tag pw-date-tag-inline">${esc(dateLabel)}</span>
           <span class="material-icons pw-slot-icon">access_time</span>
           <span class="pw-slot-time">${esc(item.startTime)}</span>
           ${placeBadges}
