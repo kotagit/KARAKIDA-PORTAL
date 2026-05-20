@@ -6858,10 +6858,10 @@ function renderDeptEditTable() {
     }
   });
 
-  // 奉仕場所
+  // 奉仕場所（案内のhall/entrance/zoomは奉仕委員会タグ内の案内配下に移動）
   addSection('奉仕場所', 'meb-grp-pos');
   const DEPT_ID_TO_LABEL = { annai:'案内', avs:'AV', parking:'駐車場', cleaning:'清掃' };
-  ME_POSITION_DEFS.forEach(p => {
+  ME_POSITION_DEFS.filter(p => p.dept !== 'annai').forEach(p => {
     rows.push({
       kind: 'check',
       label: p.label,
@@ -6933,6 +6933,33 @@ function renderDeptEditTable() {
         }
       });
     });
+
+    // 案内 部門の責任者/奉仕者 の後に 会場/入口/Zoom を追加
+    if (d.id === 'annai') {
+      ME_POSITION_DEFS.filter(p => p.dept === 'annai').forEach(p => {
+        rows.push({
+          kind: 'check',
+          label: p.label,
+          isSub: true,
+          sectionCls: 'meb-grp-org',
+          get: m => {
+            const o = meBulkCurrentValue(m, 'deptPositions') || {};
+            return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
+          },
+          set: (m, on) => {
+            const cur = meBulkCurrentValue(m, 'deptPositions') || {};
+            const newObj = { ...cur };
+            const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
+            const idx = arr.indexOf(p.pos);
+            if (on && idx === -1) arr.push(p.pos);
+            else if (!on && idx !== -1) arr.splice(idx, 1);
+            if (arr.length === 0) delete newObj[p.dept];
+            else newObj[p.dept] = arr;
+            meBulkRecordChange(m.docId, 'deptPositions', newObj);
+          }
+        });
+      });
+    }
   });
   if (lastSection === '長老団') pushElderStudentRow();
 
