@@ -2679,6 +2679,16 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-dept td        { background: #e8f5e9; color: #2e7d32; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-pos td         { background: #fff3e0; color: #ef6c00; }
 .meb-tr-cb { transform: scale(1.1); }
+.meb-select-head { font-weight: normal; font-size: 11px; color: #c62828; padding: 2px 4px; }
+.meb-select-cell { padding: 2px 0; }
+.meb-del-cb { transform: scale(1.0); accent-color: #d32f2f; cursor: pointer; }
+.me-bulk-delete-selected {
+  background: #d32f2f; color: white; border: 1px solid #b71c1c;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.me-bulk-delete-selected:hover:not(:disabled) { background: #b71c1c; }
+.me-bulk-delete-selected:disabled { opacity: 0.6; cursor: not-allowed; }
 .meb-tr-sel { font-size: 12px; padding: 2px; }
 .meb-name-readonly { font-weight: 600; font-size: 13px; padding: 2px 4px; }
 .meb-weight { padding: 2px; font-size: 12px; }

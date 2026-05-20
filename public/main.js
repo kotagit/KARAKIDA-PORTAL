@@ -6184,6 +6184,7 @@ async function initMemberEditPage() {
     document.getElementById('me-mode-dept')?.addEventListener('click', () => setMemberEditMode('dept'));
     document.getElementById('me-bulk-save')?.addEventListener('click', saveBulkChanges);
     document.getElementById('me-bulk-discard')?.addEventListener('click', discardBulkChanges);
+    document.getElementById('me-bulk-delete-selected')?.addEventListener('click', deleteSelectedBulk);
     document.getElementById('me-add-btn')?.addEventListener('click', () => openMemberEditModal(null));
     document.getElementById('me-delete')?.addEventListener('click', deleteMemberEdit);
     document.getElementById('me-bulk-search')?.addEventListener('input', renderBulkEditTable);
@@ -6627,6 +6628,7 @@ window.deriveGroupRole = deriveGroupRole;
 
 // docId -> { name?, furigana?, group?, gender?, mail?, status?: [] }
 const meBulkChanges = new Map();
+const _meDeleteSelected = new Set(); // docId of members selected for deletion
 
 function meBulkOriginal(docId) {
   return meAllMembers.find(m => m.docId === docId);
@@ -7062,7 +7064,7 @@ function renderDeptEditTable() {
   cgHtml += '</colgroup>';
   table.insertAdjacentHTML('afterbegin', cgHtml);
 
-  // ヘッダー: 番号行 + 氏名行
+  // ヘッダー: 番号行 + 氏名行 + 選択チェック行
   let theadHtml = '<tr>';
   theadHtml += '<th class="meb-sticky-col meb-row-label-head"></th>';
   members.forEach((m, i) => {
@@ -7072,6 +7074,15 @@ function renderDeptEditTable() {
   theadHtml += '<th class="meb-sticky-col meb-row-label-head">役職</th>';
   members.forEach(m => {
     theadHtml += `<th class="meb-name-vert" title="${esc(m.name || '')}"><div class="meb-name-vert-inner">${esc(m.name || '')}</div></th>`;
+  });
+  theadHtml += '</tr><tr>';
+  theadHtml += '<th class="meb-sticky-col meb-row-label-head meb-select-head">' +
+    '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:normal">' +
+    '<input type="checkbox" class="meb-select-all">削除選択' +
+    '</label></th>';
+  members.forEach(m => {
+    const checked = _meDeleteSelected.has(m.docId) ? 'checked' : '';
+    theadHtml += `<th class="meb-num-cell meb-select-cell"><input type="checkbox" class="meb-del-cb" data-mid="${esc(m.docId)}" ${checked}></th>`;
   });
   theadHtml += '</tr>';
   thead.innerHTML = theadHtml;
@@ -7129,6 +7140,26 @@ function renderDeptEditTable() {
       if (row && member) row.set(member, sel.value);
     });
   });
+
+  // 削除選択チェックボックス
+  thead.querySelectorAll('.meb-del-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const mid = cb.dataset.mid;
+      if (cb.checked) _meDeleteSelected.add(mid);
+      else _meDeleteSelected.delete(mid);
+      updateDeleteSelectedUI();
+    });
+  });
+  thead.querySelector('.meb-select-all')?.addEventListener('change', (e) => {
+    const on = e.target.checked;
+    members.forEach(m => {
+      if (on) _meDeleteSelected.add(m.docId);
+      else _meDeleteSelected.delete(m.docId);
+    });
+    thead.querySelectorAll('.meb-del-cb').forEach(cb => { cb.checked = on; });
+    updateDeleteSelectedUI();
+  });
+  updateDeleteSelectedUI();
 
   // アコーディオン（初期状態: 管轄セクションはオープン、その他はクローズ）
   tbody.querySelectorAll('.meb-section-row').forEach(secRow => {
@@ -7307,6 +7338,46 @@ function discardBulkChanges() {
   if (!confirm(`${meBulkChanges.size}件の変更を破棄しますか？`)) return;
   meBulkChanges.clear();
   renderBulkEditTable();
+}
+
+function updateDeleteSelectedUI() {
+  const btn = document.getElementById('me-bulk-delete-selected');
+  const cnt = document.getElementById('me-bulk-delete-count');
+  if (!btn || !cnt) return;
+  const n = _meDeleteSelected.size;
+  cnt.textContent = n;
+  btn.classList.toggle('hidden', n === 0);
+}
+
+async function deleteSelectedBulk() {
+  if (_meDeleteSelected.size === 0) return;
+  const targets = [..._meDeleteSelected]
+    .map(id => meAllMembers.find(m => m.docId === id))
+    .filter(Boolean);
+  if (targets.length === 0) { _meDeleteSelected.clear(); updateDeleteSelectedUI(); return; }
+  const names = targets.map(m => m.name).join('\n');
+  if (!confirm(`以下の${targets.length}名を USER_LIST から完全に削除します。\nこの操作は取り消せません。\n\n${names}`)) return;
+  const btn = document.getElementById('me-bulk-delete-selected');
+  if (btn) { btn.disabled = true; }
+  try {
+    const batch = db.batch();
+    targets.forEach(m => {
+      batch.delete(db.collection('USER_LIST').doc(m.docId));
+    });
+    await batch.commit();
+    targets.forEach(m => {
+      if (window.removeUserListLocal) window.removeUserListLocal(m.docId);
+      meBulkChanges.delete(m.docId);
+    });
+    _meDeleteSelected.clear();
+    await loadMemberEditList();
+    renderBulkEditTable();
+    alert(`${targets.length}名を削除しました`);
+  } catch (err) {
+    alert('削除エラー: ' + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function migrateGroupToOrgRoles() {
