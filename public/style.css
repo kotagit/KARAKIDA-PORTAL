@@ -25,6 +25,8 @@ body {
 
 .hidden { display: none !important; }
 .home-hidden-by-settings { display: none !important; }
+.home-greyed-by-settings { opacity: 0.4; pointer-events: none; cursor: not-allowed; }
+.home-greyed-by-settings .admin-row-label::after { content: '（未対応）'; font-size: 0.85em; color: #888; margin-left: 4px; }
 
 /* ── ログイン ── */
 .login-screen {
