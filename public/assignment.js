@@ -2380,7 +2380,9 @@ function awBuildProgramSection(week, container) {
       ${ps === 'published' ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>下書きに戻す</button>` : ''}
     </div>
   `;
-  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
+  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', async () => {
+    if (await awConfirmEditProgram(week)) awOpenScheduleEditor(week.id);
+  });
   hdr.querySelector('[data-act="publish"]')?.addEventListener('click', () => awSetWeekStatus(week, 'published', section));
   hdr.querySelector('[data-act="unpublish"]')?.addEventListener('click', () => awSetWeekStatus(week, 'confirmed', section));
 
@@ -2593,6 +2595,47 @@ async function awPublishAllPrograms() {
     awRenderProgramList();
     alert(`${count}週分を公開しました`);
   } catch(e) { alert('公開エラー: ' + e.message); }
+}
+
+// プログラム編集の前に警告（公開済 / 確定済の場合）
+// OK なら draft に戻して true を返す。キャンセルなら false。
+async function awConfirmEditProgram(week) {
+  if (week.programStatus === 'draft' || !week.programStatus) return true;
+
+  let msg;
+  if (week.programStatus === 'published') {
+    msg = '⚠️ この週は公開済です\n\n' +
+      'プログラムを編集すると：\n' +
+      '・担当者データ（誰が何を担当するか）は保持されます\n' +
+      '・公開状態は取消され、③確認・公開からやり直しになります\n' +
+      '・items 構造が変わるとコード不一致の担当者は手動で再割当が必要です\n\n' +
+      '編集して未確定に戻しますか？';
+  } else {
+    // confirmed
+    const hasAssign = !!week.hasAssignmentHistory;
+    msg = '⚠️ この週は確定済です\n\n' +
+      'プログラムを編集すると：\n' +
+      (hasAssign ? '・担当者データは保持されます\n' : '') +
+      '・確定が取消され、未確定に戻ります\n' +
+      (hasAssign ? '・items 構造が変わるとコード不一致の担当者は要再割当\n' : '・担当者策定からやり直しになります\n') +
+      '\n編集して未確定に戻しますか？';
+  }
+
+  if (!(await customConfirm(msg))) return false;
+  try {
+    await db.collection('mwbWeeks').doc(week.id).set({ programStatus: 'draft' }, { merge: true });
+    week.programStatus = 'draft';
+    // ヘッダーのバッジを即時更新（再描画は呼び出し側で）
+    const sec = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"]`);
+    if (sec) {
+      const badge = sec.querySelector('.aw-status-badge');
+      if (badge) { badge.className = 'aw-status-badge aw-badge-none'; badge.textContent = '未確定'; }
+    }
+    return true;
+  } catch(e) {
+    alert('状態変更エラー: ' + e.message);
+    return false;
+  }
 }
 
 // 個別週の状態遷移（confirmed ⇄ published）
