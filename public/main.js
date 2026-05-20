@@ -3394,18 +3394,19 @@ async function loadAdminReportCheck() {
 
   if (monthSel && monthSel.options.length === 0) {
     const now = new Date();
-    // 既定選択は先月（その月の報告が提出される時期）
-    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    // 現在月から過去 12 ヶ月を選択肢に並べる（今月も含む）
+    // 開始点: 現在月の 2 ヶ月前（例: 5月 → 3月）。そこから 12 ヶ月分遡る。
+    // 既定選択は先頭（=2 ヶ月前）。
+    let startM = (now.getMonth() + 1) - 2; // 1-indexed
+    let startY = now.getFullYear();
+    while (startM <= 0) { startM += 12; startY--; }
     for (let i = 0; i < 12; i++) {
-      let m = (now.getMonth() + 1) - i; // 1-indexed
-      let y = now.getFullYear();
-      if (m <= 0) { m += 12; y--; }
+      let m = startM - i;
+      let y = startY;
+      while (m <= 0) { m += 12; y--; }
       const opt = document.createElement('option');
       opt.value = y + '-' + m;
       opt.textContent = y + '年' + m + '月';
-      if (m === defMonth && y === defYear) opt.selected = true;
+      if (i === 0) opt.selected = true;
       monthSel.appendChild(opt);
     }
     monthSel.addEventListener('change', () => loadReportCheckData());
