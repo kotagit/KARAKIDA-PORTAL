@@ -503,7 +503,7 @@ document.querySelectorAll('[data-page]').forEach(item => {
 });
 
 // ホームメニューのアコーディオン
-['shukai','senkyo','bumon','shinsei'].forEach(key => {
+['shukai','senkyo','bumon','shinsei','jouhou'].forEach(key => {
   const hdr = document.getElementById(`home-acc-${key}-header`);
   if (hdr) hdr.addEventListener('click', () => {
     const acc = document.getElementById(`home-acc-${key}`);
@@ -870,7 +870,11 @@ const HOME_MENU_ITEMS = [
   // その他トップレベル
   { key: 'soshiki', label: '組織',     group: 'その他', selector: '[data-page="soshiki"]' },
   { key: 'gyoji',   label: 'イベント', group: 'その他', selector: '[data-page="gyoji"]' },
-  { key: 'jouhou',  label: '情報',     group: 'その他', selector: '[data-page="jouhou"]' },
+  // 情報
+  { key: 'jouhou',          label: '情報（親メニュー）',   group: '情報', selector: '#home-acc-jouhou' },
+  { key: 'jouhou-contact',  label: '会衆登録情報',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-contact"]' },
+  { key: 'jouhou-renraku',  label: '連絡先情報',           group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-renraku"]' },
+  { key: 'jouhou-card',     label: '伝道者カード',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-card"]' },
   { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
   { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
   { key: 'admin',   label: '管理画面（要 ADMIN 権限）', group: 'その他', selector: '#menu-admin' },
@@ -915,8 +919,17 @@ async function applyHomeMenuVisibility() {
   const vis = cfg.homeMenuVisibility || {};
   HOME_MENU_ITEMS.forEach(item => {
     const show = vis[item.key] !== false;
+    // 管理画面サブ項目 (key='admin-...') はオフ時にグレーアウト表示
+    // それ以外（トップ画面メニュー）はオフ時に完全非表示
+    const isAdminItem = item.key.startsWith('admin-');
     document.querySelectorAll(item.selector).forEach(el => {
-      el.classList.toggle('home-hidden-by-settings', !show);
+      if (isAdminItem) {
+        el.classList.toggle('home-greyed-by-settings', !show);
+        el.classList.remove('home-hidden-by-settings');
+      } else {
+        el.classList.toggle('home-hidden-by-settings', !show);
+        el.classList.remove('home-greyed-by-settings');
+      }
     });
   });
 }
