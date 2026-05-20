@@ -130,7 +130,6 @@ async function initAssignmentPage() {
   // イベントリスナーを先に登録（returnで飛ばされないように）
   document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
   document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
-  document.getElementById('aw-s89-btn')?.addEventListener('click', awGenerateS89);
 
   const createList = document.getElementById('assignment-create-list');
   if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -780,9 +779,15 @@ function awRenderCreateList() {
   list.innerHTML = '';
   if (filtered.length === 0) {
     list.innerHTML = '<div class="empty-state">この月の確定済みプログラムはありません</div>';
+    list.classList.remove('aw-program-list-locked');
     return;
   }
   filtered.forEach(week => awBuildWeekSection(week, list));
+
+  // 月内の非大会週がすべて担当者確定済みなら dim & ロック
+  const targets = filtered.filter(w => !w.conventionType);
+  const allConfirmed = targets.length > 0 && targets.every(w => w.hasAssignmentHistory);
+  list.classList.toggle('aw-program-list-locked', allConfirmed);
 }
 
 // 週の集会日の Date を返す（customMeetDate優先、なければ曜日計算）
