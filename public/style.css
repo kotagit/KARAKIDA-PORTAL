@@ -342,17 +342,6 @@ body {
 .s89-footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #eee; }
 .s89-note { font-size: 10px; color: #555; line-height: 1.5; }
 .s89-form-id { font-size: 10px; color: #888; margin-top: 6px; }
-.am-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.am-filter-chip {
-  padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border);
-  background: var(--white); color: #555; font-size: 14px; cursor: pointer; transition: all 0.2s;
-}
-.am-filter-chip:hover { border-color: var(--primary); color: var(--primary); }
-.am-filter-chip.active { background: var(--primary); color: var(--white); border-color: var(--primary); }
-.am-kana-tag {
-  padding: 6px 16px; font-size: 13px; font-weight: 700; color: var(--primary);
-  background: var(--primary-light); border-bottom: 1px solid var(--border);
-}
 .admin-list { background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
 .admin-list-item {
   display: flex; align-items: center; padding: 4px 16px;
@@ -360,10 +349,6 @@ body {
 }
 .admin-list-item:last-child { border-bottom: none; }
 .admin-list-info { flex: 1; }
-.am-num {
-  min-width: 28px; text-align: center; font-size: 12px; font-weight: 700;
-  color: var(--text-light); flex-shrink: 0;
-}
 .admin-list-date { font-size: 12px; color: var(--text-light); font-weight: bold; }
 .admin-list-title { font-size: 15px; font-weight: 600; }
 .admin-list-actions { display: flex; gap: 8px; }

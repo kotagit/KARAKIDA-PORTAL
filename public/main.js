@@ -88,7 +88,6 @@ const PAGE_TITLES = {
   'admin-assignment-history': '割当履歴',
   'admin-s89': 'S-89 生成',
   'admin-schedule-editor': 'スケジュール編集',
-  'admin-members': 'メンバー管理',
   'admin-attendance': '集会出席',
   'admin-attendance-monthly': '出席 月集計',
   'admin-access-log': 'アクセスログ',
@@ -392,7 +391,6 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment')           initAssignmentPage();
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
-  if (page === 'admin-members')            initMembersPage();
   if (page === 'admin-member-edit')        initMemberEditPage();
   if (page === 'admin-group-emergency')    loadGroupEmergency();
   if (page === 'admin-attendance')         loadAdminAttendance();
@@ -427,10 +425,6 @@ document.getElementById('admin-manage-announcements')?.addEventListener('click',
 
 document.getElementById('admin-add-announce-btn')?.addEventListener('click', () => {
   openAnnounceModal(null);
-});
-
-document.getElementById('admin-manage-members')?.addEventListener('click', () => {
-  navigate('admin-members');
 });
 
 document.getElementById('admin-manage-s13')?.addEventListener('click', () => {

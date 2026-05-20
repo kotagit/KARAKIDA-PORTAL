@@ -280,11 +280,6 @@
             <span class="admin-row-label">S-89 作成</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
-          <div class="admin-list-row" id="admin-manage-members">
-            <span class="admin-row-label">生徒管理</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-
           <div class="admin-role-header">
             <span class="material-icons admin-role-icon">campaign</span>
             <span class="admin-role-name">公開講演調整者</span>
@@ -1378,31 +1373,6 @@
       </div>
     </section>
 
-    <!-- メンバー管理 -->
-    <section id="page-admin-members" class="page">
-      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
-        <h2 style="margin:0">メンバー管理</h2>
-      </div>
-      <div class="page-content">
-        <div class="admin-actions-bar">
-          <button class="btn-primary" id="am-add-btn">
-            <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 追加
-          </button>
-        </div>
-        <div id="am-filter-bar" class="am-filter-bar">
-          <button class="am-filter-chip active" data-filter="all">全員</button>
-          <button class="am-filter-chip" data-filter="長老">長老</button>
-          <button class="am-filter-chip" data-filter="援助奉仕者">援助奉仕者</button>
-          <button class="am-filter-chip" data-filter="男">男性</button>
-          <button class="am-filter-chip" data-filter="女">女性</button>
-        </div>
-        <div id="members-list" class="admin-list">
-          <div class="loading">読み込み中...</div>
-        </div>
-      </div>
-    </section>
-
     <!-- 出席管理 -->
     <section id="page-admin-attendance" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
@@ -1661,55 +1631,6 @@
       </div>
       <div class="form-actions">
         <button type="button" class="btn-secondary" id="att-cancel">キャンセル</button>
-        <button type="submit" class="btn-primary">保存</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- メンバー追加・編集モーダル -->
-<div id="member-modal" class="modal hidden">
-  <div class="modal-overlay" id="member-overlay"></div>
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2 id="member-modal-title">メンバーを追加</h2>
-      <button class="icon-btn" id="member-modal-close"><span class="material-icons">close</span></button>
-    </div>
-    <form id="member-form">
-      <div class="form-group">
-        <label>名前</label>
-        <input type="text" id="mf-name" required placeholder="山田 太郎">
-      </div>
-      <div class="form-group">
-        <label>フリガナ</label>
-        <input type="text" id="mf-furigana" required placeholder="ヤマダ タロウ">
-      </div>
-      <div class="form-group">
-        <label>性別</label>
-        <select id="mf-gender">
-          <option value="男">男</option>
-          <option value="女">女</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>立場</label>
-        <select id="mf-position">
-          <option value="長老">長老</option>
-          <option value="援助奉仕者">援助奉仕者</option>
-          <option value="生徒男">生徒（男性）</option>
-          <option value="生徒女">生徒（女性）</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>家族グループ（任意）</label>
-        <input type="text" id="mf-family" placeholder="例: 家A">
-      </div>
-      <div class="form-group">
-        <label>担当可能な割当</label>
-        <div id="mf-codes-grid" class="aw-codes-grouped"></div>
-      </div>
-      <div class="form-actions">
-        <button type="button" class="btn-secondary" id="mf-cancel">キャンセル</button>
         <button type="submit" class="btn-primary">保存</button>
       </div>
     </form>
