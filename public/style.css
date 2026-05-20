@@ -376,15 +376,8 @@ body {
   background: rgba(255,255,255,0.6); border-radius: 8px; padding: 2px 10px;
   white-space: nowrap;
 }
-/* 種別ごとのヘッダー色（緑基調パステル） */
-.announce-group.atype-ann-notice   .announce-group-date { background: #dcedc8; }
-.announce-group.atype-announcement .announce-group-date { background: #dcedc8; }
-.announce-group.atype-notice       .announce-group-date { background: #f0f4c3; }
-.announce-group.atype-pioneer      .announce-group-date { background: #a5d6a7; }
-.announce-group.atype-accounting   .announce-group-date { background: #b2dfdb; }
-.announce-group.atype-circuit      .announce-group-date { background: #c5e1a5; }
-.announce-group.atype-circuit-assembly    .announce-group-date { background: #aed581; }
-.announce-group.atype-district-convention .announce-group-date { background: #80cbc4; }
+/* 発表の日付ヘッダー色は種別に関わらず統一（緑パステル）。
+   .announce-group-date の background: #c8e6c9 がそのまま適用される。 */
 
 .announce-item {
   padding: 16px 20px;
