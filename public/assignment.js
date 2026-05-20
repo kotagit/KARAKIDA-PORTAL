@@ -28,8 +28,19 @@ let awIsHistoryView   = false;
 let awEditorWeekId    = null;
 let awEditorItems     = [];
 function awGetMeetingDayNum() {
-  const sel = document.getElementById('aw-meeting-day');
-  return sel ? parseInt(sel.value) : 4;
+  return awMeetingDayCache;
+}
+
+// 会衆設定 (CONFIG/app.meetingDays) から midweek (平日) の曜日を取得してキャッシュ
+let awMeetingDayCache = 4; // 木曜デフォルト
+async function awInitMeetingDay() {
+  if (typeof getAppConfig !== 'function') return;
+  try {
+    const cfg = await getAppConfig();
+    const days = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0 ? cfg.meetingDays : [4];
+    const midweek = days.find(d => d >= 1 && d <= 5);
+    awMeetingDayCache = midweek != null ? midweek : 4;
+  } catch(e) { /* デフォルト維持 */ }
 }
 
 // ── ユーティリティ ────────────────────────────
@@ -124,6 +135,7 @@ async function initAssignmentPage() {
   const createList = document.getElementById('assignment-create-list');
   if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
+    await awInitMeetingDay();
     await awLoadAll();
     await awLoadWeeks();
     // プログラム確定済み or 公開済みの週だけ表示
@@ -233,8 +245,7 @@ async function initReviewPage() {
   const list = document.getElementById('review-list');
   if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    await awLoadCodes();
-    await awLoadWeeks();
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadWeeks()]);
     awRenderReviewPage();
   } catch(e) {
     if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -526,7 +537,7 @@ async function initS89Page() {
   const preview = document.getElementById('s89-preview-list');
   if (preview) preview.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    await Promise.all([awLoadCodes(), awLoadWeeks()]);
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadWeeks()]);
     // 公開済み かつ 割当確定済みの週のみ
     s89Weeks = awWeeks.filter(w => w.programStatus === 'published' && w.hasAssignmentHistory);
     awRenderStepBar('s89-step-bar', 4);
@@ -608,7 +619,7 @@ async function initHistoryPage() {
   if (elderList)   elderList.innerHTML   = '<div class="loading">読み込み中...</div>';
   if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    await Promise.all([awLoadCodes(), awLoadHistoryWeeks()]);
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadHistoryWeeks()]);
     awRenderElderList();
     awRenderHistoryList();
   } catch(e) {
@@ -2148,7 +2159,7 @@ async function initProgramPage() {
   const list = document.getElementById('program-list');
   if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    await Promise.all([awLoadCodes(), awLoadWeeks()]);
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadWeeks()]);
     awRenderProgramList();
   } catch(e) {
     if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -2546,8 +2557,7 @@ async function initMwbHubPage() {
   const selEl = document.getElementById('mwb-hub-month-selector');
   if (selEl) selEl.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
-    await awLoadCodes();
-    await awLoadWeeks();
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadWeeks()]);
     awRenderMwbHub();
   } catch(e) {
     if (selEl) selEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
@@ -2622,11 +2632,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
   document.getElementById('aw-confirm-btn') ?.addEventListener('click', awConfirmAssignment);
-
-  // 集会曜日プルダウン変更時に再描画
-  document.getElementById('aw-meeting-day')?.addEventListener('change', () => {
-    if (awWeeks.length > 0) awRenderProgramList();
-  });
 
   // ZIPインポート
   awInitImport();
