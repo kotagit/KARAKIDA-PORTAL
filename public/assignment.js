@@ -2733,13 +2733,28 @@ async function initMwbHubPage() {
 }
 
 function awRenderMwbHub() {
-  // 今月以降の月のみ
-  const allMonths = awExtractMonths(awWeeks);
+  // 「今日以降の月」を 12 ヶ月分生成し、既存月とマージして重複排除する。
+  // データがまだ無い月もドロップダウンに出るので、そこを選んで step ① で
+  // ZIP をインポートすればすぐ作成できる。
   const today = new Date();
-  const months = allMonths.filter(m =>
+  const generated = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    generated.push({ year: d.getFullYear(), month: d.getMonth() });
+  }
+  const existing = awExtractMonths(awWeeks).filter(m =>
     m.year > today.getFullYear() ||
     (m.year === today.getFullYear() && m.month >= today.getMonth())
   );
+  const seen = new Set();
+  const months = [];
+  [...existing, ...generated].forEach(m => {
+    const key = `${m.year}-${m.month}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    months.push(m);
+  });
+  months.sort((a, b) => (a.year - b.year) || (a.month - b.month));
   awRenderMwbHubMonthDropdown(months);
 }
 
