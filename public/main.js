@@ -1364,8 +1364,12 @@ async function _renderMemberPicker() {
     }
 
     const members = _cachedUserList
-      .filter(m => !isPioneer(m))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      .filter(m => !deriveIsRegularPioneer(m))
+      .sort((a, b) => {
+        const fa = String(a.furigana || a.name || '');
+        const fb = String(b.furigana || b.name || '');
+        return fa.localeCompare(fb, 'ja');
+      });
 
     let html = '';
     members.forEach(m => {
