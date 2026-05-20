@@ -2798,7 +2798,7 @@ async function initServiceReportForm() {
     msg += 'グループ: ' + submitGroup + '\n';
     msg += '性別: ' + gender + '\n';
     msg += '月: ' + month + '月\n';
-    msg += '立場: ' + role + '\n';
+    msg += '奉仕種別: ' + role + '\n';
     if (isEv) msg += '伝道に参加: ' + participation + '\n';
     else msg += '時間: ' + hours + '時間\n';
     msg += '聖書研究: ' + (bible || '0') + '\n';
