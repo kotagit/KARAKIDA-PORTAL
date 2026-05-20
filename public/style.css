@@ -24,6 +24,7 @@ body {
 }
 
 .hidden { display: none !important; }
+.home-hidden-by-settings { display: none !important; }
 
 /* ── ログイン ── */
 .login-screen {

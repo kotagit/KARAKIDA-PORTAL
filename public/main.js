@@ -827,26 +827,50 @@ async function getMeetingDays() {
 
 // ── トップ画面メニュー表示制御（旧PORTALからの段階的移行用）─────────────
 // CONFIG/app.homeMenuVisibility: { key: bool } — false の項目だけ非表示
+// 役割ベースの .hidden と衝突しないよう独自クラス home-hidden-by-settings を使用。
 const HOME_MENU_ITEMS = [
-  { key: 'hatsuhy', label: '発表',         selector: '[data-page="hatsuhy"]' },
-  { key: 'senkyo',  label: '宣教',         selector: '#home-acc-senkyo' },
-  { key: 'shukai',  label: '集会',         selector: '#home-acc-shukai' },
-  { key: 'bumon',   label: '部門',         selector: '#home-acc-bumon' },
-  { key: 'shinsei', label: 'フォーム',     selector: '#home-acc-shinsei' },
-  { key: 'soshiki', label: '組織',         selector: '[data-page="soshiki"]' },
-  { key: 'gyoji',   label: 'イベント',     selector: '[data-page="gyoji"]' },
-  { key: 'jouhou',  label: '情報',         selector: '[data-page="jouhou"]' },
-  { key: 'keikaku', label: '計画',         selector: '[data-page="keikaku"]' },
-  { key: 'saigai',  label: '災害対応',     selector: '[data-page="saigai"]' },
+  // トップレベル
+  { key: 'hatsuhy', label: '発表', group: 'トップレベル', selector: '#page-home > .page-content > .home-list-menu > .admin-list-row[data-page="hatsuhy"]' },
+
+  // 宣教
+  { key: 'senkyo',          label: '宣教（親メニュー）',  group: '宣教',  selector: '#home-acc-senkyo' },
+  { key: 'senkyo-mycard',   label: '個人の区域カード',   group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-mycard"]' },
+  { key: 'senkyo-all',      label: '全ての区域カード',   group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-all"]' },
+  { key: 'senkyo-autolock', label: 'オートロック区域',   group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-autolock"]' },
+  { key: 'senkyo-night',    label: '夜間区域',           group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-night"]' },
+  { key: 'senkyo-field',    label: '野外奉仕取決表',     group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-field"]' },
+  { key: 'senkyo-public',   label: '公共エリア伝道',     group: '宣教',  selector: '#home-acc-senkyo [data-page="senkyo-public"]' },
+
+  // 集会
+  { key: 'shukai',                 label: '集会（親メニュー）',           group: '集会', selector: '#home-acc-shukai' },
+  { key: 'shukai-public-talk',     label: '公開講演（週末の集会）',       group: '集会', selector: '#home-acc-shukai [data-page="public-talk-view"]' },
+  { key: 'shukai-midweek',         label: '週中の集会',                   group: '集会', selector: '#home-acc-shukai [data-page="shukai"]' },
+  { key: 'shukai-cleaning',        label: '王国会館の清掃',               group: '集会', selector: '#home-acc-shukai [data-page="user-dept-cleaning"]' },
+
+  // 部門
+  { key: 'bumon',                  label: '部門（親メニュー）',  group: '部門', selector: '#home-acc-bumon' },
+  { key: 'bumon-annai',            label: '案内部門',           group: '部門', selector: '#home-acc-bumon [data-page="user-dept-annai"]' },
+  { key: 'bumon-avs',              label: 'AVS部門',             group: '部門', selector: '#home-acc-bumon [data-page="user-dept-avs"]' },
+  { key: 'bumon-parking',          label: '駐車場部門',         group: '部門', selector: '#home-acc-bumon [data-page="user-dept-parking"]' },
+  { key: 'bumon-literature',       label: '文書部門',           group: '部門', selector: '#home-acc-bumon [data-page="user-dept-literature"]' },
+
+  // フォーム（サブ項目は動的生成のため親のみ）
+  { key: 'shinsei', label: 'フォーム（親メニュー）', group: 'フォーム', selector: '#home-acc-shinsei' },
+
+  // その他トップレベル
+  { key: 'soshiki', label: '組織',     group: 'その他', selector: '[data-page="soshiki"]' },
+  { key: 'gyoji',   label: 'イベント', group: 'その他', selector: '[data-page="gyoji"]' },
+  { key: 'jouhou',  label: '情報',     group: 'その他', selector: '[data-page="jouhou"]' },
+  { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
+  { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
 ];
 async function applyHomeMenuVisibility() {
   const cfg = await getAppConfig();
   const vis = cfg.homeMenuVisibility || {};
   HOME_MENU_ITEMS.forEach(item => {
-    // フィールド未設定 or true は表示。明示的に false の項目のみ非表示。
     const show = vis[item.key] !== false;
     document.querySelectorAll(item.selector).forEach(el => {
-      el.classList.toggle('hidden', !show);
+      el.classList.toggle('home-hidden-by-settings', !show);
     });
   });
 }
@@ -7492,15 +7516,25 @@ async function renderConfigPage() {
   html += '<h3 style="margin:0 0 8px;">トップ画面メニュー</h3>';
   html += '<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.5;">'
        +  '旧 PORTAL からの移行中に、まだ未対応のメニューをオフにできます。'
-       +  '<br>チェックを外した項目はトップ画面に表示されません。</p>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:24px;">';
+       +  '<br>チェックを外した項目はトップ画面に表示されません。親メニューを外すとサブ項目も表示されません。</p>';
+  // グループごとに表示
+  const groups = {};
   HOME_MENU_ITEMS.forEach(item => {
-    const checked = (homeVis[item.key] !== false) ? ' checked' : '';
-    html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;min-width:90px;">'
-         +  '<input type="checkbox" class="cfg-home-menu" data-key="' + item.key + '"' + checked + '>'
-         +  item.label + '</label>';
+    (groups[item.group] = groups[item.group] || []).push(item);
   });
-  html += '</div>';
+  Object.keys(groups).forEach(groupName => {
+    html += '<div style="margin-bottom:14px;">';
+    html += '<div style="font-size:13px;font-weight:600;color:#444;margin-bottom:4px;">' + esc(groupName) + '</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;padding-left:8px;">';
+    groups[groupName].forEach(item => {
+      const checked = (homeVis[item.key] !== false) ? ' checked' : '';
+      html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;min-width:160px;">'
+           +  '<input type="checkbox" class="cfg-home-menu" data-key="' + esc(item.key) + '"' + checked + '>'
+           +  esc(item.label) + '</label>';
+    });
+    html += '</div></div>';
+  });
+  html += '<div style="margin-bottom:24px"></div>';
 
   html += '<button id="cfg-save-btn" class="btn-primary" style="padding:8px 24px;">保存</button>';
   html += '<span id="cfg-save-status" style="margin-left:12px;font-size:13px;color:#4caf50;"></span>';
