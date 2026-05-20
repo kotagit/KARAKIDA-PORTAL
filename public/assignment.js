@@ -2156,6 +2156,8 @@ function skRenderPublicTalkCard(pt, container) {
 // ══════════════════════════════════════════════
 
 async function initProgramPage() {
+  // ページに入るたびに編集セッションをリセット → 確定状態なら初期表示は dim
+  awProgramEditModeMonth = null;
   const list = document.getElementById('program-list');
   if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
@@ -2499,9 +2501,10 @@ function awUpdateProgramToolbarState(filteredWeeks) {
     awProgramEditModeMonth.year === awSharedMonth.year &&
     awProgramEditModeMonth.month === awSharedMonth.month);
 
-  if (confirmBtn) confirmBtn.style.display = isLocked ? 'none' : '';
-  // 編集ボタンは「ロック状態」または「同月の編集セッション継続中」のとき表示
-  if (editBtn) editBtn.style.display = (isLocked || isEditSessionActive) ? '' : 'none';
+  // 確定ボタン: 未確定週がある (state=editing) または 編集セッション中（=save の役割）
+  if (confirmBtn) confirmBtn.style.display = (state === 'editing' || isEditSessionActive) ? '' : 'none';
+  // 編集ボタン: ロック状態かつ編集セッション非アクティブ（=確定ビュー）でのみ表示
+  if (editBtn) editBtn.style.display = (isLocked && !isEditSessionActive) ? '' : 'none';
 
   if (badge) {
     const map = {
@@ -2526,27 +2529,9 @@ function awUpdateProgramToolbarState(filteredWeeks) {
 
 async function awEditAllPrograms() {
   if (!awSharedMonth) return;
-  const targets = awFilterWeeksByMonth(awWeeks, awSharedMonth)
-    .filter(w => !w.conventionType && w.programStatus && w.programStatus !== 'draft');
-  if (targets.length === 0) return;
-  const hasPublished = targets.some(w => w.programStatus === 'published');
-  let msg = `表示中の ${targets.length} 週を未確定（下書き）に戻して編集可能にしますか？`;
-  if (hasPublished) {
-    msg += '\n\n⚠️ 公開済みの週も含まれます。成員の集会ページから消えます。';
-  }
-  if (!(await customConfirm(msg))) return;
-  let count = 0;
-  try {
-    for (const week of targets) {
-      await db.collection('mwbWeeks').doc(week.id).set({ programStatus: 'draft' }, { merge: true });
-      week.programStatus = 'draft';
-      count++;
-    }
-    // この月で編集セッションを開始したことを覚えておく
-    awProgramEditModeMonth = { year: awSharedMonth.year, month: awSharedMonth.month };
-    awRenderProgramList();
-    alert(`${count}週分を編集可能にしました`);
-  } catch(e) { alert('解除エラー: ' + e.message); }
+  // 編集セッション ON（データは変更しない）— ページ再入場時にリセットされ確定ビューに戻る
+  awProgramEditModeMonth = { year: awSharedMonth.year, month: awSharedMonth.month };
+  awRenderProgramList();
 }
 
 async function awConfirmAllPrograms() {
