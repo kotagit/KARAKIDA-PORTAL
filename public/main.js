@@ -2552,6 +2552,40 @@ async function loadJouhouCard() {
 // ── 奉仕報告提出 ────────────────────────────────
 let srMemberList = []; // 他の人用のメンバーリスト
 
+// 自分モード時に USER_LIST から性別と立場を埋めて disabled に。
+// 他者モード時はクリアして編集可能に戻す。
+function _srApplySelfModeAutofill(isSelf) {
+  const genderSel = document.getElementById('sr-gender');
+  const roleSel   = document.getElementById('sr-role');
+  if (!genderSel || !roleSel) return;
+  if (isSelf) {
+    const u = window._currentUserData || {};
+    // 性別マッピング: 「男」→「男性」/「女」→「女性」
+    const g = u.gender === '男' ? '男性' : (u.gender === '女' ? '女性' : '');
+    if (g) genderSel.value = g;
+    // 立場: orgRoles から判定（正規開拓者 / 補助開拓者 / 伝道者）
+    let role = '伝道者';
+    if (typeof deriveIsRegularPioneer === 'function' && deriveIsRegularPioneer(u)) role = '正規開拓者';
+    else if (typeof deriveIsAuxPioneer === 'function' && deriveIsAuxPioneer(u)) role = '補助開拓者';
+    roleSel.value = role;
+    // 立場切替で伝道参加/時間の表示が更新されるよう change を発火
+    roleSel.dispatchEvent(new Event('change'));
+    // 入力不可（disabled でも .value は submit で取得可能）
+    genderSel.disabled = true;
+    roleSel.disabled   = true;
+    genderSel.style.background = '#f5f5f5';
+    roleSel.style.background   = '#f5f5f5';
+  } else {
+    genderSel.value = '';
+    roleSel.value   = '伝道者';
+    roleSel.dispatchEvent(new Event('change'));
+    genderSel.disabled = false;
+    roleSel.disabled   = false;
+    genderSel.style.background = '';
+    roleSel.style.background   = '';
+  }
+}
+
 function selectSrTarget(mode) {
   document.getElementById('sr-target').value = mode;
   document.getElementById('sr-target-overlay').classList.add('hidden');
@@ -2566,6 +2600,7 @@ function selectSrTarget(mode) {
   } else {
     document.getElementById('sr-group').value = memberUserGroup || '';
   }
+  _srApplySelfModeAutofill(!isOther);
 }
 
 async function initServiceReportForm() {
@@ -2581,6 +2616,8 @@ async function initServiceReportForm() {
   document.getElementById('sr-other-furigana-row').classList.add('hidden');
   document.getElementById('sr-group-row').classList.remove('hidden');
   document.getElementById('sr-other-group-row').classList.add('hidden');
+  // 自分モード: USER_LIST から性別/立場を自動セット & 入力不可に
+  _srApplySelfModeAutofill(true);
 
   // 月プルダウン（デフォルト：先月）
   const monthSel = document.getElementById('sr-month');
