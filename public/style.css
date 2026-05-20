@@ -3543,6 +3543,54 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 
 .aw-program-list-locked { opacity: 0.6; }
 
+/* ── 週選択モーダル（編集ボタン押下時） ── */
+.aw-week-picker-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.aw-week-picker-modal {
+  background: #fff; border-radius: 8px;
+  width: 100%; max-width: 480px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.aw-week-picker-title {
+  padding: 16px 20px;
+  font-size: 16px; font-weight: 600;
+  border-bottom: 1px solid #eee;
+}
+.aw-week-picker-list {
+  flex: 1; overflow-y: auto;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.aw-week-picker-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 12px 16px;
+  background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px;
+  cursor: pointer; text-align: left;
+  font-family: inherit;
+}
+.aw-week-picker-btn:hover {
+  background: #e3f2fd; border-color: var(--primary, #047CBC);
+}
+.aw-week-picker-date { font-size: 15px; font-weight: 600; color: var(--text, #222); }
+.aw-week-picker-sub  { font-size: 12px; color: var(--text-light, #777); }
+.aw-week-picker-actions {
+  padding: 12px 20px;
+  border-top: 1px solid #eee;
+  display: flex; justify-content: flex-end;
+}
+.aw-week-picker-cancel {
+  padding: 8px 20px;
+  background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit; font-size: 14px;
+}
+.aw-week-picker-cancel:hover { background: #e0e0e0; }
+
 /* ── ステップバー (4 ステップ進行表示) ── */
 .aw-stepbar {
   display: flex; align-items: stretch; gap: 0;
