@@ -6540,27 +6540,49 @@ async function loadAccessLog() {
   if (!view) return;
   view.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
-    const snap = await db.collection('LOGIN_LOG')
-      .orderBy('loginAt', 'desc')
-      .limit(500)
-      .get();
-    if (snap.empty) {
-      view.innerHTML = '<div class="empty-state">ログがありません</div>';
-      return;
-    }
+    const [snap, userList] = await Promise.all([
+      db.collection('LOGIN_LOG').orderBy('loginAt', 'desc').limit(500).get(),
+      getUserListCached(),
+    ]);
     const userMap = {};
     snap.forEach(doc => {
       const d = doc.data();
-      const key = d.email || d.name || 'unknown';
+      const key = (d.email || d.name || 'unknown').toLowerCase();
       if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
       const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
       userMap[key].logs.push({ docId: doc.id, dt, ua: d.userAgent || '' });
     });
+
+    // USER_LIST のメンバーをマージ：ログが無い人は「履歴なし」エントリを追加
+    const noHistoryUsers = [];
+    userList.forEach(m => {
+      const name = String(m.name || '').trim();
+      if (!name) return;
+      const email = String(m.email || '').trim().toLowerCase();
+      const key = email || name.toLowerCase();
+      if (userMap[key]) {
+        // ログあり：USER_LIST の正式名で上書き
+        userMap[key].name = name;
+        if (!userMap[key].email && email) userMap[key].email = m.email;
+      } else {
+        // ログなし
+        noHistoryUsers.push({ name, email: m.email || '', furigana: m.furigana || name, logs: [], noHistory: true });
+      }
+    });
+
     const users = Object.values(userMap).sort((a, b) => {
       const ta = a.logs[0]?.dt?.getTime() || 0;
       const tb = b.logs[0]?.dt?.getTime() || 0;
       return tb - ta;
     });
+    // 履歴なし成員はふりがな昇順
+    noHistoryUsers.sort((a, b) => String(a.furigana).localeCompare(String(b.furigana), 'ja'));
+    users.push(...noHistoryUsers);
+
+    if (users.length === 0) {
+      view.innerHTML = '<div class="empty-state">ログがありません</div>';
+      return;
+    }
 
     // ツールバー（一括削除など）
     let html = '';
@@ -6577,6 +6599,15 @@ async function loadAccessLog() {
 
     html += '<div class="access-log-list">';
     users.forEach((u, idx) => {
+      if (u.noHistory) {
+        html += `<div class="access-log-card access-log-no-history">`;
+        html += `<div class="access-log-main">`;
+        html += `<span class="material-icons access-log-icon">person_off</span>`;
+        html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
+        html += `<div class="access-log-meta"><div class="access-log-no-history-badge">アクセス履歴なし</div></div>`;
+        html += `</div></div>`;
+        return;
+      }
       const latest = u.logs[0];
       const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
       const device = alDevice(latest.ua);

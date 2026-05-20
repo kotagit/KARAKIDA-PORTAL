@@ -2211,6 +2211,14 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .access-log-meta { text-align: right; flex-shrink: 0; }
 .access-log-time { font-size: 14px; font-weight: 600; color: var(--text); }
 .access-log-device { font-size: 11px; color: #999; margin-top: 2px; }
+.access-log-no-history { background: #fde7ef; cursor: default; }
+.access-log-no-history .access-log-icon { color: #c2185b; }
+.access-log-no-history .access-log-name { color: #880e4f; }
+.access-log-no-history-badge {
+  font-size: 12px; font-weight: 700; color: #c2185b;
+  background: #fff; border: 1px solid #f8bbd0; border-radius: 12px;
+  padding: 3px 10px; display: inline-block;
+}
 .al-detail {
   margin-top: 8px; padding: 8px 0 0; border-top: 1px solid #f0f0f0;
 }
