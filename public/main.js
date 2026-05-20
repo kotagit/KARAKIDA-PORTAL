@@ -531,6 +531,7 @@ async function loadHomeShinseiLinks() {
     const el = document.createElement('div');
     el.className = 'admin-list-row home-acc-item';
     el.style.cursor = 'pointer';
+    el.dataset.formKey = fi.page;
     el.innerHTML = `<span class="material-icons admin-row-icon" style="color:${fi.color} !important">${fi.icon}</span><span class="admin-row-label">${fi.label}</span><span class="material-icons admin-row-chevron">chevron_right</span>`;
     el.addEventListener('click', () => navigate(fi.page));
     body.appendChild(el);
@@ -552,6 +553,8 @@ async function loadHomeShinseiLinks() {
       body.appendChild(a);
     });
     _homeShinseiLoaded = true;
+    // 動的にフォーム項目を生成した後、設定によるサブ項目の表示制御を反映
+    applyHomeMenuVisibility().catch(() => {});
   } catch (e) {
     const err = document.createElement('div');
     err.className = 'loading';
@@ -854,8 +857,13 @@ const HOME_MENU_ITEMS = [
   { key: 'bumon-parking',          label: '駐車場部門',         group: '部門', selector: '#home-acc-bumon [data-page="user-dept-parking"]' },
   { key: 'bumon-literature',       label: '文書部門',           group: '部門', selector: '#home-acc-bumon [data-page="user-dept-literature"]' },
 
-  // フォーム（サブ項目は動的生成のため親のみ）
-  { key: 'shinsei', label: 'フォーム（親メニュー）', group: 'フォーム', selector: '#home-acc-shinsei' },
+  // フォーム
+  { key: 'shinsei',                  label: 'フォーム（親メニュー）',   group: 'フォーム', selector: '#home-acc-shinsei' },
+  { key: 'shinsei-pw-apply',         label: '公共エリア伝道申込み',     group: 'フォーム', selector: '#home-acc-shinsei-body [data-form-key="pw-apply"]' },
+  { key: 'shinsei-service-report',   label: '奉仕報告',                 group: 'フォーム', selector: '#home-acc-shinsei-body [data-form-key="service-report"]' },
+  { key: 'shinsei-area-info',        label: '区域情報登録',             group: 'フォーム', selector: '#home-acc-shinsei-body [data-form-key="area-info"]' },
+  { key: 'shinsei-member-info',      label: '成員情報登録',             group: 'フォーム', selector: '#home-acc-shinsei-body [data-form-key="member-info"]' },
+  { key: 'shinsei-attendance-form',  label: '出席人数登録（案内係/ADMIN）', group: 'フォーム', selector: '#home-acc-shinsei-body [data-form-key="attendance-form"]' },
 
   // その他トップレベル
   { key: 'soshiki', label: '組織',     group: 'その他', selector: '[data-page="soshiki"]' },
