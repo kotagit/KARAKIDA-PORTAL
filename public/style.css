@@ -3548,7 +3548,22 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 .aw-program-list-locked button {
   pointer-events: none;
 }
-.aw-program-list-locked label { cursor: not-allowed; }
+.aw-program-list-locked label { cursor: not-allowed; pointer-events: none; }
+
+/* ── スケジュールエディタ メタ情報 ── */
+.aw-editor-meta {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: #f5f8fa; border: 1px solid #e0e0e0; border-radius: 6px;
+}
+.aw-editor-meta-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.aw-editor-meta-label {
+  font-size: 13px; font-weight: 600; color: var(--text-light, #555);
+  min-width: 70px;
+}
 
 /* ── 週選択モーダル（編集ボタン押下時） ── */
 .aw-week-picker-overlay {

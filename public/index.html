@@ -1260,6 +1260,24 @@
         <h2 id="aw-editor-title" style="margin:0">スケジュール編集</h2>
       </div>
       <div class="page-content">
+        <div class="aw-editor-meta">
+          <div class="aw-editor-meta-row">
+            <span class="aw-editor-meta-label">区分:</span>
+            <label class="aw-conv-check"><input type="radio" name="aw-editor-conv" value=""> 通常週</label>
+            <label class="aw-conv-check"><input type="radio" name="aw-editor-conv" value="巡回大会"> 巡回大会</label>
+            <label class="aw-conv-check"><input type="radio" name="aw-editor-conv" value="地区大会"> 地区大会</label>
+            <label class="aw-conv-check"><input type="radio" name="aw-editor-conv" value="記念式"> 記念式</label>
+          </div>
+          <div class="aw-editor-meta-row" id="aw-editor-cvvisit-row">
+            <span class="aw-editor-meta-label">巡回訪問:</span>
+            <label class="aw-conv-check"><input type="checkbox" id="aw-editor-cvvisit"> 巡回訪問週として扱う</label>
+          </div>
+          <div class="aw-editor-meta-row" id="aw-editor-meetdate-row" style="display:none">
+            <span class="aw-editor-meta-label">集会日:</span>
+            <input type="date" id="aw-editor-meetdate" class="aw-date-input">
+            <button type="button" class="btn-secondary aw-editor-meetdate-clear" id="aw-editor-meetdate-clear" style="padding:4px 10px;font-size:12px">クリア</button>
+          </div>
+        </div>
         <div id="aw-editor-list"></div>
         <button class="btn-secondary" id="aw-editor-add-btn" style="margin-top:12px;width:100%">
           <span class="material-icons" style="font-size:18px;vertical-align:middle">add</span> 行を追加
