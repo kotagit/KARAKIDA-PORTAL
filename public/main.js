@@ -7196,21 +7196,13 @@ function renderDeptEditTable() {
   });
   updateDeleteSelectedUI();
 
-  // アコーディオン（初期状態: 管轄セクションはオープン、その他はクローズ）
+  // アコーディオン: 初期状態はすべて閉じる
   tbody.querySelectorAll('.meb-section-row').forEach(secRow => {
     const sec = secRow.dataset.sec;
-    const secLabel = secRow.dataset.secLabel || '';
     const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
     const arrow = secRow.querySelector('.meb-sec-arrow');
-    const closedByDefault = [
-      '資格','奉仕委員会',
-      '生活と奉仕のための集会','開会','神の言葉の宝','野外奉仕に励む','クリスチャンとして生活する','閉会',
-      '野外宣教グループ','システム','負荷係数'
-    ].includes(secLabel);
-    if (closedByDefault) {
-      contentRows.forEach(r => r.style.display = 'none');
-      if (arrow) arrow.textContent = '▶';
-    }
+    contentRows.forEach(r => r.style.display = 'none');
+    if (arrow) arrow.textContent = '▶';
     secRow.style.cursor = 'pointer';
     secRow.addEventListener('click', () => {
       const isOpen = contentRows[0] && contentRows[0].style.display !== 'none';
@@ -7337,7 +7329,10 @@ function renderDeptPreview() {
 }
 
 async function saveBulkChanges() {
-  if (meBulkChanges.size === 0) return;
+  if (meBulkChanges.size === 0) {
+    alert('変更がありません。チェックを変えても何も起きない場合は、フィルタや絞り込み状態をご確認ください。');
+    return;
+  }
   const saveBtn = document.getElementById('me-bulk-save');
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '保存中...'; }
   try {
