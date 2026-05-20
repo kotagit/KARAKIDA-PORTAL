@@ -871,6 +871,7 @@ const HOME_MENU_ITEMS = [
   { key: 'jouhou',  label: '情報',     group: 'その他', selector: '[data-page="jouhou"]' },
   { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
   { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
+  { key: 'admin',   label: '管理画面（要 ADMIN 権限）', group: 'その他', selector: '#menu-admin' },
 ];
 async function applyHomeMenuVisibility() {
   const cfg = await getAppConfig();
