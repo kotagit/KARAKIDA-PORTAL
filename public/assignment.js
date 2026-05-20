@@ -2483,6 +2483,10 @@ function awComputeProgramOverallState(filteredWeeks) {
   return 'awaitingAssignment';
 }
 
+// 「編集」を押した月を覚えておく（同月内で再入場した時も編集ボタンを出すため）
+// awConfirmAllPrograms 成功時にクリア
+let awProgramEditModeMonth = null;
+
 function awUpdateProgramToolbarState(filteredWeeks) {
   const state = awComputeProgramOverallState(filteredWeeks);
   const confirmBtn = document.getElementById('aw-program-confirm-all-btn');
@@ -2491,8 +2495,13 @@ function awUpdateProgramToolbarState(filteredWeeks) {
   const list = document.getElementById('program-list');
 
   const isLocked = state !== 'editing';
+  const isEditSessionActive = !!(awProgramEditModeMonth && awSharedMonth &&
+    awProgramEditModeMonth.year === awSharedMonth.year &&
+    awProgramEditModeMonth.month === awSharedMonth.month);
+
   if (confirmBtn) confirmBtn.style.display = isLocked ? 'none' : '';
-  if (editBtn)    editBtn.style.display    = isLocked ? '' : 'none';
+  // 編集ボタンは「ロック状態」または「同月の編集セッション継続中」のとき表示
+  if (editBtn) editBtn.style.display = (isLocked || isEditSessionActive) ? '' : 'none';
 
   if (badge) {
     const map = {
@@ -2512,7 +2521,7 @@ function awUpdateProgramToolbarState(filteredWeeks) {
     }
   }
 
-  if (list) list.classList.toggle('aw-program-list-locked', isLocked);
+  if (list) list.classList.toggle('aw-program-list-locked', isLocked && !isEditSessionActive);
 }
 
 async function awEditAllPrograms() {
@@ -2533,6 +2542,8 @@ async function awEditAllPrograms() {
       week.programStatus = 'draft';
       count++;
     }
+    // この月で編集セッションを開始したことを覚えておく
+    awProgramEditModeMonth = { year: awSharedMonth.year, month: awSharedMonth.month };
     awRenderProgramList();
     alert(`${count}週分を編集可能にしました`);
   } catch(e) { alert('解除エラー: ' + e.message); }
@@ -2554,6 +2565,8 @@ async function awConfirmAllPrograms() {
       week.topics = Object.assign({}, topics);
       count++;
     }
+    // 確定したので編集セッションを終了
+    awProgramEditModeMonth = null;
     awRenderProgramList();
     alert(`${count}週分のプログラムを確定しました`);
   } catch(e) { alert('確定エラー: ' + e.message); }
