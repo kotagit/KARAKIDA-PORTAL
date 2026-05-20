@@ -2266,6 +2266,9 @@ function awRenderProgramList() {
   const filtered = awFilterWeeksByMonth(awWeeks, awSharedMonth);
   list.innerHTML = '';
 
+  // ツールバーの状態表示（編集ボタン / バッジ / 表のグレーアウト）を更新
+  awUpdateProgramToolbarState(filtered);
+
   if (filtered.length === 0) {
     list.innerHTML += '<div class="empty-state">この月のプログラムはありません</div>';
     return;
@@ -2274,9 +2277,6 @@ function awRenderProgramList() {
 }
 
 function awBuildProgramSection(week, container) {
-  const ps = week.programStatus || 'draft';
-  const labelMap = { draft:'未確定', confirmed:'確定済', published:'公開中' };
-  const classMap = { draft:'aw-badge-none', confirmed:'aw-badge-confirmed', published:'aw-badge-published' };
   const topics = Object.assign({}, week.topics || {});
   awProgramTopics[week.id] = topics;
   const items = week.items || [];
@@ -2299,16 +2299,8 @@ function awBuildProgramSection(week, container) {
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="巡回大会" ${convention === '巡回大会' ? 'checked' : ''}> 巡回大会</label>
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="地区大会" ${convention === '地区大会' ? 'checked' : ''}> 地区大会</label>
       <label class="aw-conv-check"><input type="checkbox" name="cvvisit" ${isCircuitVisit ? 'checked' : ''}> 巡回訪問</label>
-      <button class="aw-edit-schedule-btn aw-header-sq-btn" title="スケジュール編集">
-        <span class="material-icons">edit_calendar</span>
-        <span>編集</span>
-      </button>
-      <span class="aw-status-badge ${classMap[ps]}">${labelMap[ps]}</span>
     </div>
   `;
-  hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', async () => {
-    if (await awConfirmEditProgram(week)) awOpenScheduleEditor(week.id);
-  });
 
   // 大会チェックボックスのイベント
   const convChecks = hdr.querySelectorAll('input[name="conv"]');
@@ -2477,6 +2469,75 @@ function awApplyCircuitVisit(section, on) {
   }
 }
 
+// 月内の非大会週からプログラム状態を判定
+// 戻り値: 'editing' | 'awaitingAssignment' | 'awaitingPublish' | 'published'
+function awComputeProgramOverallState(filteredWeeks) {
+  const targets = filteredWeeks.filter(w => !w.conventionType);
+  if (targets.length === 0) return 'editing';
+  const hasDraft = targets.some(w => !w.programStatus || w.programStatus === 'draft');
+  if (hasDraft) return 'editing';
+  const allPublished = targets.every(w => w.programStatus === 'published');
+  if (allPublished) return 'published';
+  const allHaveAssignments = targets.every(w => w.hasAssignmentHistory);
+  if (allHaveAssignments) return 'awaitingPublish';
+  return 'awaitingAssignment';
+}
+
+function awUpdateProgramToolbarState(filteredWeeks) {
+  const state = awComputeProgramOverallState(filteredWeeks);
+  const confirmBtn = document.getElementById('aw-program-confirm-all-btn');
+  const editBtn = document.getElementById('aw-program-edit-all-btn');
+  const badge = document.getElementById('aw-program-state-badge');
+  const list = document.getElementById('program-list');
+
+  const isLocked = state !== 'editing';
+  if (confirmBtn) confirmBtn.style.display = isLocked ? 'none' : '';
+  if (editBtn)    editBtn.style.display    = isLocked ? '' : 'none';
+
+  if (badge) {
+    const map = {
+      awaitingAssignment: { text: '確定（担当者策定待ち）', cls: 'aw-pstate-await-assign' },
+      awaitingPublish:    { text: '確定（確認・公開待ち）', cls: 'aw-pstate-await-publish' },
+      published:          { text: '確定（公開中）',         cls: 'aw-pstate-published' },
+    };
+    const info = map[state];
+    if (info) {
+      badge.style.display = '';
+      badge.textContent = info.text;
+      badge.className = 'aw-program-state-badge ' + info.cls;
+    } else {
+      badge.style.display = 'none';
+      badge.textContent = '';
+      badge.className = 'aw-program-state-badge';
+    }
+  }
+
+  if (list) list.classList.toggle('aw-program-list-locked', isLocked);
+}
+
+async function awEditAllPrograms() {
+  if (!awSharedMonth) return;
+  const targets = awFilterWeeksByMonth(awWeeks, awSharedMonth)
+    .filter(w => !w.conventionType && w.programStatus && w.programStatus !== 'draft');
+  if (targets.length === 0) return;
+  const hasPublished = targets.some(w => w.programStatus === 'published');
+  let msg = `表示中の ${targets.length} 週を未確定（下書き）に戻して編集可能にしますか？`;
+  if (hasPublished) {
+    msg += '\n\n⚠️ 公開済みの週も含まれます。成員の集会ページから消えます。';
+  }
+  if (!(await customConfirm(msg))) return;
+  let count = 0;
+  try {
+    for (const week of targets) {
+      await db.collection('mwbWeeks').doc(week.id).set({ programStatus: 'draft' }, { merge: true });
+      week.programStatus = 'draft';
+      count++;
+    }
+    awRenderProgramList();
+    alert(`${count}週分を編集可能にしました`);
+  } catch(e) { alert('解除エラー: ' + e.message); }
+}
+
 async function awConfirmAllPrograms() {
   if (!(await customConfirm('表示中の全週のプログラムを確定しますか？\n（公開済みの週は据え置きます）'))) return;
   let count = 0;
@@ -2611,6 +2672,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', awReviewPublishAll);
   document.getElementById('aw-program-confirm-all-btn')
     ?.addEventListener('click', awConfirmAllPrograms);
+  document.getElementById('aw-program-edit-all-btn')
+    ?.addEventListener('click', awEditAllPrograms);
 
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
