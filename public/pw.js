@@ -354,8 +354,9 @@ async function loadPWSlots() {
 
       // 既存割当てを初期化
       const subMap = {};
+      const safeId = s => String(s || '').replace(/\//g, '-');
       fullPlaces.forEach(fp => {
-        const docId = `${dateStr}_${time}_${fp}`;
+        const docId = `${safeId(dateStr)}_${safeId(time)}_${safeId(fp)}`;
         if (existingDocs[docId]) {
           const ass = existingDocs[docId].assignments || {};
           const parts = Array.isArray(ass['参加者']) ? ass['参加者'] : [];
@@ -629,13 +630,15 @@ async function savePWAssignments() {
 
   try {
     const slot = pwCurrentSlot;
-    const datePart = slot.dateStr;
+    const safe = s => String(s || '').replace(/\//g, '-');
+    const datePart = safe(slot.dateStr);
+    const timePart = safe(slot.time);
     const subMap = pwAssignmentsMap[slot.slotKey] || {};
     const batch = db.batch();
 
     slot.fullPlaces.forEach(fp => {
       const data = subMap[fp] || {};
-      const docId = `${datePart}_${slot.time}_${fp}`;
+      const docId = `${datePart}_${timePart}_${safe(fp)}`;
       const ref = db.collection('PUBLIC_WITNESSING_ASSIGNMENTS').doc(docId);
       batch.set(ref, {
         date:  slot.dateLabel,
