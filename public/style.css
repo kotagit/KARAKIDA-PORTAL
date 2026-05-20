@@ -2157,7 +2157,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .pw-slot-card.pwa-card .pwa-row-main { cursor: pointer; }
 .pw-slot-card.pwa-card .pwa-check .material-icons {
-  font-size: 22px; color: #bbb; transition: color 0.15s;
+  font-size: 48px; color: #bbb; transition: color 0.15s;
 }
 .pw-slot-card.pwa-card.pwa-selected .pwa-check .material-icons { color: var(--primary); }
 

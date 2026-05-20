@@ -5292,9 +5292,10 @@ async function loadSenkyoPublic() {
       hdrRow += '</div>';
 
       // 司会者行
+      const safeAssId = s => String(s || '').replace(/\//g, '-');
       let cRow = '<div class="pw-grid-row pw-grid-conductor">';
       allPlaces.forEach(p => {
-        const docId = `${group.day}_${group.time}_${p}`;
+        const docId = `${safeAssId(group.day)}_${safeAssId(group.time)}_${safeAssId(p)}`;
         const ass = (assMap[docId] || {}).assignments || {};
         cRow += `<div class="pw-grid-cell">${esc(ass['司会者'] || '')}</div>`;
       });
@@ -5305,7 +5306,7 @@ async function loadSenkyoPublic() {
       for (let i = 0; i < 5; i++) {
         pRows += '<div class="pw-grid-row">';
         allPlaces.forEach(p => {
-          const docId = `${group.day}_${group.time}_${p}`;
+          const docId = `${safeAssId(group.day)}_${safeAssId(group.time)}_${safeAssId(p)}`;
           const ass = (assMap[docId] || {}).assignments || {};
           const parts = ass['参加者'] || [];
           pRows += `<div class="pw-grid-cell">${esc(parts[i] || '')}</div>`;
