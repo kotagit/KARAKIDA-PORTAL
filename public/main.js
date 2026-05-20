@@ -258,14 +258,29 @@ async function initApp() {
 }
 
 // ── ログインイベント ────────────────────────
+let _signingIn = false;
 loginBtn.addEventListener('click', () => {
+  if (_signingIn) return;
+  _signingIn = true;
+  loginBtn.disabled = true;
   loginError.textContent = 'Googleへ移動中...';
   if (isMobile()) {
     auth.signInWithRedirect(provider);
   } else {
-    auth.signInWithPopup(provider).catch((err) => {
-      loginError.textContent = 'エラー: ' + err.message;
-    });
+    auth.signInWithPopup(provider)
+      .catch((err) => {
+        if (err && err.code === 'auth/cancelled-popup-request') {
+          loginError.textContent = '';
+        } else if (err && err.code === 'auth/popup-closed-by-user') {
+          loginError.textContent = '';
+        } else {
+          loginError.textContent = 'エラー: ' + (err?.message || err);
+        }
+      })
+      .finally(() => {
+        _signingIn = false;
+        loginBtn.disabled = false;
+      });
   }
 });
 
