@@ -127,8 +127,8 @@ async function initAssignmentPage() {
   try {
     await awLoadAll();
     await awLoadWeeks();
-    // プログラム確定済みの週だけ表示
-    const confirmedPrograms = awWeeks.filter(w => w.programStatus === 'confirmed');
+    // プログラム確定済み or 公開済みの週だけ表示
+    const confirmedPrograms = awWeeks.filter(w => w.programStatus === 'confirmed' || w.programStatus === 'published');
     if (confirmedPrograms.length === 0) {
       createList.innerHTML = '<div class="empty-state">プログラム確定済みの週がありません<br><span style="font-size:13px;color:var(--text-light)">先にプログラム表作成で確定してください</span></div>';
       return;
@@ -329,12 +329,12 @@ async function initS89Page() {
   if (preview) preview.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await Promise.all([awLoadCodes(), awLoadWeeks()]);
-    // 割当確定済みの週のみ
-    s89Weeks = awWeeks.filter(w => w.programStatus === 'confirmed' && w.hasAssignmentHistory);
+    // 公開済み かつ 割当確定済みの週のみ
+    s89Weeks = awWeeks.filter(w => w.programStatus === 'published' && w.hasAssignmentHistory);
     const months = awExtractMonths(s89Weeks);
     if (months.length === 0) {
       if (monthEl) monthEl.innerHTML = '';
-      if (preview) preview.innerHTML = '<div class="empty-state">割当確定済みのデータがありません</div>';
+      if (preview) preview.innerHTML = '<div class="empty-state">公開済みの割当データがありません<br><span style="font-size:13px;color:var(--text-light)">プログラム表作成で「公開」してください</span></div>';
       return;
     }
     if (!s89SelectedMonth) s89SelectedMonth = awAutoSelectMonth(months);
@@ -1869,7 +1869,9 @@ async function loadAssignmentWeekDisplay() {
 
   try {
     const weeksSnap = await db.collection('mwbWeeks').orderBy('importedAt','desc').limit(26).get();
-    const weeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allWeeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // 成員には公開済み (programStatus === 'published') のみ見せる
+    const weeks = allWeeks.filter(w => w.programStatus === 'published');
 
     // 全週の履歴クエリを並列実行（直列だと26回×往復で遅い）
     const weekQueries = weeks.map(week => {
@@ -2268,7 +2270,7 @@ function awRenderProgramList() {
   const filtered = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
   list.innerHTML = '';
 
-  // 一括確定ボタン
+  // 一括確定／公開ボタン
   const btnArea = document.createElement('div');
   btnArea.style.cssText = 'padding:8px 0 16px;display:flex;gap:8px;justify-content:flex-end';
   const confirmAllBtn = document.createElement('button');
@@ -2276,6 +2278,12 @@ function awRenderProgramList() {
   confirmAllBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 全週プログラム確定';
   confirmAllBtn.addEventListener('click', awConfirmAllPrograms);
   btnArea.appendChild(confirmAllBtn);
+  const publishAllBtn = document.createElement('button');
+  publishAllBtn.className = 'btn-primary';
+  publishAllBtn.style.cssText = 'background:#2e7d32;border-color:#2e7d32';
+  publishAllBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">visibility</span> 全週公開';
+  publishAllBtn.addEventListener('click', awPublishAllPrograms);
+  btnArea.appendChild(publishAllBtn);
   list.appendChild(btnArea);
 
   if (filtered.length === 0) {
@@ -2287,8 +2295,8 @@ function awRenderProgramList() {
 
 function awBuildProgramSection(week, container) {
   const ps = week.programStatus || 'draft';
-  const labelMap = { draft:'未確定', confirmed:'確定済' };
-  const classMap = { draft:'aw-badge-none', confirmed:'aw-badge-confirmed' };
+  const labelMap = { draft:'未確定', confirmed:'確定済', published:'公開中' };
+  const classMap = { draft:'aw-badge-none', confirmed:'aw-badge-confirmed', published:'aw-badge-published' };
   const topics = Object.assign({}, week.topics || {});
   awProgramTopics[week.id] = topics;
   const items = week.items || [];
@@ -2316,9 +2324,13 @@ function awBuildProgramSection(week, container) {
         <span>編集</span>
       </button>
       <span class="aw-status-badge ${classMap[ps]}">${labelMap[ps]}</span>
+      ${ps === 'confirmed' ? `<button class="aw-state-btn aw-state-btn-publish" data-act="publish"><span class="material-icons">visibility</span>公開</button>` : ''}
+      ${ps === 'published' ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>下書きに戻す</button>` : ''}
     </div>
   `;
   hdr.querySelector('.aw-edit-schedule-btn').addEventListener('click', () => awOpenScheduleEditor(week.id));
+  hdr.querySelector('[data-act="publish"]')?.addEventListener('click', () => awSetWeekStatus(week, 'published', section));
+  hdr.querySelector('[data-act="unpublish"]')?.addEventListener('click', () => awSetWeekStatus(week, 'confirmed', section));
 
   // 大会チェックボックスのイベント
   const convChecks = hdr.querySelectorAll('input[name="conv"]');
@@ -2486,11 +2498,12 @@ function awApplyCircuitVisit(section, on) {
 }
 
 async function awConfirmAllPrograms() {
-  if (!(await customConfirm('表示中の全週のプログラムを確定しますか？'))) return;
+  if (!(await customConfirm('表示中の全週のプログラムを確定しますか？\n（公開済みの週は据え置きます）'))) return;
   let count = 0;
   const targetWeeks = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth);
   try {
     for (const week of targetWeeks) {
+      if (week.programStatus === 'published') continue;
       const topics = awProgramTopics[week.id] || {};
       await db.collection('mwbWeeks').doc(week.id).set({
         programStatus: 'confirmed',
@@ -2500,13 +2513,51 @@ async function awConfirmAllPrograms() {
       week.topics = Object.assign({}, topics);
       count++;
     }
-    // バッジ更新
-    document.querySelectorAll('.aw-inline-section').forEach(sec => {
-      const badge = sec.querySelector('.aw-status-badge');
-      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
-    });
+    awRenderProgramList();
     alert(`${count}週分のプログラムを確定しました`);
   } catch(e) { alert('確定エラー: ' + e.message); }
+}
+
+async function awPublishAllPrograms() {
+  const targetWeeks = awFilterWeeksByMonth(awWeeks, awProgramSelectedMonth)
+    .filter(w => w.programStatus === 'confirmed');
+  if (targetWeeks.length === 0) {
+    alert('公開できる確定済みの週がありません。\n先に「全週プログラム確定」を行ってください。');
+    return;
+  }
+  if (!(await customConfirm(`表示中の確定済${targetWeeks.length}週を公開しますか？\n公開すると成員の集会ページに表示されます。`))) return;
+  let count = 0;
+  try {
+    const now = firebase.firestore.Timestamp.now();
+    for (const week of targetWeeks) {
+      await db.collection('mwbWeeks').doc(week.id).set({
+        programStatus: 'published',
+        publishedAt: now,
+      }, { merge: true });
+      week.programStatus = 'published';
+      week.publishedAt = now;
+      count++;
+    }
+    awRenderProgramList();
+    alert(`${count}週分を公開しました`);
+  } catch(e) { alert('公開エラー: ' + e.message); }
+}
+
+// 個別週の状態遷移（confirmed ⇄ published）
+async function awSetWeekStatus(week, newStatus, sectionEl) {
+  const messages = {
+    published:  '公開します。成員の集会ページに表示されます。よろしいですか？',
+    confirmed:  '下書きに戻します。成員の集会ページから消えます。よろしいですか？',
+  };
+  if (!(await customConfirm(messages[newStatus] || ''))) return;
+  try {
+    const payload = { programStatus: newStatus };
+    if (newStatus === 'published') payload.publishedAt = firebase.firestore.Timestamp.now();
+    await db.collection('mwbWeeks').doc(week.id).set(payload, { merge: true });
+    week.programStatus = newStatus;
+    if (payload.publishedAt) week.publishedAt = payload.publishedAt;
+    awRenderProgramList();
+  } catch(e) { alert('状態変更エラー: ' + e.message); }
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────
