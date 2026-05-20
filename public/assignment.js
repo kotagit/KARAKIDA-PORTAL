@@ -1741,10 +1741,6 @@ async function awOpenScheduleEditor(weekId) {
 
   awRenderEditorList();
 
-  document.getElementById('aw-editor-add-btn').onclick = () => {
-    awEditorItems.push({ type:'item', section:'クリスチャンとして生活する', title:'', minutes:'5', number:'', codes:[] });
-    awRenderEditorList();
-  };
   document.getElementById('aw-editor-save-btn').onclick = awSaveEditorItems;
 
   navigate('admin-schedule-editor');
