@@ -2257,9 +2257,32 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .al-user-delete-btn:hover { background: #ffebee; }
 .al-toolbar {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+}
+.al-filter-group {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.al-tool-group {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.al-filter-input {
+  font-size: 13px; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  min-width: 180px;
+}
+.al-filter-btn {
+  font-size: 12px; padding: 6px 12px;
+  background: #f5f5f5; color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px;
+  cursor: pointer; font-weight: 600;
+}
+.al-filter-btn:hover { background: #eee; }
+.al-filter-btn.al-filter-active {
+  background: var(--primary); color: white; border-color: var(--primary);
 }
 .al-tool-btn { font-size: 12px; padding: 6px 10px; }
 
