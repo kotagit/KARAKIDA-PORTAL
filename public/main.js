@@ -5285,11 +5285,14 @@ async function loadSenkyoPublic() {
       const grid = document.createElement('div');
       grid.className = 'pw-grid';
 
+      // 唐木田駅構内の列をピンクで強調するためのクラス判定
+      const colClass = p => (p === '唐木田構内' || p === '唐木田駅構内') ? ' pw-col-karakida' : '';
+
       // 場所ヘッダー行
       let hdrRow = '<div class="pw-grid-row pw-grid-header">';
       allPlaces.forEach(p => {
         const label = p === '唐木田構内' ? '唐木田駅構内' : p;
-        hdrRow += `<div class="pw-grid-cell pw-grid-place">${esc(label)}</div>`;
+        hdrRow += `<div class="pw-grid-cell pw-grid-place${colClass(p)}">${esc(label)}</div>`;
       });
       hdrRow += '</div>';
 
@@ -5299,7 +5302,7 @@ async function loadSenkyoPublic() {
       allPlaces.forEach(p => {
         const docId = `${safeAssId(group.day)}_${safeAssId(group.time)}_${safeAssId(p)}`;
         const ass = (assMap[docId] || {}).assignments || {};
-        cRow += `<div class="pw-grid-cell">${esc(ass['司会者'] || '')}</div>`;
+        cRow += `<div class="pw-grid-cell${colClass(p)}">${esc(ass['司会者'] || '')}</div>`;
       });
       cRow += '</div>';
 
@@ -5311,7 +5314,7 @@ async function loadSenkyoPublic() {
           const docId = `${safeAssId(group.day)}_${safeAssId(group.time)}_${safeAssId(p)}`;
           const ass = (assMap[docId] || {}).assignments || {};
           const parts = ass['参加者'] || [];
-          pRows += `<div class="pw-grid-cell">${esc(parts[i] || '')}</div>`;
+          pRows += `<div class="pw-grid-cell${colClass(p)}">${esc(parts[i] || '')}</div>`;
         });
         pRows += '</div>';
       }
