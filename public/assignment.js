@@ -303,6 +303,7 @@ function awRenderReviewPage() {
 
   const filtered = awFilterWeeksByMonth(targetWeeks, awSharedMonth);
   list.innerHTML = '';
+  awUpdateReviewStateBadge(filtered);
   if (filtered.length === 0) {
     list.innerHTML = '<div class="empty-state"><span class="material-icons">drafts</span>この月の確認待ち / 公開済の週はありません<br><span style="font-size:13px;color:var(--text-light)">先に「担当者策定」で下書き保存してください</span></div>';
     return;
@@ -310,23 +311,43 @@ function awRenderReviewPage() {
   filtered.forEach(week => awBuildReviewSection(week, list));
 }
 
+function awUpdateReviewStateBadge(filteredWeeks) {
+  const badge = document.getElementById('aw-review-state-badge');
+  if (!badge) return;
+  const targets = filteredWeeks.filter(w => !w.conventionType);
+  if (targets.length === 0) {
+    badge.style.display = 'none';
+    return;
+  }
+  const allPublished = targets.every(w => w.programStatus === 'published');
+  const nonePublished = targets.every(w => w.programStatus !== 'published');
+  badge.style.display = '';
+  if (allPublished) {
+    badge.textContent = '確定（公開中）';
+    badge.className = 'aw-program-state-badge aw-pstate-published';
+  } else if (nonePublished) {
+    badge.textContent = '確定（確認・公開待ち）';
+    badge.className = 'aw-program-state-badge aw-pstate-await-publish';
+  } else {
+    badge.textContent = '一部公開済';
+    badge.className = 'aw-program-state-badge aw-pstate-await-publish';
+  }
+}
+
 function awBuildReviewSection(week, container) {
   const isPublished = week.programStatus === 'published';
   const slots = week.slots || {};
   const topics = week.topics || {};
-  const statusLabel = isPublished ? '公開済' : '確認待ち';
-  const statusClass = isPublished ? 'aw-badge-published' : 'aw-badge-confirmed';
   const chairName = slots['A'] || '';
 
   // 公開後と全く同じデザインのカードを共通関数で構築。
-  // ヘッダー右側だけ差し替えて、状態バッジ + アクションボタン + 司会者を載せる。
+  // 各週の状態バッジは廃止し、ヘッダー右にはアクションボタン + 司会者だけ。
   const section = awBuildPublishedProgramSection({
     week, slots, topics,
     headerRightHtml: `
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div style="color:white;font-size:13px;font-weight:700">司会者：${esc(chairName)}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
           ${isPublished
             ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>公開取消</button>`
             : `<button class="aw-state-btn aw-state-btn-publish" data-act="publish"><span class="material-icons">publish</span>承認・公開</button>
