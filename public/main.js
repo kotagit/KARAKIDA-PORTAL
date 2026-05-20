@@ -87,6 +87,7 @@ const PAGE_TITLES = {
   'admin-assignment': '担当者策定', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
   'admin-s89': 'S-89 生成',
+  'admin-assignment-review': '確認・公開',
   'admin-schedule-editor': 'スケジュール編集',
   'admin-family-groups': '家族グループ管理',
   'admin-attendance': '集会出席',
@@ -392,6 +393,7 @@ function navigate(page, pushHistory) {
   if (page === 'admin-assignment')           initAssignmentPage();
   if (page === 'admin-assignment-history')   initHistoryPage();
   if (page === 'admin-s89')                 initS89Page();
+  if (page === 'admin-assignment-review')   initReviewPage();
   if (page === 'admin-family-groups')      initFamilyGroupsPage();
   if (page === 'admin-member-edit')        initMemberEditPage();
   if (page === 'admin-group-emergency')    loadGroupEmergency();

@@ -225,6 +225,204 @@ async function awConfirmAll() {
   } catch(e) { alert('確定エラー: ' + e.message); }
 }
 
+// ══════════════════════════════════════════════
+// 確認・公開ページ (ステップ③)
+// ══════════════════════════════════════════════
+
+async function initReviewPage() {
+  const list = document.getElementById('review-list');
+  if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    await awLoadCodes();
+    await awLoadWeeks();
+    awRenderReviewPage();
+  } catch(e) {
+    if (list) list.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function awRenderReviewPage() {
+  const list = document.getElementById('review-list');
+  if (!list) return;
+  awRenderStepBar('review-step-bar', 3);
+
+  // 下書き対象 = programStatus 'confirmed' AND hasAssignmentHistory
+  // 公開済も併せて表示（取消可能にするため）
+  const targetWeeks = awWeeks.filter(w =>
+    (w.programStatus === 'confirmed' && w.hasAssignmentHistory) ||
+    w.programStatus === 'published'
+  );
+
+  if (targetWeeks.length === 0) {
+    list.innerHTML = '<div class="empty-state"><span class="material-icons">drafts</span>確認待ちの週はありません<br><span style="font-size:13px;color:var(--text-light)">先に「担当者策定」で下書き保存してください</span></div>';
+    document.getElementById('review-month-selector').innerHTML = '';
+    return;
+  }
+
+  const months = awExtractMonths(targetWeeks);
+  awEnsureSharedMonth(months);
+  awRenderMonthTiles('review-month-selector', months, awSharedMonth, (y, m) => {
+    awSetSharedMonth(y, m);
+    awRenderReviewPage();
+  });
+
+  const filtered = awFilterWeeksByMonth(targetWeeks, awSharedMonth);
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">この月の確認待ち / 公開済の週はありません</div>';
+    return;
+  }
+  filtered.forEach(week => awBuildReviewSection(week, list));
+}
+
+function awBuildReviewSection(week, container) {
+  const isPublished = week.programStatus === 'published';
+  const slots = week.slots || {};
+  const topics = week.topics || {};
+  const items = week.items || [];
+
+  const section = document.createElement('div');
+  section.className = 'aw-inline-section';
+  section.dataset.weekId = week.id;
+
+  const statusLabel = isPublished ? '公開済' : '確認待ち';
+  const statusClass = isPublished ? 'aw-badge-published' : 'aw-badge-confirmed';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'aw-inline-header';
+  hdr.innerHTML = `
+    <div class="aw-header-left">
+      <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
+      <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
+      ${isPublished
+        ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>公開取消</button>`
+        : `<button class="aw-state-btn aw-state-btn-publish" data-act="publish"><span class="material-icons">publish</span>承認・公開</button>
+           <button class="aw-state-btn" data-act="back"><span class="material-icons">edit</span>差戻（担当者策定へ）</button>`
+      }
+    </div>
+  `;
+  section.appendChild(hdr);
+
+  if (week.conventionType) {
+    awApplyConventionState(section, week.conventionType);
+  } else {
+    // 読取専用のテーブル描画
+    const table = document.createElement('div');
+    table.className = 'aw-week-table aw-week-table-readonly';
+    awBuildReviewTable(items, slots, topics, table);
+    section.appendChild(table);
+  }
+
+  hdr.querySelector('[data-act="publish"]')?.addEventListener('click', () => awReviewPublishWeek(week, section));
+  hdr.querySelector('[data-act="unpublish"]')?.addEventListener('click', () => awReviewUnpublishWeek(week, section));
+  hdr.querySelector('[data-act="back"]')?.addEventListener('click', () => navigate('admin-assignment'));
+
+  container.appendChild(section);
+}
+
+// 確認ページ用の読取専用テーブル（編集不可、担当者名のみ表示）
+function awBuildReviewTable(items, slots, topics, container) {
+  container.innerHTML = '';
+  let prevSection = '';
+  let minutesOffset = 0;
+
+  items.forEach(item => {
+    const sec = item.section;
+    if (sec !== prevSection && sec !== '開会') {
+      if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
+      const hdr = document.createElement('div');
+      hdr.className = 'aw-section-header';
+      hdr.style.background = AW_SECTION_COLORS[sec] || '#333';
+      hdr.textContent = sec;
+      container.appendChild(hdr);
+      prevSection = sec;
+    }
+
+    const h = 19 + Math.floor(minutesOffset / 60);
+    const m = minutesOffset % 60;
+    const timeStr = `${h}:${m.toString().padStart(2,'0')}`;
+
+    let assigneeCells = '';
+    if (item.title === '閉会の言葉') {
+      assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
+    } else if (item.codes && item.codes.length > 0) {
+      assigneeCells = item.codes.map(code => {
+        const base = awGetBase(code);
+        const name = slots[code] || slots[base] || '';
+        const shortLabels = {A:'司会者',B:'祈り',W:'祈り',E:'朗読者',H:'担当',J:'担当',L:'担当',N:'担当',I:'相手',K:'相手',M:'相手',O:'相手',V:'朗読者'};
+        const shortLabel = shortLabels[base] || '';
+        return `<div class="aw-slot aw-slot-readonly">
+          ${shortLabel ? `<label class="aw-slot-label">${esc(shortLabel)}</label>` : ''}
+          <span class="aw-slot-name${name ? '' : ' aw-slot-empty'}">${esc(name || '（未割当）')}</span>
+        </div>`;
+      }).join('');
+    }
+
+    const row = document.createElement('div');
+    row.className = 'aw-row';
+    row.innerHTML = `
+      <div class="aw-row-time">${timeStr}</div>
+      <div class="aw-row-info">
+        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
+        <span class="aw-row-title">${esc(item.title)}</span>
+        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
+      </div>
+      <div class="aw-row-assignees">${assigneeCells}</div>
+    `;
+    container.appendChild(row);
+    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
+  });
+}
+
+async function awReviewPublishWeek(week, sectionEl) {
+  if (!(await customConfirm(`${awGetThursdayLabel(week)} を公開しますか？\n成員の集会ページに表示されます。`))) return;
+  try {
+    await db.collection('mwbWeeks').doc(week.id).set({
+      programStatus: 'published',
+      publishedAt: firebase.firestore.Timestamp.now(),
+    }, { merge: true });
+    week.programStatus = 'published';
+    awRenderReviewPage();
+  } catch(e) { alert('公開エラー: ' + e.message); }
+}
+
+async function awReviewUnpublishWeek(week, sectionEl) {
+  if (!(await customConfirm(`${awGetThursdayLabel(week)} の公開を取消しますか？\n再度確認・公開が必要になります。`))) return;
+  try {
+    await db.collection('mwbWeeks').doc(week.id).set({
+      programStatus: 'confirmed',
+    }, { merge: true });
+    week.programStatus = 'confirmed';
+    awRenderReviewPage();
+  } catch(e) { alert('取消エラー: ' + e.message); }
+}
+
+async function awReviewPublishAll() {
+  const draftWeeks = awFilterWeeksByMonth(awWeeks, awSharedMonth)
+    .filter(w => w.programStatus === 'confirmed' && w.hasAssignmentHistory && !w.conventionType);
+  if (draftWeeks.length === 0) {
+    alert('公開対象の確認待ち週がありません');
+    return;
+  }
+  if (!(await customConfirm(`表示中の確認待ち ${draftWeeks.length} 週を一括公開しますか？`))) return;
+  try {
+    const now = firebase.firestore.Timestamp.now();
+    const batch = db.batch();
+    draftWeeks.forEach(w => {
+      batch.set(db.collection('mwbWeeks').doc(w.id), {
+        programStatus: 'published', publishedAt: now,
+      }, { merge: true });
+    });
+    await batch.commit();
+    draftWeeks.forEach(w => { w.programStatus = 'published'; w.publishedAt = now; });
+    awRenderReviewPage();
+    alert(`${draftWeeks.length}週を公開しました`);
+  } catch(e) { alert('一括公開エラー: ' + e.message); }
+}
+
 // ── S-89 生成 ──────────────────────────────
 const S89_LEAD_CODES = new Set(['E','H','J','L','N','Q']);
 const S89_PARTNER_MAP = { H:'I', J:'K', L:'M', N:'O' };
@@ -2034,7 +2232,7 @@ function awRenderStepBar(containerId, currentStep) {
   const steps = [
     { n: 1, label: 'プログラム表', page: 'admin-program',    count: `${p.confirmed}/${p.total} 確定済`, enabled: true },
     { n: 2, label: '担当者策定',   page: 'admin-assignment', count: `${p.draft}/${p.total} 下書き`,   enabled: p.confirmed > 0 },
-    { n: 3, label: '確認・公開',   page: '',                  count: `（未実装）`,                       enabled: false },
+    { n: 3, label: '確認・公開',   page: 'admin-assignment-review', count: `${p.draft}/${p.total} 確認待ち`,   enabled: p.draft > 0 },
     { n: 4, label: 'S-89',         page: 'admin-s89',         count: `${p.published}/${p.total} 公開済`, enabled: p.published > 0 },
   ];
   let html = '<div class="aw-stepbar">';
@@ -2422,8 +2620,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', () => navigate('admin-program'));
   document.getElementById('admin-manage-assignment')
     ?.addEventListener('click', () => navigate('admin-assignment'));
+  document.getElementById('admin-manage-assignment-review')
+    ?.addEventListener('click', () => navigate('admin-assignment-review'));
   document.getElementById('admin-manage-s89')
     ?.addEventListener('click', () => navigate('admin-s89'));
+  document.getElementById('review-publish-all-btn')
+    ?.addEventListener('click', awReviewPublishAll);
 
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);

@@ -3552,3 +3552,12 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
   .aw-stepbar-count { font-size: 10px; }
   .aw-stepbar-arrow { padding: 0 2px; }
 }
+
+/* ── 確認・公開ページ (読取専用テーブル) ── */
+.aw-week-table-readonly { background: #fafafa; }
+.aw-slot-readonly {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; background: white; border: 1px solid var(--border, #e0e0e0); border-radius: 4px;
+}
+.aw-slot-name { font-size: 13px; font-weight: 500; }
+.aw-slot-empty { color: #d32f2f; font-style: italic; font-weight: normal; }
