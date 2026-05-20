@@ -807,7 +807,11 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 4px; border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }
-.aw-editor-time   { font-size: 0.8rem; color: var(--text-light); min-width: 38px; flex-shrink: 0; }
+.aw-editor-time   {
+  font-size: 0.85rem; min-width: 78px; flex-shrink: 0;
+  padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text, #222); font-family: inherit;
+}
 .aw-editor-section { font-size: 0.78rem; padding: 3px 4px; border: 1px solid var(--border); border-radius: 4px; }
 .aw-editor-title   { flex: 1; min-width: 140px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
 .aw-editor-min     { width: 52px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
@@ -3561,9 +3565,10 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .aw-editor-meta-label {
-  font-size: 13px; font-weight: 600; color: var(--text-light, #555);
+  font-size: 13px; font-weight: 600; color: var(--text, #222);
   min-width: 70px;
 }
+.aw-editor-meta .aw-conv-check { color: var(--text, #222); }
 
 /* ── 週選択モーダル（編集ボタン押下時） ── */
 .aw-week-picker-overlay {
