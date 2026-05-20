@@ -751,11 +751,11 @@ body {
 }
 .aw-toolbar-btn-accent:hover { background: var(--primary-dark); color: white; }
 .aw-toolbar-btn-accent .material-icons { color: white; }
-/* 自動生成（緑系） */
+/* 自動生成（鮮やか緑） */
 #aw-generate-all-btn {
-  background: #2e7d32; color: white; border-color: #2e7d32;
+  background: #00c853; color: white; border-color: #00c853;
 }
-#aw-generate-all-btn:hover { background: #1b5e20; color: white; border-color: #1b5e20; }
+#aw-generate-all-btn:hover { background: #00a847; color: white; border-color: #00a847; }
 #aw-generate-all-btn .material-icons { color: white; }
 
 /* ── 割当管理 ── */
