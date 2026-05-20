@@ -7853,10 +7853,246 @@ const PSIM_FEATURES = [
 // 現在のシミュレーション状態
 let _psimState = { appointment: '', orgRoleKeys: [], status: [] };
 
+// ─────────────────────────────────────────────
+// 権限ルール エディタ
+// ─────────────────────────────────────────────
+
+// 属性カテゴリ（2 段プルダウンの 1 段目）
+// values: 2 段目（[{key, label}]）。動的生成は関数呼び出しでも OK
+function _psimGetAttrCategories() {
+  const orgValues = [];
+  if (typeof ORG_DEPARTMENTS !== 'undefined') {
+    ORG_DEPARTMENTS.forEach(d => {
+      const positions = (typeof getOrgPositions === 'function') ? getOrgPositions(d) : [];
+      positions.forEach(pos => {
+        orgValues.push({ key: `${d.id}|${pos}`, label: `${d.section} / ${d.label}（${pos}）` });
+      });
+    });
+  }
+  const deptPosValues = [];
+  if (typeof ME_POSITION_DEFS !== 'undefined') {
+    ME_POSITION_DEFS.forEach(p => {
+      deptPosValues.push({ key: `${p.dept}:${p.pos}`, label: `${p.dept} / ${p.label}` });
+    });
+  }
+  const codeValues = [];
+  if (typeof LIFE_MEETING_CODE_GROUPS !== 'undefined') {
+    LIFE_MEETING_CODE_GROUPS.forEach(g => {
+      g.codes.forEach(c => codeValues.push({ key: c.code, label: `${c.code}: ${c.label}` }));
+    });
+  }
+  return [
+    { key: 'appointment', label: '任命', values: [
+      { key: 'publisher',   label: '伝道者' },
+      { key: 'elder',       label: '長老' },
+      { key: 'ministerial', label: '援助奉仕者' },
+    ]},
+    { key: 'status', label: '状態', values: [
+      { key: 'WEB',      label: 'WEB管理者' },
+      { key: 'ADMIN',    label: 'ADMIN' },
+      { key: 'inactive', label: '非活発' },
+    ]},
+    { key: 'orgRoles',      label: '組織役職',       values: orgValues },
+    { key: 'deptPositions', label: '部門ポジション', values: deptPosValues },
+    { key: 'eligibleCodes', label: '生活と奉仕の集会 資格', values: codeValues },
+    { key: 'gender', label: '性別', values: [
+      { key: '男', label: '男' },
+      { key: '女', label: '女' },
+    ]},
+    { key: 'isWtReader',      label: 'ものみの塔朗読者', values: [{ key: 'true', label: 'はい' }] },
+    { key: 'isPublicSpeaker', label: '公開講演者',       values: [{ key: 'true', label: 'はい' }] },
+  ];
+}
+
+// 機能一覧（PSIM_FEATURES から生成）。ID = `${groupName}/${label}` で一意化。
+// context: groupName が「管理画面」プレフィクスなら admin、それ以外は user。
+function _psimGetFeatures() {
+  const out = [];
+  PSIM_FEATURES.forEach(g => {
+    g.items.forEach(it => {
+      const id = `${g.group}/${it.label}`;
+      const context = g.group.startsWith('管理画面') ? 'admin' : 'user';
+      out.push({ id, group: g.group, label: it.label, context, hint: it.hint || '' });
+    });
+  });
+  return out;
+}
+
+// 現在編集中の属性キー（例: 'appointment:elder'）
+let _psimRuleEditState = { category: 'appointment', value: '', user: [], admin: [] };
+
+async function _psimLoadCurrentRule() {
+  const cfg = await getAppConfig();
+  const rules = cfg.permissionRules || {};
+  const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
+  const rule = rules[attrKey] || { user: [], admin: [] };
+  _psimRuleEditState.user  = Array.isArray(rule.user)  ? rule.user.slice()  : [];
+  _psimRuleEditState.admin = Array.isArray(rule.admin) ? rule.admin.slice() : [];
+}
+
+function _renderPsimRuleEditor(container) {
+  const categories = _psimGetAttrCategories();
+  const features = _psimGetFeatures();
+  const userFeatures  = features.filter(f => f.context === 'user');
+  const adminFeatures = features.filter(f => f.context === 'admin');
+
+  const cat = categories.find(c => c.key === _psimRuleEditState.category) || categories[0];
+  const valueOptions = cat.values || [];
+  // 初回 or カテゴリ切替で value 未選択なら先頭を選ぶ
+  if (!_psimRuleEditState.value && valueOptions.length > 0) {
+    _psimRuleEditState.value = valueOptions[0].key;
+  }
+  const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
+
+  let html = '<div class="psim-rule-editor">';
+  html += '<div class="psim-section-title">ルール編集</div>';
+  html += '<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.5;">'
+       +  '属性を選ぶと、その属性を持つ成員に表示する機能をチェックで選べます。'
+       +  '<br>未設定の属性は何も表示しません（デフォルト = 非表示）。'
+       +  '</p>';
+
+  // 2段プルダウン
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">';
+  html += '<label style="font-weight:600;font-size:13px">属性カテゴリ</label>';
+  html += '<select id="psim-rule-cat" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px">';
+  categories.forEach(c => {
+    html += `<option value="${esc(c.key)}" ${c.key === _psimRuleEditState.category ? 'selected' : ''}>${esc(c.label)}</option>`;
+  });
+  html += '</select>';
+  html += '<label style="font-weight:600;font-size:13px;margin-left:8px">値</label>';
+  html += '<select id="psim-rule-val" style="padding:6px 10px;border:1px solid #ccc;border-radius:4px;min-width:240px">';
+  valueOptions.forEach(v => {
+    html += `<option value="${esc(v.key)}" ${v.key === _psimRuleEditState.value ? 'selected' : ''}>${esc(v.label)}</option>`;
+  });
+  html += '</select>';
+  html += `<span style="font-size:12px;color:#888;margin-left:8px">属性キー: <code>${esc(attrKey)}</code></span>`;
+  html += '</div>';
+
+  // 機能チェックリスト 2 セクション
+  function renderFeatureSection(title, feats, checkedList) {
+    let s = `<div class="psim-rule-section"><div class="psim-rule-section-title">${esc(title)}</div>`;
+    // グループでまとめる
+    const groups = {};
+    feats.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
+    Object.keys(groups).forEach(g => {
+      s += `<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:3px">${esc(g)}</div>`;
+      s += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;padding-left:8px">';
+      groups[g].forEach(f => {
+        const checked = checkedList.includes(f.id) ? ' checked' : '';
+        s += `<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;min-width:200px">`
+          + `<input type="checkbox" class="psim-rule-feat" data-context="${esc(f.context)}" data-fid="${esc(f.id)}"${checked}>`
+          + `<span>${esc(f.label)}</span>`
+          + (f.hint ? `<span style="color:#888;font-size:11px;margin-left:4px">${esc(f.hint)}</span>` : '')
+          + `</label>`;
+      });
+      s += '</div></div>';
+    });
+    s += '</div>';
+    return s;
+  }
+  html += renderFeatureSection('ユーザ画面に表示する機能', userFeatures, _psimRuleEditState.user);
+  html += renderFeatureSection('管理画面に表示する機能', adminFeatures, _psimRuleEditState.admin);
+
+  html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center">';
+  html += '<button class="btn-primary" id="psim-rule-save" style="padding:8px 24px">この属性のルールを保存</button>';
+  html += '<button class="btn-secondary" id="psim-rule-clear" style="padding:8px 16px">この属性をクリア</button>';
+  html += '<span id="psim-rule-status" style="margin-left:8px;color:#4caf50;font-size:13px"></span>';
+  html += '</div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+
+  // イベント wire
+  container.querySelector('#psim-rule-cat')?.addEventListener('change', async (e) => {
+    _psimRuleEditState.category = e.target.value;
+    _psimRuleEditState.value = '';
+    await _psimLoadCurrentRule();
+    _renderPsimRuleEditor(container);
+  });
+  container.querySelector('#psim-rule-val')?.addEventListener('change', async (e) => {
+    _psimRuleEditState.value = e.target.value;
+    await _psimLoadCurrentRule();
+    _renderPsimRuleEditor(container);
+  });
+  container.querySelectorAll('.psim-rule-feat').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const ctx = cb.dataset.context;
+      const fid = cb.dataset.fid;
+      const list = (ctx === 'admin') ? _psimRuleEditState.admin : _psimRuleEditState.user;
+      const i = list.indexOf(fid);
+      if (cb.checked && i === -1) list.push(fid);
+      else if (!cb.checked && i !== -1) list.splice(i, 1);
+    });
+  });
+  container.querySelector('#psim-rule-save')?.addEventListener('click', async () => {
+    const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
+    try {
+      const cfg = await getAppConfig();
+      const rules = { ...(cfg.permissionRules || {}) };
+      rules[attrKey] = { user: _psimRuleEditState.user.slice(), admin: _psimRuleEditState.admin.slice() };
+      // 両方とも空ならエントリーを削除
+      if (rules[attrKey].user.length === 0 && rules[attrKey].admin.length === 0) {
+        delete rules[attrKey];
+      }
+      await saveAppConfig({ permissionRules: rules });
+      const s = document.getElementById('psim-rule-status');
+      if (s) {
+        s.textContent = '保存しました';
+        setTimeout(() => { s.textContent = ''; }, 2000);
+      }
+    } catch (err) { alert('保存エラー: ' + err.message); }
+  });
+  container.querySelector('#psim-rule-clear')?.addEventListener('click', async () => {
+    if (!confirm('この属性のルールをクリアしますか？')) return;
+    _psimRuleEditState.user = [];
+    _psimRuleEditState.admin = [];
+    const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
+    try {
+      const cfg = await getAppConfig();
+      const rules = { ...(cfg.permissionRules || {}) };
+      delete rules[attrKey];
+      await saveAppConfig({ permissionRules: rules });
+      _renderPsimRuleEditor(container);
+    } catch (err) { alert('クリアエラー: ' + err.message); }
+  });
+}
+
+// タブ状態
+let _psimTab = 'simulator'; // 'simulator' | 'editor'
+
 function renderPermissionSimulator() {
   const body = document.getElementById('psim-body');
   if (!body) return;
 
+  // タブ切替
+  let html = '<div class="psim-tabs" style="display:flex;gap:0;border-bottom:2px solid #ddd;margin-bottom:16px">';
+  ['simulator','editor'].forEach(t => {
+    const active = t === _psimTab;
+    const label = t === 'simulator' ? '👤 シミュレート' : '⚙️ ルール編集';
+    html += `<button class="psim-tab-btn" data-tab="${t}" style="padding:8px 16px;border:none;background:${active?'#047CBC':'transparent'};color:${active?'#fff':'#666'};font-weight:${active?'700':'400'};cursor:pointer;border-radius:4px 4px 0 0">${label}</button>`;
+  });
+  html += '</div>';
+  html += '<div id="psim-tab-body"></div>';
+  body.innerHTML = html;
+
+  body.querySelectorAll('.psim-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _psimTab = btn.dataset.tab;
+      renderPermissionSimulator();
+    });
+  });
+
+  const tabBody = document.getElementById('psim-tab-body');
+  if (_psimTab === 'editor') {
+    // 編集タブ: 初回読み込み or 再描画
+    _psimLoadCurrentRule().then(() => _renderPsimRuleEditor(tabBody));
+    return;
+  }
+  // シミュレートタブ: 既存の描画ロジックを呼ぶ
+  _renderPsimSimulator(tabBody);
+}
+
+function _renderPsimSimulator(body) {
   let html = '<div class="psim-wrap">';
 
   // プリセット
