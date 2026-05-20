@@ -7619,29 +7619,46 @@ async function renderConfigPage() {
   });
   html += '</div>';
 
-  // トップ画面メニュー表示（旧PORTAL からの段階的移行用）
-  html += '<h3 style="margin:0 0 8px;">トップ画面メニュー</h3>';
-  html += '<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.5;">'
-       +  '旧 PORTAL からの移行中に、まだ未対応のメニューをオフにできます。'
-       +  '<br>チェックを外した項目はトップ画面に表示されません。親メニューを外すとサブ項目も表示されません。</p>';
-  // グループごとに表示
+  // メニュー表示（旧PORTAL からの段階的移行用）
+  // グループごとに分類し、「トップ画面のメニュー」と「管理画面のメニュー」を別タグで分ける
   const groups = {};
   HOME_MENU_ITEMS.forEach(item => {
     (groups[item.group] = groups[item.group] || []).push(item);
   });
-  Object.keys(groups).forEach(groupName => {
-    html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:13px;font-weight:600;color:#444;margin-bottom:4px;">' + esc(groupName) + '</div>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;padding-left:8px;">';
-    groups[groupName].forEach(item => {
-      const checked = (homeVis[item.key] !== false) ? ' checked' : '';
-      html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;min-width:160px;">'
-           +  '<input type="checkbox" class="cfg-home-menu" data-key="' + esc(item.key) + '"' + checked + '>'
-           +  esc(item.label) + '</label>';
+  const adminGroupNames = Object.keys(groups).filter(g => g.startsWith('管理画面'));
+  const homeGroupNames  = Object.keys(groups).filter(g => !g.startsWith('管理画面'));
+
+  function renderGroupSection(title, groupNames, intro) {
+    let s = '<div style="margin:8px 0 20px;padding:12px 14px;background:#f5f8fa;border-left:4px solid #047CBC;border-radius:4px;">';
+    s += '<h3 style="margin:0 0 6px;font-size:16px;color:#047CBC;">' + esc(title) + '</h3>';
+    if (intro) s += '<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.5;">' + intro + '</p>';
+    groupNames.forEach(groupName => {
+      s += '<div style="margin-bottom:14px;">';
+      s += '<div style="font-size:13px;font-weight:600;color:#444;margin-bottom:4px;">' + esc(groupName) + '</div>';
+      s += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;padding-left:8px;">';
+      groups[groupName].forEach(item => {
+        const checked = (homeVis[item.key] !== false) ? ' checked' : '';
+        s += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;min-width:160px;">'
+          +  '<input type="checkbox" class="cfg-home-menu" data-key="' + esc(item.key) + '"' + checked + '>'
+          +  esc(item.label) + '</label>';
+      });
+      s += '</div></div>';
     });
-    html += '</div></div>';
-  });
-  html += '<div style="margin-bottom:24px"></div>';
+    s += '</div>';
+    return s;
+  }
+
+  html += renderGroupSection(
+    'トップ画面のメニュー',
+    homeGroupNames,
+    '旧 PORTAL からの移行中に、まだ未対応のメニューをオフにできます。<br>チェックを外した項目はトップ画面に表示されません。親メニューを外すとサブ項目も表示されません。'
+  );
+
+  html += renderGroupSection(
+    '管理画面のメニュー',
+    adminGroupNames,
+    'ADMIN のみアクセス可能な管理画面の各項目。チェックを外した項目は管理画面に表示されません。<br>配下が全てオフになったロールヘッダーやセクションタグも自動で隠れます。'
+  );
 
   html += '<button id="cfg-save-btn" class="btn-primary" style="padding:8px 24px;">保存</button>';
   html += '<span id="cfg-save-status" style="margin-left:12px;font-size:13px;color:#4caf50;"></span>';
