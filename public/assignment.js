@@ -130,6 +130,7 @@ async function initAssignmentPage() {
   // イベントリスナーを先に登録（returnで飛ばされないように）
   document.getElementById('aw-generate-all-btn')?.addEventListener('click', awGenerateAll);
   document.getElementById('aw-confirm-all-btn')?.addEventListener('click', awConfirmAll);
+  document.getElementById('aw-assignment-edit-all-btn')?.addEventListener('click', awEditAllAssignments);
 
   const createList = document.getElementById('assignment-create-list');
   if (createList) createList.innerHTML = '<div class="loading">読み込み中...</div>';
@@ -261,11 +262,10 @@ function awRenderReviewPage() {
     return;
   }
 
-  // 下書き対象 = programStatus 'confirmed' AND hasAssignmentHistory
-  // 公開済も併せて表示（取消可能にするため）
+  // 確定済（プログラム表 step① で確定）または公開済の週を表示
+  // 担当者未策定でも一覧に出し、未割当を可視化する
   const targetWeeks = awWeeks.filter(w =>
-    (w.programStatus === 'confirmed' && w.hasAssignmentHistory) ||
-    w.programStatus === 'published'
+    w.programStatus === 'confirmed' || w.programStatus === 'published'
   );
 
   const filtered = awFilterWeeksByMonth(targetWeeks, awSharedMonth);
@@ -2256,10 +2256,11 @@ function awRenderStepBar(containerId, currentStep) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const p = awComputeStepProgress();
+  const reviewWaiting = p.confirmed - p.published;
   const steps = [
     { n: 1, label: 'プログラム表', page: 'admin-program',    count: `${p.confirmed}/${p.total} 確定済`, enabled: true },
     { n: 2, label: '担当者策定',   page: 'admin-assignment', count: `${p.draft}/${p.total} 下書き`,   enabled: p.confirmed > 0 },
-    { n: 3, label: '確認・公開',   page: 'admin-assignment-review', count: `${p.draft}/${p.total} 確認待ち`,   enabled: p.draft > 0 },
+    { n: 3, label: '確認・公開',   page: 'admin-assignment-review', count: `${reviewWaiting}/${p.total} 確認待ち`, enabled: p.confirmed > 0 },
     { n: 4, label: 'S-89',         page: 'admin-s89',         count: `${p.published}/${p.total} 公開済`, enabled: p.published > 0 },
   ];
   let html = '<div class="aw-stepbar">';
@@ -2576,14 +2577,12 @@ function awUpdateProgramToolbarState(filteredWeeks) {
 
 // 「編集」押下時: その月の週一覧モーダルを開く → 週を選ぶと既存の
 // スケジュールエディタへ遷移し、項目名/時間/主題の編集 + 行の追加/削除が可能。
-function awEditAllPrograms() {
-  if (!awSharedMonth) return;
-  const weeks = awFilterWeeksByMonth(awWeeks, awSharedMonth).filter(w => !w.conventionType);
-  if (weeks.length === 0) {
+// 共通: 月内の週一覧モーダルを開き、選ばれた週で callback を呼ぶ
+function awOpenWeekPickerModal({ title, weeks, onPick }) {
+  if (!weeks || weeks.length === 0) {
     alert('編集できる週がありません');
     return;
   }
-
   const overlay = document.createElement('div');
   overlay.className = 'aw-week-picker-overlay';
   const buttons = weeks.map(w =>
@@ -2594,7 +2593,7 @@ function awEditAllPrograms() {
   ).join('');
   overlay.innerHTML = `
     <div class="aw-week-picker-modal">
-      <div class="aw-week-picker-title">編集する週を選んでください</div>
+      <div class="aw-week-picker-title">${esc(title)}</div>
       <div class="aw-week-picker-list">${buttons}</div>
       <div class="aw-week-picker-actions">
         <button class="aw-week-picker-cancel">キャンセル</button>
@@ -2610,8 +2609,29 @@ function awEditAllPrograms() {
     btn.addEventListener('click', () => {
       const wid = btn.dataset.weekId;
       close();
-      awOpenScheduleEditor(wid);
+      onPick(wid);
     });
+  });
+}
+
+function awEditAllPrograms() {
+  if (!awSharedMonth) return;
+  const weeks = awFilterWeeksByMonth(awWeeks, awSharedMonth).filter(w => !w.conventionType);
+  awOpenWeekPickerModal({
+    title: '編集する週を選んでください',
+    weeks,
+    onPick: awOpenScheduleEditor,
+  });
+}
+
+function awEditAllAssignments() {
+  if (!awSharedMonth) return;
+  const weeks = awFilterWeeksByMonth(awWeeks, awSharedMonth)
+    .filter(w => !w.conventionType && (w.programStatus === 'confirmed' || w.programStatus === 'published'));
+  awOpenWeekPickerModal({
+    title: '担当者を変更する週を選んでください',
+    weeks,
+    onPick: awOpenWeekDetail,
   });
 }
 
