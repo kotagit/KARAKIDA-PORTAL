@@ -3394,16 +3394,24 @@ async function loadAdminReportCheck() {
 
   if (monthSel && monthSel.options.length === 0) {
     const now = new Date();
-    const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    // 表示範囲: 現在月の 2 ヶ月前（最新）から 12 ヶ月分遡る
+    let startM = (now.getMonth() + 1) - 2; // 1-indexed
+    let startY = now.getFullYear();
+    while (startM <= 0) { startM += 12; startY--; }
+    // プレースホルダー（既定選択は無し、ユーザが明示的に選ぶ）
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = '— 月を選択 —';
+    ph.disabled = true;
+    ph.selected = true;
+    monthSel.appendChild(ph);
     for (let i = 0; i < 12; i++) {
-      let m = now.getMonth() - i;
-      let y = now.getFullYear();
-      if (m <= 0) { m += 12; y--; }
+      let m = startM - i;
+      let y = startY;
+      while (m <= 0) { m += 12; y--; }
       const opt = document.createElement('option');
       opt.value = y + '-' + m;
       opt.textContent = y + '年' + m + '月';
-      if (m === defMonth && y === defYear) opt.selected = true;
       monthSel.appendChild(opt);
     }
     monthSel.addEventListener('change', () => loadReportCheckData());
@@ -3413,6 +3421,11 @@ async function loadAdminReportCheck() {
     document.getElementById('rptchk-filter-none')?.addEventListener('click', () => setRptChkFilter('none'));
   }
 
+  // 月が未選択ならプレースホルダーを表示、データ読み込みは行わない
+  if (!monthSel.value) {
+    view.innerHTML = '<div class="empty-state">上のプルダウンから月を選択してください</div>';
+    return;
+  }
   await loadReportCheckData();
 }
 
