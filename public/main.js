@@ -6858,10 +6858,11 @@ function renderDeptEditTable() {
     }
   });
 
-  // 奉仕場所（案内のhall/entrance/zoomは奉仕委員会タグ内の案内配下に移動）
+  // 奉仕場所（annai/avs/parking は組織表タブ内の各部門配下に移動済み）
   addSection('奉仕場所', 'meb-grp-pos');
   const DEPT_ID_TO_LABEL = { annai:'案内', avs:'AV', parking:'駐車場', cleaning:'清掃' };
-  ME_POSITION_DEFS.filter(p => p.dept !== 'annai').forEach(p => {
+  const POS_MOVED_TO_ORG = new Set(['annai', 'avs', 'parking']);
+  ME_POSITION_DEFS.filter(p => !POS_MOVED_TO_ORG.has(p.dept)).forEach(p => {
     rows.push({
       kind: 'check',
       label: p.label,
@@ -6934,9 +6935,14 @@ function renderDeptEditTable() {
       });
     });
 
-    // 案内 部門の責任者/奉仕者 の後に 会場/入口/Zoom を追加
-    if (d.id === 'annai') {
-      ME_POSITION_DEFS.filter(p => p.dept === 'annai').forEach(p => {
+    // 部門の役職（責任者/奉仕者など）の後に、その部門の奉仕場所行を追加
+    //   案内 → 会場/入口/Zoom
+    //   AVS  → ステ/音響/ビデ
+    //   駐車場 → 前/後
+    const ORG_TO_POS_DEPT = { annai: 'annai', stage_av: 'avs', parking: 'parking' };
+    const posDept = ORG_TO_POS_DEPT[d.id];
+    if (posDept) {
+      ME_POSITION_DEFS.filter(p => p.dept === posDept).forEach(p => {
         rows.push({
           kind: 'check',
           label: p.label,
