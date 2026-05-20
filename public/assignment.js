@@ -1755,17 +1755,22 @@ function awRenderEditorList() {
   if (!list) return;
   list.innerHTML = '';
 
-  // 時間計算用
+  // 時間計算（item.time が明示的に設定されていればそこから再計算）
   let minutesOffset = 0;
   const timeOf = awEditorItems.map(item => {
+    if (item.time && /^\d{1,2}:\d{2}$/.test(item.time)) {
+      const [h, m] = item.time.split(':').map(Number);
+      minutesOffset = (h - 19) * 60 + m;
+    }
     const h = 19 + Math.floor(minutesOffset / 60);
-    const m = minutesOffset % 60;
+    const m = ((minutesOffset % 60) + 60) % 60;
     const t = `${h}:${m.toString().padStart(2,'0')}`;
     minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
     if (item.section === 'クリスチャンとして生活する' && minutesOffset < 47) minutesOffset = 47;
     return t;
   });
 
+  let prevSection = '';
   awEditorItems.forEach((item, idx) => {
     // 行間の「＋ 挿入」ボタン
     const ins = document.createElement('button');
@@ -1777,19 +1782,28 @@ function awRenderEditorList() {
     };
     list.appendChild(ins);
 
+    // セクションヘッダー（背景色付き、元の予定表と同じデザイン）
+    const sec = item.section;
+    if (sec && sec !== prevSection && sec !== '開会') {
+      const hdr = document.createElement('div');
+      hdr.className = 'aw-section-header';
+      hdr.style.background = AW_SECTION_COLORS[sec] || '#333';
+      hdr.textContent = sec;
+      list.appendChild(hdr);
+      prevSection = sec;
+    }
+
     const row = document.createElement('div');
     row.className = 'aw-editor-row';
 
-    const sectionOpts = AW_SECTIONS.map(s =>
-      `<option value="${s}" ${item.section===s?'selected':''}>${s}</option>`
-    ).join('');
-    const codeOpts = AW_ALL_CODES.map(c =>
-      `<option value="${c}" ${(item.codes||[]).includes(c)?'selected':''}>${c}: ${awCodes[c]||c}</option>`
-    ).join('');
+    const firstCode = (item.codes || [])[0] || '';
+    const codeOpts = '<option value="">— 未指定 —</option>' +
+      AW_ALL_CODES.map(c =>
+        `<option value="${c}" ${firstCode === c ? 'selected' : ''}>${c}: ${awCodes[c]||c}</option>`
+      ).join('');
 
     row.innerHTML = `
-      <span class="aw-editor-time">${timeOf[idx]}</span>
-      <select class="aw-editor-section">${sectionOpts}</select>
+      <input class="aw-editor-time" type="time" value="${timeOf[idx]}">
       <input class="aw-editor-title" type="text" placeholder="プログラム名" value="${esc(item.title||'')}">
       <input class="aw-editor-min" type="number" min="0" max="60" placeholder="分" value="${esc(item.minutes||'')}">
       <select class="aw-editor-code" title="割当コード">${codeOpts}</select>
@@ -1800,10 +1814,14 @@ function awRenderEditorList() {
       </div>
     `;
 
-    row.querySelector('.aw-editor-section').onchange = e => { item.section = e.target.value; awRenderEditorList(); };
-    row.querySelector('.aw-editor-title').oninput   = e => { item.title   = e.target.value; };
-    row.querySelector('.aw-editor-min').oninput     = e => { item.minutes = e.target.value; awRenderEditorList(); };
-    row.querySelector('.aw-editor-code').onchange   = e => {
+    row.querySelector('.aw-editor-time').onchange  = e => {
+      const v = (e.target.value || '').trim();
+      if (v) item.time = v; else delete item.time;
+      awRenderEditorList();
+    };
+    row.querySelector('.aw-editor-title').oninput  = e => { item.title   = e.target.value; };
+    row.querySelector('.aw-editor-min').oninput    = e => { item.minutes = e.target.value; awRenderEditorList(); };
+    row.querySelector('.aw-editor-code').onchange  = e => {
       item.codes = e.target.value ? [e.target.value] : [];
     };
     row.querySelector('.aw-up').onclick = () => {
@@ -1824,7 +1842,8 @@ function awRenderEditorList() {
   insEnd.className = 'aw-editor-insert-btn';
   insEnd.innerHTML = '<span class="material-icons">add</span>';
   insEnd.onclick = () => {
-    awEditorItems.push({ type:'item', section:'クリスチャンとして生活する', title:'', minutes:'5', number:'', codes:[] });
+    const lastSec = awEditorItems.length > 0 ? awEditorItems[awEditorItems.length - 1].section : 'クリスチャンとして生活する';
+    awEditorItems.push({ type:'item', section: lastSec, title:'', minutes:'5', number:'', codes:[] });
     awRenderEditorList();
   };
   list.appendChild(insEnd);
