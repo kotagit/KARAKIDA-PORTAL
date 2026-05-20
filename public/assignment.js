@@ -2605,25 +2605,71 @@ async function awConfirmEditProgram(week) {
 
 // ── 生活と奉仕の集会 進行管理ハブ ────────────
 async function initMwbHubPage() {
-  const stepEl = document.getElementById('mwb-hub-step-bar');
-  if (stepEl) stepEl.innerHTML = '<div class="loading">読み込み中...</div>';
+  const selEl = document.getElementById('mwb-hub-month-selector');
+  if (selEl) selEl.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
     await awLoadCodes();
     await awLoadWeeks();
     awRenderMwbHub();
   } catch(e) {
-    if (stepEl) stepEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+    if (selEl) selEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
 }
 
 function awRenderMwbHub() {
-  const months = awExtractMonths(awWeeks);
-  awEnsureSharedMonth(months);
-  awRenderMonthTiles('mwb-hub-month-selector', months, awSharedMonth, (y, m) => {
+  // 今月以降の月のみ
+  const allMonths = awExtractMonths(awWeeks);
+  const today = new Date();
+  const months = allMonths.filter(m =>
+    m.year > today.getFullYear() ||
+    (m.year === today.getFullYear() && m.month >= today.getMonth())
+  );
+
+  // 共有月がフィルタ後リストに無ければクリア（自動選択しない）
+  if (awSharedMonth) {
+    const stillValid = months.some(m => m.year === awSharedMonth.year && m.month === awSharedMonth.month);
+    if (!stillValid) awSharedMonth = null;
+  }
+
+  awRenderMwbHubMonthDropdown(months);
+
+  const stepEl = document.getElementById('mwb-hub-step-bar');
+  const helpEl = document.getElementById('mwb-hub-help');
+  if (awSharedMonth) {
+    if (stepEl) { stepEl.style.display = ''; awRenderStepBar('mwb-hub-step-bar', 0); }
+    if (helpEl) helpEl.style.display = '';
+  } else {
+    if (stepEl) stepEl.style.display = 'none';
+    if (helpEl) helpEl.style.display = 'none';
+  }
+}
+
+function awRenderMwbHubMonthDropdown(months) {
+  const el = document.getElementById('mwb-hub-month-selector');
+  if (!el) return;
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  if (months.length === 0) {
+    el.innerHTML = '<div class="mwb-hub-month-picker"><div class="mwb-hub-month-label">作成/編集したい月を選択して下さい</div><div class="empty-state" style="margin-top:8px">対象の月のデータがありません。<br><span style="font-size:13px;color:var(--text-light)">先にプログラム表作成からインポートしてください。</span></div></div>';
+    return;
+  }
+  let html = '<div class="mwb-hub-month-picker">';
+  html += '<label class="mwb-hub-month-label" for="mwb-hub-month-select">作成/編集したい月を選択して下さい</label>';
+  html += '<select class="mwb-hub-month-select" id="mwb-hub-month-select">';
+  html += '<option value="">— 選択してください —</option>';
+  months.forEach(({ year, month }) => {
+    const v = year + '-' + month;
+    const sel = awSharedMonth && awSharedMonth.year === year && awSharedMonth.month === month ? 'selected' : '';
+    html += `<option value="${v}" ${sel}>${year}年${monthNames[month]}</option>`;
+  });
+  html += '</select></div>';
+  el.innerHTML = html;
+  el.querySelector('#mwb-hub-month-select').addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (!v) { awSharedMonth = null; awRenderMwbHub(); return; }
+    const [y, m] = v.split('-').map(Number);
     awSetSharedMonth(y, m);
     awRenderMwbHub();
   });
-  awRenderStepBar('mwb-hub-step-bar', 0);
 }
 
 // ── イベント登録（DOMContentLoaded） ──────────
