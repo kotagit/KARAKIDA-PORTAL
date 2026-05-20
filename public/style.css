@@ -3529,6 +3529,20 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
   border-color: var(--primary, #047CBC);
   box-shadow: 0 0 0 2px rgba(4,124,188,0.15);
 }
+
+/* ── プログラム表 状態バッジ / ロック表示 ── */
+.aw-program-state-badge {
+  display: inline-flex; align-items: center;
+  padding: 6px 12px; border-radius: 16px;
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+}
+.aw-pstate-await-assign  { background: #fff3e0; color: #e65100; border: 1px solid #ffb74d; }
+.aw-pstate-await-publish { background: #e3f2fd; color: #0d47a1; border: 1px solid #64b5f6; }
+.aw-pstate-published     { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; }
+
+.aw-program-list-locked { opacity: 0.6; }
+
 /* ── ステップバー (4 ステップ進行表示) ── */
 .aw-stepbar {
   display: flex; align-items: stretch; gap: 0;
