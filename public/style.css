@@ -757,6 +757,17 @@ body {
 }
 #aw-generate-all-btn:hover { background: #00a847; color: white; border-color: #00a847; }
 #aw-generate-all-btn .material-icons { color: white; }
+/* PDFダウンロード（赤系） */
+#review-print-pdf-btn,
+#s89-download-btn {
+  background: #d32f2f; color: white; border-color: #d32f2f;
+}
+#review-print-pdf-btn:hover,
+#s89-download-btn:hover {
+  background: #b71c1c; color: white; border-color: #b71c1c;
+}
+#review-print-pdf-btn .material-icons,
+#s89-download-btn .material-icons { color: white; }
 
 /* ── 割当管理 ── */
 .aw-week-row { cursor: pointer; transition: background 0.15s; }
