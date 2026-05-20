@@ -3394,10 +3394,12 @@ async function loadAdminReportCheck() {
 
   if (monthSel && monthSel.options.length === 0) {
     const now = new Date();
+    // 既定選択は先月（その月の報告が提出される時期）
     const defMonth = now.getMonth() === 0 ? 12 : now.getMonth();
     const defYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    // 現在月から過去 12 ヶ月を選択肢に並べる（今月も含む）
     for (let i = 0; i < 12; i++) {
-      let m = now.getMonth() - i;
+      let m = (now.getMonth() + 1) - i; // 1-indexed
       let y = now.getFullYear();
       if (m <= 0) { m += 12; y--; }
       const opt = document.createElement('option');
