@@ -1555,7 +1555,11 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .rpt-table tr:last-child td { border-bottom: none; }
 .rpt-cell-sm { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+/* 未提出行は薄く表示。ただし名前 (1 列目) は読みやすいように通常色を維持 */
 .rpt-row-none td { color: #bbb; }
+.rpt-row-none td:first-child { color: var(--text); }
+/* 「いいえ」など警告強調 */
+.rpt-warn { color: #d32f2f !important; font-weight: 700; }
 .rpt-badge-done {
   display: inline-block; font-size: 11px; font-weight: 700;
   padding: 2px 8px; border-radius: 12px;
