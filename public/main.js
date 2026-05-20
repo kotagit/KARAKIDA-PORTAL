@@ -329,6 +329,8 @@ function navigate(page, pushHistory) {
       const today = new Date().getDate();
       banner.classList.toggle('hidden', today < 1 || today > 10);
     }
+    // 会衆設定に従ってメニュー表示を反映
+    applyHomeMenuVisibility().catch(e => console.warn('home menu visibility apply error:', e));
   } else {
     backBtn.classList.remove('hidden');
   }
@@ -821,6 +823,32 @@ async function saveAppConfig(updates) {
 async function getMeetingDays() {
   const cfg = await getAppConfig();
   return Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0 ? cfg.meetingDays : [4, 0];
+}
+
+// ── トップ画面メニュー表示制御（旧PORTALからの段階的移行用）─────────────
+// CONFIG/app.homeMenuVisibility: { key: bool } — false の項目だけ非表示
+const HOME_MENU_ITEMS = [
+  { key: 'hatsuhy', label: '発表',         selector: '[data-page="hatsuhy"]' },
+  { key: 'senkyo',  label: '宣教',         selector: '#home-acc-senkyo' },
+  { key: 'shukai',  label: '集会',         selector: '#home-acc-shukai' },
+  { key: 'bumon',   label: '部門',         selector: '#home-acc-bumon' },
+  { key: 'shinsei', label: 'フォーム',     selector: '#home-acc-shinsei' },
+  { key: 'soshiki', label: '組織',         selector: '[data-page="soshiki"]' },
+  { key: 'gyoji',   label: 'イベント',     selector: '[data-page="gyoji"]' },
+  { key: 'jouhou',  label: '情報',         selector: '[data-page="jouhou"]' },
+  { key: 'keikaku', label: '計画',         selector: '[data-page="keikaku"]' },
+  { key: 'saigai',  label: '災害対応',     selector: '[data-page="saigai"]' },
+];
+async function applyHomeMenuVisibility() {
+  const cfg = await getAppConfig();
+  const vis = cfg.homeMenuVisibility || {};
+  HOME_MENU_ITEMS.forEach(item => {
+    // フィールド未設定 or true は表示。明示的に false の項目のみ非表示。
+    const show = vis[item.key] !== false;
+    document.querySelectorAll(item.selector).forEach(el => {
+      el.classList.toggle('hidden', !show);
+    });
+  });
 }
 // 指定月の集会日一覧を返す
 async function getMeetingDatesForMonth(year, month) {
@@ -7452,10 +7480,11 @@ async function renderConfigPage() {
 
   const cfg = await getAppConfig();
   const meetingDays = Array.isArray(cfg.meetingDays) && cfg.meetingDays.length > 0 ? cfg.meetingDays : [4, 0];
+  const homeVis = cfg.homeMenuVisibility || {};
 
   let html = '<div style="max-width:500px;margin:0 auto;">';
   html += '<h3 style="margin:0 0 16px;">集会曜日</h3>';
-  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;">';
   WD.forEach((label, i) => {
     const checked = meetingDays.includes(i) ? ' checked' : '';
     html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;">'
@@ -7463,6 +7492,21 @@ async function renderConfigPage() {
          +  label + '</label>';
   });
   html += '</div>';
+
+  // トップ画面メニュー表示（旧PORTAL からの段階的移行用）
+  html += '<h3 style="margin:0 0 8px;">トップ画面メニュー</h3>';
+  html += '<p style="margin:0 0 12px;font-size:13px;color:#666;line-height:1.5;">'
+       +  '旧 PORTAL からの移行中に、まだ未対応のメニューをオフにできます。'
+       +  '<br>チェックを外した項目はトップ画面に表示されません。</p>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:24px;">';
+  HOME_MENU_ITEMS.forEach(item => {
+    const checked = (homeVis[item.key] !== false) ? ' checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer;min-width:90px;">'
+         +  '<input type="checkbox" class="cfg-home-menu" data-key="' + item.key + '"' + checked + '>'
+         +  item.label + '</label>';
+  });
+  html += '</div>';
+
   html += '<button id="cfg-save-btn" class="btn-primary" style="padding:8px 24px;">保存</button>';
   html += '<span id="cfg-save-status" style="margin-left:12px;font-size:13px;color:#4caf50;"></span>';
   html += '</div>';
@@ -7473,10 +7517,14 @@ async function renderConfigPage() {
     const checks = body.querySelectorAll('.cfg-meeting-day:checked');
     const days = Array.from(checks).map(c => Number(c.value)).sort((a, b) => a - b);
     if (days.length === 0) { alert('少なくとも1つの曜日を選択してください。'); return; }
+    const homeMenuVisibility = {};
+    body.querySelectorAll('.cfg-home-menu').forEach(cb => {
+      homeMenuVisibility[cb.dataset.key] = cb.checked;
+    });
     const btn = document.getElementById('cfg-save-btn');
     btn.disabled = true; btn.textContent = '保存中...';
     try {
-      await saveAppConfig({ meetingDays: days });
+      await saveAppConfig({ meetingDays: days, homeMenuVisibility });
       document.getElementById('cfg-save-status').textContent = '保存しました';
       setTimeout(() => { const s = document.getElementById('cfg-save-status'); if (s) s.textContent = ''; }, 2000);
     } catch (e) {
