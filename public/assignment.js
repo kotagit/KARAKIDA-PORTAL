@@ -2266,16 +2266,6 @@ function awRenderProgramList() {
   const filtered = awFilterWeeksByMonth(awWeeks, awSharedMonth);
   list.innerHTML = '';
 
-  // 一括確定／公開ボタン
-  const btnArea = document.createElement('div');
-  btnArea.style.cssText = 'padding:8px 0 16px;display:flex;gap:8px;justify-content:flex-end';
-  const confirmAllBtn = document.createElement('button');
-  confirmAllBtn.className = 'btn-primary';
-  confirmAllBtn.innerHTML = '<span class="material-icons" style="font-size:18px;vertical-align:middle">check_circle</span> 全週プログラム確定';
-  confirmAllBtn.addEventListener('click', awConfirmAllPrograms);
-  btnArea.appendChild(confirmAllBtn);
-  list.appendChild(btnArea);
-
   if (filtered.length === 0) {
     list.innerHTML += '<div class="empty-state">この月のプログラムはありません</div>';
     return;
@@ -2636,6 +2626,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', () => navigate('admin-mwb-hub'));
   document.getElementById('review-publish-all-btn')
     ?.addEventListener('click', awReviewPublishAll);
+  document.getElementById('aw-program-confirm-all-btn')
+    ?.addEventListener('click', awConfirmAllPrograms);
 
   // 週詳細ボタン
   document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
