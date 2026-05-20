@@ -305,17 +305,19 @@ async function loadPWSlots() {
 
       // 申込者を抽出:
       // - 同じ date/weekday/time
-      // - preferredLocation に places のいずれかが含まれる
+      // - preferredLocation に places のいずれかが含まれる（「駅」表記揺れを正規化）
       // - レガシーは d.place が places のどれかに一致
+      const normPlace = s => String(s || '').replace(/駅/g, '').trim();
+      const placesArrN = placesArr.map(normPlace);
       const applicantsForSlot = appSnap.docs
         .map(d => d.data())
         .filter(d => {
           if (d.day !== dateStr) return false;
           if (d.dayofweek !== weekday) return false;
           if (d.starttime !== time) return false;
-          const pref = String(d.preferredLocation || '').trim();
-          if (pref) return placesArr.some(p => pref.includes(p));
-          return placesArr.includes(d.place);
+          const prefN = normPlace(d.preferredLocation);
+          if (prefN) return placesArrN.some(p => prefN.includes(p) || p.includes(prefN));
+          return placesArrN.includes(normPlace(d.place));
         });
 
       // 申込者の希望場所マップ (name → preferredLocation)
@@ -437,10 +439,12 @@ function renderPWAssignment(slot) {
     const parent = (slot.fullPlaceParentMap || {})[fp];
     if (!parent) return baseList;
     const locMap = slot.applicantLocMap || {};
+    const normPlace = s => String(s || '').replace(/駅/g, '').trim();
+    const parentN = normPlace(parent);
     return baseList.filter(name => {
-      const pref = String(locMap[name] || '').trim();
-      if (!pref) return true; // 旧データはそのまま
-      return pref.includes(parent);
+      const prefN = normPlace(locMap[name]);
+      if (!prefN) return true; // 旧データはそのまま
+      return prefN.includes(parentN) || parentN.includes(prefN);
     });
   }
 
