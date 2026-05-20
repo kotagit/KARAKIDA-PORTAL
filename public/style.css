@@ -1539,11 +1539,12 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   padding: 10px 12px; cursor: pointer;
 }
 .pwa-row-main:hover { background: #f9fbff; }
-.pwa-check { width: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.pwa-check .material-icons { font-size: 32px; color: #bbb; transition: color 0.15s; }
+.pwa-check { width: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.pwa-check .material-icons { font-size: 48px; color: #bbb; transition: color 0.15s; }
 .pw-places-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; margin-left: auto; }
 .pw-places-stack .pw-place-badge { margin: 0; min-width: 64px; text-align: center; }
 .pwa-row-main .pwa-check { margin-left: 0 !important; }
+.pw-when-block { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex-shrink: 0; }
 .pwa-col { flex: 1; text-align: center; font-size: 14px; font-weight: 500; }
 .pwa-place-green {
   background: #90EE90; border-radius: 4px; padding: 3px 6px; margin: 0 2px;
