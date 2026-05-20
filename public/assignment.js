@@ -1713,11 +1713,31 @@ async function awOpenScheduleEditor(weekId) {
   awEditorWeekId = weekId;
   const snap = await db.collection('mwbWeeks').doc(weekId).get();
   if (!snap.exists) return;
-  awEditorItems = JSON.parse(JSON.stringify(snap.data().items || []));
+  const data = snap.data();
+  awEditorItems = JSON.parse(JSON.stringify(data.items || []));
 
   const week = awWeeks.find(w => w.id === weekId);
   const titleEl = document.getElementById('aw-editor-title');
   if (titleEl) titleEl.textContent = week ? awGetThursdayLabel(week) : weekId;
+
+  // 区分（大会種別） / 巡回訪問 / 集会日 の初期値を反映
+  const conv = data.conventionType || '';
+  document.querySelectorAll('input[name="aw-editor-conv"]').forEach(r => {
+    r.checked = (r.value === conv);
+  });
+  const cvVisitEl = document.getElementById('aw-editor-cvvisit');
+  if (cvVisitEl) cvVisitEl.checked = !!data.circuitVisit;
+  const meetDateEl = document.getElementById('aw-editor-meetdate');
+  const meetDateRow = document.getElementById('aw-editor-meetdate-row');
+  if (meetDateEl) meetDateEl.value = data.customMeetDate || '';
+  if (meetDateRow) meetDateRow.style.display = (!!data.circuitVisit) ? '' : 'none';
+
+  if (cvVisitEl) cvVisitEl.onchange = () => {
+    if (meetDateRow) meetDateRow.style.display = cvVisitEl.checked ? '' : 'none';
+  };
+  document.getElementById('aw-editor-meetdate-clear')?.addEventListener('click', () => {
+    if (meetDateEl) meetDateEl.value = '';
+  });
 
   awRenderEditorList();
 
@@ -1813,10 +1833,27 @@ function awRenderEditorList() {
 async function awSaveEditorItems() {
   if (!awEditorWeekId) return;
   try {
-    await db.collection('mwbWeeks').doc(awEditorWeekId).update({ items: awEditorItems });
+    // メタ情報（区分 / 巡回訪問 / 集会日）も合わせて保存
+    const convSel = document.querySelector('input[name="aw-editor-conv"]:checked');
+    const conv = convSel ? convSel.value : '';
+    const cvVisit = !!document.getElementById('aw-editor-cvvisit')?.checked;
+    const meetDate = (document.getElementById('aw-editor-meetdate')?.value || '').trim();
+
+    const update = { items: awEditorItems };
+    const FV = firebase.firestore.FieldValue;
+    update.conventionType = conv ? conv : FV.delete();
+    update.circuitVisit   = cvVisit ? true : FV.delete();
+    update.customMeetDate = (cvVisit && meetDate) ? meetDate : FV.delete();
+
+    await db.collection('mwbWeeks').doc(awEditorWeekId).update(update);
     // awWeeks のキャッシュも更新
     const week = awWeeks.find(w => w.id === awEditorWeekId);
-    if (week) week.items = JSON.parse(JSON.stringify(awEditorItems));
+    if (week) {
+      week.items = JSON.parse(JSON.stringify(awEditorItems));
+      if (conv) week.conventionType = conv; else delete week.conventionType;
+      if (cvVisit) week.circuitVisit = true; else delete week.circuitVisit;
+      if (cvVisit && meetDate) week.customMeetDate = meetDate; else delete week.customMeetDate;
+    }
     alert('保存しました');
     navigate('admin-program');
   } catch(e) { alert('保存エラー: ' + e.message); }
