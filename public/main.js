@@ -3043,9 +3043,8 @@ async function loadPwApply() {
       });
 
       if (singlePlace) {
-        // 場所が1つだけなら自動で設定（UIは非表示）
-        if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
-        pwApplySelected[item.key].location = item.places[0];
+        // 場所が1つだけのときは UI 上は非表示。pwApplySelected への登録は
+        // 必ずユーザがカードを選択してから行う（click ハンドラ側で実施）。
       } else {
         PW_LOCATIONS.forEach(loc => {
           const label = document.createElement('label');
@@ -3083,10 +3082,10 @@ async function loadPwApply() {
           optionsDiv.classList.remove('hidden');
           card.querySelector('.pwa-check .material-icons').textContent = 'check_circle';
           card.querySelector('.pwa-check .material-icons').style.color = 'var(--primary)';
-          // 場所が1つだけのときは自動で location を設定
+          // 場所が1つだけのときは自動で location を設定（表記は「駅」抜きに統一）
           if (singlePlace) {
             if (!pwApplySelected[item.key]) pwApplySelected[item.key] = {};
-            pwApplySelected[item.key].location = item.places[0];
+            pwApplySelected[item.key].location = String(item.places[0] || '').replace(/駅$/, '');
           }
         }
       });
