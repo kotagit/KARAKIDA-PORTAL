@@ -6470,6 +6470,43 @@ function deriveDepartmentsFromOrgRoles(orgRoles) {
   return [...set];
 }
 window.deriveDepartmentsFromOrgRoles = deriveDepartmentsFromOrgRoles;
+// 部門情報モード: 生活と奉仕の集会 プログラム種類（USER_LIST.eligibleCodes に保存）
+const LIFE_MEETING_CODE_GROUPS = [
+  { label: '開会', codes: [
+    { code: 'A', label: '司会' },
+    { code: 'B', label: '開会祈り' },
+  ]},
+  { label: '神の言葉の宝', codes: [
+    { code: 'C', label: '話（神の言葉の宝）' },
+    { code: 'D', label: '宝石を探し出す' },
+    { code: 'E', label: '聖書朗読' },
+  ]},
+  { label: '野外奉仕に励む', codes: [
+    { code: 'F', label: '討議1' },
+    { code: 'G', label: '討議2' },
+    { code: 'H', label: '最初の話し合い — 担当' },
+    { code: 'I', label: '最初の話し合い — 相手' },
+    { code: 'J', label: '再訪問 — 担当' },
+    { code: 'K', label: '再訪問 — 相手' },
+    { code: 'L', label: '聖書研究 — 担当' },
+    { code: 'M', label: '聖書研究 — 相手' },
+    { code: 'N', label: '信じていることを説明する — 担当' },
+    { code: 'O', label: '信じていることを説明する — 相手' },
+    { code: 'P', label: '信じていることを説明する（話形式）' },
+    { code: 'Q', label: '話' },
+  ]},
+  { label: 'クリスチャンとして生活する', codes: [
+    { code: 'R', label: 'プログラム1' },
+    { code: 'S', label: 'プログラム2' },
+    { code: 'T', label: '会衆の必要' },
+    { code: 'U', label: '会衆の聖書研究（司会）' },
+    { code: 'V', label: '会衆の聖書研究（朗読者）' },
+  ]},
+  { label: '閉会', codes: [
+    { code: 'W', label: '閉会祈り' },
+  ]},
+];
+
 // 部門情報モード: 奉仕場所（部門ごとのポジション）
 const ME_POSITION_DEFS = [
   { dept: 'annai',    pos: 'hall',     label: '会場' },
@@ -6869,9 +6906,31 @@ function renderDeptEditTable() {
   ORG_DEPARTMENTS.forEach(d => {
     // 開拓者セクションは資格タグ内の「正規開拓者」と重複するためスキップ
     if (d.section === '開拓者') return;
-    // 野外宣教グループに入る直前に「生活と奉仕のための集会」セクションを挟む（現状は項目なし）
+    // 野外宣教グループに入る直前に「生活と奉仕のための集会」セクションを挟む
     if (d.section === '野外宣教グループ' && !lifeMeetingSecAdded) {
       addSection('生活と奉仕のための集会', 'meb-grp-org-life');
+      LIFE_MEETING_CODE_GROUPS.forEach(grp => {
+        addSection(grp.label, 'meb-grp-org-life-sub');
+        grp.codes.forEach(({ code, label }) => {
+          rows.push({
+            kind: 'check',
+            label,
+            deptLabel: code,
+            sectionCls: 'meb-grp-org',
+            get: m => {
+              const arr = meBulkCurrentValue(m, 'eligibleCodes') || [];
+              return arr.includes(code);
+            },
+            set: (m, on) => {
+              const cur = (meBulkCurrentValue(m, 'eligibleCodes') || []).slice();
+              const idx = cur.indexOf(code);
+              if (on && idx === -1) cur.push(code);
+              else if (!on && idx !== -1) cur.splice(idx, 1);
+              meBulkRecordChange(m.docId, 'eligibleCodes', cur);
+            }
+          });
+        });
+      });
       lifeMeetingSecAdded = true;
       lastDept = '';
     }
@@ -7076,7 +7135,11 @@ function renderDeptEditTable() {
     const secLabel = secRow.dataset.secLabel || '';
     const contentRows = tbody.querySelectorAll(`tr[data-sec-content="${sec}"]`);
     const arrow = secRow.querySelector('.meb-sec-arrow');
-    const closedByDefault = ['資格','奉仕委員会','野外宣教グループ','システム','負荷係数'].includes(secLabel);
+    const closedByDefault = [
+      '資格','奉仕委員会',
+      '生活と奉仕のための集会','開会','神の言葉の宝','野外奉仕に励む','クリスチャンとして生活する','閉会',
+      '野外宣教グループ','システム','負荷係数'
+    ].includes(secLabel);
     if (closedByDefault) {
       contentRows.forEach(r => r.style.display = 'none');
       if (arrow) arrow.textContent = '▶';
