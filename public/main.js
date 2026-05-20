@@ -6702,11 +6702,24 @@ function meBulkOriginal(docId) {
   return meAllMembers.find(m => m.docId === docId);
 }
 
+// eligibleCodes は古いデータが文字列 ("A,B,C") や undefined の場合があるため
+// 常に配列に正規化する。これがないと .splice / .push が呼ばれて TypeError で
+// チェックボックスの変更が記録されない（保存できない）バグになる。
+function _meParseEligibleCodes(v) {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v) {
+    try { const a = JSON.parse(v); if (Array.isArray(a)) return a; } catch(_) {}
+    return v.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 function meBulkCurrentValue(member, key) {
   const change = meBulkChanges.get(member.docId);
   if (change && Object.prototype.hasOwnProperty.call(change, key)) return change[key];
   if (key === 'status')         return member.status || [];
   if (key === 'orgRoles')       return Array.isArray(member.orgRoles) ? member.orgRoles : [];
+  if (key === 'eligibleCodes')  return _meParseEligibleCodes(member.eligibleCodes);
   if (key === 'deptPositions')  return (member.deptPositions && typeof member.deptPositions === 'object') ? member.deptPositions : {};
   if (key === 'dutyWeight')     return (typeof member.dutyWeight === 'number') ? member.dutyWeight : 1.0;
   return member[key] || '';
@@ -6733,6 +6746,7 @@ function meBulkRecordChange(docId, key, value) {
   let original;
   if (key === 'status')              original = member.status || [];
   else if (key === 'orgRoles')       original = Array.isArray(member.orgRoles) ? member.orgRoles : [];
+  else if (key === 'eligibleCodes')  original = _meParseEligibleCodes(member.eligibleCodes);
   else if (key === 'deptPositions')  original = (member.deptPositions && typeof member.deptPositions === 'object') ? member.deptPositions : {};
   else if (key === 'dutyWeight')     original = (typeof member.dutyWeight === 'number') ? member.dutyWeight : 1.0;
   else                               original = member[key] || '';
