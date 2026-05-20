@@ -158,13 +158,15 @@ function awGenerateAll() {
   }
 
   let generated = 0;
+  const skipped = []; // [{label, reason}]
   filtered.forEach(week => {
-    if (week.conventionType) return;
+    const label = awGetMeetingLabel(week);
+    if (week.conventionType) { skipped.push({ label, reason: `大会週（${week.conventionType}）` }); return; }
     const slots = awLiveSlots[week.id];
-    if (!slots) return;
+    if (!slots) { skipped.push({ label, reason: '週が画面に描画されていません（一度別の月へ切替→戻すと解決します）' }); return; }
     const items = week.items || [];
     const allCodes = [...new Set(items.flatMap(i => i.codes || []))];
-    if (allCodes.length === 0) return;
+    if (allCodes.length === 0) { skipped.push({ label, reason: 'プログラム項目（items）が空です。プログラム表作成からインポートし直してください' }); return; }
 
     const meetDate = awGetMeetingDate(week) || new Date();
     const result = awRunGeneration(allCodes, awMembers, tempHistory, meetDate);
@@ -182,14 +184,22 @@ function awGenerateAll() {
     });
 
     const section = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"]`);
-    if (!section) return;
+    if (!section) { skipped.push({ label, reason: 'DOMにセクションが見つかりません' }); return; }
     section.querySelectorAll('.aw-slot-select').forEach(sel => {
       sel.value = slots[sel.dataset.code] || '';
     });
     awUpdateClosingNoteIn(section.querySelector('.aw-week-table'), slots);
     generated++;
   });
-  if (generated === 0) alert('自動生成対象の週がありません（大会週は除外されます）');
+  if (generated === 0) {
+    const detail = skipped.length === 0
+      ? '対象の週がありません'
+      : skipped.map(s => `• ${s.label}: ${s.reason}`).join('\n');
+    alert('自動生成できませんでした。\n\n' + detail);
+  } else if (skipped.length > 0) {
+    const detail = skipped.map(s => `• ${s.label}: ${s.reason}`).join('\n');
+    alert(`${generated}週分を生成しました。\n\n以下の週はスキップしました:\n${detail}`);
+  }
 }
 
 async function awConfirmAll() {
@@ -1872,6 +1882,8 @@ async function loadAssignmentWeekDisplay() {
     const allWeeks = weeksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     // 成員には公開済み (programStatus === 'published') のみ見せる
     const weeks = allWeeks.filter(w => w.programStatus === 'published');
+    // 確定済（未公開）の週数を管理者向けヒントのために覚えておく
+    const confirmedNotPublishedCount = allWeeks.filter(w => w.programStatus === 'confirmed').length;
 
     // 全週の履歴クエリを並列実行（直列だと26回×往復で遅い）
     const weekQueries = weeks.map(week => {
@@ -1933,6 +1945,15 @@ async function loadAssignmentWeekDisplay() {
 
     skRenderMonthSelector();
     skShowMonthSchedule();
+
+    // 管理者で「未公開（確定済）の週がある」場合は誘導バナーを表示
+    if (skAvailableMonths.length === 0 && confirmedNotPublishedCount > 0 && typeof isAdmin !== 'undefined' && isAdmin) {
+      container.innerHTML = `<div class="empty-state" style="padding:16px;line-height:1.7">
+        公開済みのプログラムがありません。<br>
+        <span style="font-size:13px;color:var(--text-light)">確定済の週が ${confirmedNotPublishedCount} 週あります。<br>
+        「プログラム表作成」→ 月を選択 → 「全週公開」で成員に表示されます。</span>
+      </div>`;
+    }
 
   } catch(e) {
     monthEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
