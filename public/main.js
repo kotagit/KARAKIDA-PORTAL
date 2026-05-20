@@ -927,10 +927,29 @@ async function applyHomeMenuVisibility() {
     });
   });
 
-  // 2) 管理画面の各セクション: 配下のローが全て隠れていればセクションタグごと非表示
+  // 2) 管理画面の各セクション内: ロールヘッダーの配下のローが全て非表示なら、
+  //    そのロールヘッダー (.admin-role-header) も非表示にする。
+  //    さらにセクション全体（.admin-section-tag + .admin-list-menu）も
+  //    配下のローが全て非表示なら非表示にする。
   const adminPage = document.getElementById('page-admin');
   if (adminPage) {
     adminPage.querySelectorAll('.admin-list-menu').forEach(menu => {
+      // ロールヘッダーごとのグループを構築
+      const groups = [];
+      Array.from(menu.children).forEach(child => {
+        if (child.classList.contains('admin-role-header')) {
+          groups.push({ header: child, rows: [] });
+        } else if (child.classList.contains('admin-list-row')) {
+          if (groups.length > 0) groups[groups.length - 1].rows.push(child);
+        }
+      });
+      // 各ロールヘッダーを、配下に表示中のローが無ければ非表示に
+      groups.forEach(g => {
+        const anyVisible = g.rows.some(r => !r.classList.contains('home-hidden-by-settings'));
+        g.header.classList.toggle('home-hidden-by-settings', !anyVisible);
+      });
+
+      // セクション全体: 配下のロー全てが非表示なら section-tag ごと非表示
       const rows = menu.querySelectorAll('.admin-list-row');
       const anyVisible = [...rows].some(r => !r.classList.contains('home-hidden-by-settings'));
       const prevTag = menu.previousElementSibling;
