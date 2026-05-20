@@ -953,7 +953,7 @@
             </div>
           </div>
           <div class="sr-field">
-            <label class="sr-label">立場 <span style="color:#d32f2f !important">*</span></label>
+            <label class="sr-label">奉仕種別 <span style="color:#d32f2f !important">*</span></label>
             <div class="sr-input-wrap">
               <select id="sr-role"><option value="伝道者">伝道者</option><option value="補助開拓者">補助開拓者</option><option value="正規開拓者">正規開拓者</option></select>
             </div>
@@ -977,6 +977,10 @@
           <div class="sr-field">
             <label class="sr-label">聖書研究</label>
             <div class="sr-input-wrap"><input type="number" id="sr-bible" min="0" placeholder="数字を入力"></div>
+          </div>
+          <div class="sr-field">
+            <label class="sr-label">備考</label>
+            <div class="sr-input-wrap"><textarea id="sr-remarks" rows="3" placeholder="自由記入"></textarea></div>
           </div>
           <div class="sr-field">
             <label class="sr-label">特別な奉仕</label>
@@ -1006,10 +1010,6 @@
           <div class="sr-field hidden" id="sr-special-hours-row">
             <label class="sr-label">特別な奉仕の時間</label>
             <div class="sr-input-wrap"><input type="number" id="sr-special-hours" min="0" placeholder="時間を入力"></div>
-          </div>
-          <div class="sr-field">
-            <label class="sr-label">備考</label>
-            <div class="sr-input-wrap"><textarea id="sr-remarks" rows="3" placeholder="自由記入"></textarea></div>
           </div>
           <div style="margin-top:20px">
             <button type="button" id="sr-submit" class="btn-primary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px">
