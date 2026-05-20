@@ -2766,6 +2766,8 @@ function awRenderMwbHubMonthDropdown(months) {
     el.innerHTML = '<div class="mwb-hub-month-picker"><div class="mwb-hub-month-label">作成/編集したい月を選択して下さい</div><div class="empty-state" style="margin-top:8px">対象の月のデータがありません。<br><span style="font-size:13px;color:var(--text-light)">先にプログラム表作成からインポートしてください。</span></div></div>';
     return;
   }
+  // インポート済みの月 (awWeeks にデータが存在する月) を集計
+  const importedKeys = new Set(awExtractMonths(awWeeks).map(m => `${m.year}-${m.month}`));
   let html = '<div class="mwb-hub-month-picker">';
   html += '<label class="mwb-hub-month-label" for="mwb-hub-month-select">作成/編集したい月を選択して下さい</label>';
   html += '<select class="mwb-hub-month-select" id="mwb-hub-month-select">';
@@ -2773,7 +2775,8 @@ function awRenderMwbHubMonthDropdown(months) {
   months.forEach(({ year, month }) => {
     const v = year + '-' + month;
     const sel = awSharedMonth && awSharedMonth.year === year && awSharedMonth.month === month ? 'selected' : '';
-    html += `<option value="${v}" ${sel}>${year}年${monthNames[month]}</option>`;
+    const status = importedKeys.has(`${year}-${month}`) ? '【データインポート：済】' : '【データインポート：未】';
+    html += `<option value="${v}" ${sel}>${year}年${monthNames[month]} ${status}</option>`;
   });
   html += '</select></div>';
   el.innerHTML = html;
