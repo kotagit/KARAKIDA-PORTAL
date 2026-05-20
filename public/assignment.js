@@ -2358,29 +2358,33 @@ function awSetSharedMonth(year, month) {
 // ── ステップバー描画 ─────────────────────────
 function awComputeStepProgress() {
   if (!awSharedMonth || !Array.isArray(awWeeks)) {
-    return { total: 0, confirmed: 0, draft: 0, published: 0 };
+    return { total: 0, confirmed: 0, withHistory: 0, published: 0 };
   }
   const monthWeeks = awFilterWeeksByMonth(awWeeks, awSharedMonth)
     .filter(w => !w.conventionType);
-  let confirmed = 0, draft = 0, published = 0;
+  let confirmed = 0, withHistory = 0, published = 0;
   monthWeeks.forEach(w => {
     if (w.programStatus === 'confirmed' || w.programStatus === 'published') confirmed++;
-    if (w.programStatus === 'confirmed' && w.hasAssignmentHistory) draft++;
+    if (w.hasAssignmentHistory) withHistory++;
     if (w.programStatus === 'published') published++;
   });
-  return { total: monthWeeks.length, confirmed, draft, published };
+  return { total: monthWeeks.length, confirmed, withHistory, published };
 }
 
 function awRenderStepBar(containerId, currentStep) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const p = awComputeStepProgress();
-  const reviewWaiting = p.confirmed - p.published;
+  const reviewWaiting = p.withHistory - p.published;
+  // 各ステップは前段が「全週完了」してから次が解放される
+  const step1Done = p.total > 0 && p.confirmed === p.total;
+  const step2Done = p.total > 0 && p.withHistory === p.total;
+  const step3Done = p.total > 0 && p.published === p.total;
   const steps = [
-    { n: 1, label: 'プログラム表', page: 'admin-program',    count: `${p.confirmed}/${p.total} 確定済`, enabled: true },
-    { n: 2, label: '担当者策定',   page: 'admin-assignment', count: `${p.draft}/${p.total} 下書き`,   enabled: p.confirmed > 0 },
-    { n: 3, label: '確認・公開',   page: 'admin-assignment-review', count: `${reviewWaiting}/${p.total} 確認待ち`, enabled: p.confirmed > 0 },
-    { n: 4, label: 'S-89',         page: 'admin-s89',         count: `${p.published}/${p.total} 公開済`, enabled: p.published > 0 },
+    { n: 1, label: 'プログラム表', page: 'admin-program',    count: `${p.confirmed}/${p.total} 確定済`,    enabled: true },
+    { n: 2, label: '担当者策定',   page: 'admin-assignment', count: `${p.withHistory}/${p.total} 策定済`, enabled: step1Done },
+    { n: 3, label: '確認・公開',   page: 'admin-assignment-review', count: `${reviewWaiting}/${p.total} 確認待ち`, enabled: step2Done },
+    { n: 4, label: 'S-89',         page: 'admin-s89',         count: `${p.published}/${p.total} 公開済`,    enabled: step3Done },
   ];
   let html = '<div class="aw-stepbar">';
   steps.forEach((s, i) => {
