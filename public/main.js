@@ -3002,7 +3002,7 @@ async function loadPwApply() {
       card.innerHTML = `
         <div class="pwa-row-main" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%">
           <span class="material-icons pw-slot-icon">access_time</span>
-          <span class="pw-slot-time">${esc(item.startTime)}〜${esc(item.endTime)}</span>
+          <span class="pw-slot-time">${esc(item.startTime)}</span>
           ${placeBadges}
           <span class="pwa-check" style="margin-left:auto"><span class="material-icons">check_circle_outline</span></span>
         </div>
