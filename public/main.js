@@ -2841,15 +2841,10 @@ async function initServiceReportForm() {
         await batch.commit();
       }
 
-      console.log('[SR-SUBMIT] reportData=', JSON.parse(JSON.stringify(reportData)));
-      console.log('[SR-SUBMIT] approvedToDelete=', approvedToDelete.length, 'draftToDelete=', draftToDelete.length);
-      const addedRef = await db.collection('PREACHING_REPORT_DRAFTS').add(reportData);
-      console.log('[SR-SUBMIT] added docId=', addedRef.id, 'path=', addedRef.path);
-      const verifySnap = await addedRef.get();
-      console.log('[SR-SUBMIT] verify exists=', verifySnap.exists, 'data=', verifySnap.data());
+      await db.collection('PREACHING_REPORT_DRAFTS').add(reportData);
       const overwriteMsg = (approvedToDelete.length || draftToDelete.length)
-        ? '既存の同年同月の報告を上書きし、承認待ちにしました\n[DEBUG] docId=' + addedRef.id
-        : '送信しました（管理者の承認後に反映されます）\n[DEBUG] docId=' + addedRef.id;
+        ? '既存の同年同月の報告を上書きし、承認待ちにしました'
+        : '送信しました（管理者の承認後に反映されます）';
       alert(overwriteMsg);
       document.getElementById('sr-gender').value = '';
       document.getElementById('sr-participation').value = '';
