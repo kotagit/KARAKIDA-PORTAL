@@ -6540,80 +6540,59 @@ async function loadAccessLog() {
   if (!view) return;
   view.innerHTML = '<div class="empty-state">読み込み中...</div>';
   try {
-    // 古いログが limit から外れて「履歴なし」誤判定されないよう全件取得
-    const [snap, userList] = await Promise.all([
-      db.collection('LOGIN_LOG').orderBy('loginAt', 'desc').get(),
-      getUserListCached(),
-    ]);
-
-    const normEmail = e => String(e || '').trim().toLowerCase();
-    const normName  = n => String(n || '').trim();
-
-    // USER_LIST を email / name でインデックス化（同じ成員に複数ログを集約するため）
-    const memberByEmail = {};
-    const memberByName = {};
-    const memberEntries = [];
-    userList.forEach(m => {
-      const name = normName(m.name);
-      if (!name) return;
-      const email = normEmail(m.email);
-      const entry = {
-        name,
+    // USER_LIST と、各成員の最新ログイン1件だけを並列取得（reads コスト最小化）
+    const userList = await getUserListCached();
+    const memberEntries = userList
+      .filter(m => String(m.name || '').trim())
+      .map(m => ({
+        name: String(m.name).trim(),
         email: m.email || '',
-        furigana: m.furigana || name,
+        furigana: m.furigana || m.name,
         group: m.group || '',
-        logs: [],
-      };
-      memberEntries.push(entry);
-      if (email) memberByEmail[email] = entry;
-      memberByName[name] = entry;
-    });
+        latestLog: null,
+      }));
 
-    // LOGIN_LOG をマッチング：email → name の順で USER_LIST 成員に紐付け
-    const orphanMap = {};
-    snap.forEach(doc => {
-      const d = doc.data();
-      const logEmail = normEmail(d.email);
-      const logName  = normName(d.name);
-      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      const log = { docId: doc.id, dt, ua: d.userAgent || '' };
-
-      let target = (logEmail && memberByEmail[logEmail]) || (logName && memberByName[logName]) || null;
-      if (target) {
-        target.logs.push(log);
-      } else {
-        // USER_LIST に居ないユーザのログ（退会者など）
-        const key = logEmail || logName || 'unknown';
-        if (!orphanMap[key]) orphanMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
-        orphanMap[key].logs.push(log);
+    await Promise.all(memberEntries.map(async (m) => {
+      let q = db.collection('LOGIN_LOG');
+      if (m.email) q = q.where('email', '==', m.email);
+      else q = q.where('name', '==', m.name);
+      const snap = await q.orderBy('loginAt', 'desc').limit(1).get();
+      if (!snap.empty) {
+        const d = snap.docs[0].data();
+        const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
+        m.latestLog = { docId: snap.docs[0].id, dt, ua: d.userAgent || '' };
       }
-    });
+    }));
 
-    // 成員: グループ順 → ふりがな順（履歴あり/なし混在）
-    const members = memberEntries
-      .map(m => ({ ...m, noHistory: m.logs.length === 0 }))
+    // グループ順 → ふりがな順
+    const users = memberEntries
+      .map(m => ({ ...m, noHistory: !m.latestLog }))
       .sort((a, b) => {
         const ga = String(a.group || 'zzz');
         const gb = String(b.group || 'zzz');
         if (ga !== gb) return ga.localeCompare(gb, 'ja');
         return String(a.furigana).localeCompare(String(b.furigana), 'ja');
       });
-    // 退会者などのオーファンログは末尾にまとめる（最新ログイン降順）
-    const orphans = Object.values(orphanMap)
-      .map(o => ({ ...o, isOrphan: true }))
-      .sort((a, b) => (b.logs[0]?.dt?.getTime() || 0) - (a.logs[0]?.dt?.getTime() || 0));
-
-    const users = [...members, ...orphans];
 
     if (users.length === 0) {
-      view.innerHTML = '<div class="empty-state">成員もログも見つかりません</div>';
+      view.innerHTML = '<div class="empty-state">成員データがありません</div>';
       return;
     }
 
-    // ツールバー（一括削除など）
+    // 状態保存（フィルタ用）
+    _alState = { users };
+
+    // ツールバー（フィルタ + 一括削除）
     let html = '';
+    html += `<div class="al-toolbar">
+      <div class="al-filter-group">
+        <input type="search" id="al-filter-text" placeholder="名前・メールで絞り込み" class="al-filter-input">
+        <button class="al-filter-btn al-filter-active" data-filter="all">全員</button>
+        <button class="al-filter-btn" data-filter="done">履歴あり</button>
+        <button class="al-filter-btn" data-filter="none">履歴なし</button>
+      </div>`;
     if (isPortalAdmin) {
-      html += `<div class="al-toolbar">
+      html += `<div class="al-tool-group">
         <button class="btn-secondary al-tool-btn" id="al-delete-old-30">
           <span class="material-icons" style="font-size:16px;vertical-align:middle">delete_sweep</span> 30日より前を削除
         </button>
@@ -6622,87 +6601,158 @@ async function loadAccessLog() {
         </button>
       </div>`;
     }
-
-    html += '<div class="access-log-list">';
-    let lastGroup = null;
-    users.forEach((u, idx) => {
-      // グループ見出し（成員のみ、オーファンログには付けない）
-      if (!u.isOrphan) {
-        const grp = u.group || '未分類';
-        if (grp !== lastGroup) {
-          html += `<div class="access-log-group-header">${esc(grp)}</div>`;
-          lastGroup = grp;
-        }
-      } else if (lastGroup !== '__orphan__') {
-        html += `<div class="access-log-group-header access-log-group-orphan">USER_LIST 外</div>`;
-        lastGroup = '__orphan__';
-      }
-
-      if (u.noHistory) {
-        html += `<div class="access-log-card access-log-no-history">`;
-        html += `<div class="access-log-main">`;
-        html += `<span class="material-icons access-log-icon">person_off</span>`;
-        html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
-        html += `<div class="access-log-meta"><div class="access-log-no-history-badge">アクセス履歴なし</div></div>`;
-        html += `</div></div>`;
-        return;
-      }
-      const latest = u.logs[0];
-      const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
-      const device = alDevice(latest.ua);
-      html += `<div class="access-log-card">`;
-      html += `<div class="access-log-main" onclick="document.getElementById('al-detail-${idx}').classList.toggle('hidden')">`;
-      html += `<span class="material-icons access-log-icon">person</span>`;
-      html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
-      html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}　${u.logs.length}回</div></div>`;
-      html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
-      html += `</div>`;
-      html += `<div id="al-detail-${idx}" class="al-detail hidden">`;
-      if (isPortalAdmin) {
-        const ids = u.logs.map(l => l.docId).join(',');
-        html += `<div class="al-detail-toolbar">
-          <button class="al-user-delete-btn" data-ids="${esc(ids)}" data-name="${esc(u.name)}">
-            <span class="material-icons" style="font-size:14px;vertical-align:middle">delete_sweep</span>
-            このユーザーのログを全削除 (${u.logs.length}件)
-          </button>
-        </div>`;
-      }
-      u.logs.forEach(log => {
-        const dtStr = log.dt ? alFormatDt(log.dt) : '';
-        const dev = alDevice(log.ua);
-        html += `<div class="al-detail-row">
-          <span class="al-detail-time">${esc(dtStr)}</span>
-          <span class="al-detail-device">${esc(dev)}</span>`;
-        if (isPortalAdmin) {
-          html += `<button class="al-row-delete-btn icon-btn" data-id="${esc(log.docId)}" title="このログを削除">
-            <span class="material-icons" style="font-size:16px;color:#d32f2f">delete</span>
-          </button>`;
-        }
-        html += `</div>`;
-      });
-      html += `</div></div>`;
-    });
-    html += '</div>';
+    html += `</div>`;
+    html += `<div id="al-list-container"></div>`;
     view.innerHTML = html;
+    _alRenderList();
 
     // 削除イベント
+    // フィルタイベント
+    document.querySelectorAll('.al-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.al-filter-btn').forEach(b => b.classList.remove('al-filter-active'));
+        btn.classList.add('al-filter-active');
+        _alState.filter = btn.dataset.filter;
+        _alRenderList();
+      });
+    });
+    document.getElementById('al-filter-text')?.addEventListener('input', (e) => {
+      _alState.text = e.target.value.trim().toLowerCase();
+      _alRenderList();
+    });
     if (isPortalAdmin) {
-      view.querySelectorAll('.al-row-delete-btn').forEach(btn =>
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          deleteAccessLog(btn.dataset.id);
-        }));
-      view.querySelectorAll('.al-user-delete-btn').forEach(btn =>
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          const ids = btn.dataset.ids.split(',').filter(Boolean);
-          deleteAccessLogs(ids, `「${btn.dataset.name}」の ${ids.length} 件のログ`);
-        }));
       document.getElementById('al-delete-old-30')?.addEventListener('click', () => deleteAccessLogsOlderThan(30));
       document.getElementById('al-delete-old-90')?.addEventListener('click', () => deleteAccessLogsOlderThan(90));
     }
   } catch (err) {
     view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+let _alState = { users: [], filter: 'all', text: '' };
+
+function _alRenderList() {
+  const container = document.getElementById('al-list-container');
+  if (!container) return;
+  const { users, filter, text } = _alState;
+
+  const filtered = users.filter(u => {
+    if (filter === 'done' && u.noHistory) return false;
+    if (filter === 'none' && !u.noHistory) return false;
+    if (text) {
+      const hay = (u.name + ' ' + u.email + ' ' + (u.furigana || '')).toLowerCase();
+      if (!hay.includes(text)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state">該当する成員がいません</div>';
+    return;
+  }
+
+  let html = '<div class="access-log-list">';
+  let lastGroup = null;
+  filtered.forEach((u, idx) => {
+    const grp = u.group || '未分類';
+    if (grp !== lastGroup) {
+      html += `<div class="access-log-group-header">${esc(grp)}</div>`;
+      lastGroup = grp;
+    }
+
+    if (u.noHistory) {
+      html += `<div class="access-log-card access-log-no-history">`;
+      html += `<div class="access-log-main">`;
+      html += `<span class="material-icons access-log-icon">person_off</span>`;
+      html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
+      html += `<div class="access-log-meta"><div class="access-log-no-history-badge">アクセス履歴なし</div></div>`;
+      html += `</div></div>`;
+      return;
+    }
+    const latest = u.latestLog;
+    const latestStr = latest.dt ? alFormatDt(latest.dt) : '';
+    const device = alDevice(latest.ua);
+    html += `<div class="access-log-card" data-uidx="${idx}">`;
+    html += `<div class="access-log-main al-toggle">`;
+    html += `<span class="material-icons access-log-icon">person</span>`;
+    html += `<div class="access-log-info"><div class="access-log-name">${esc(u.name)}</div><div class="access-log-email">${esc(u.email)}</div></div>`;
+    html += `<div class="access-log-meta"><div class="access-log-time">${esc(latestStr)}</div><div class="access-log-device">${esc(device)}</div></div>`;
+    html += `<span class="material-icons" style="color:#bbb;font-size:20px;margin-left:4px">expand_more</span>`;
+    html += `</div>`;
+    html += `<div class="al-detail hidden"><div class="loading">読み込み中...</div></div>`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+
+  // 展開イベント（クリックで遅延ロード）
+  container.querySelectorAll('.access-log-card').forEach(card => {
+    const toggle = card.querySelector('.al-toggle');
+    const detail = card.querySelector('.al-detail');
+    if (!toggle || !detail) return;
+    toggle.addEventListener('click', async () => {
+      const wasHidden = detail.classList.contains('hidden');
+      detail.classList.toggle('hidden');
+      if (wasHidden && !detail.dataset.loaded) {
+        const uidx = parseInt(card.dataset.uidx);
+        const u = filtered[uidx];
+        await _alLoadUserDetail(detail, u);
+        detail.dataset.loaded = '1';
+      }
+    });
+  });
+}
+
+async function _alLoadUserDetail(detailEl, u) {
+  try {
+    let q = db.collection('LOGIN_LOG');
+    if (u.email) q = q.where('email', '==', u.email);
+    else q = q.where('name', '==', u.name);
+    const snap = await q.orderBy('loginAt', 'desc').get();
+    const logs = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        docId: d.id,
+        dt: data.loginAt?.toDate ? data.loginAt.toDate() : null,
+        ua: data.userAgent || '',
+      };
+    });
+    let html = '';
+    if (isPortalAdmin) {
+      const ids = logs.map(l => l.docId).join(',');
+      html += `<div class="al-detail-toolbar">
+        <button class="al-user-delete-btn" data-ids="${esc(ids)}" data-name="${esc(u.name)}">
+          <span class="material-icons" style="font-size:14px;vertical-align:middle">delete_sweep</span>
+          このユーザーのログを全削除 (${logs.length}件)
+        </button>
+      </div>`;
+    }
+    logs.forEach(log => {
+      const dtStr = log.dt ? alFormatDt(log.dt) : '';
+      const dev = alDevice(log.ua);
+      html += `<div class="al-detail-row">
+        <span class="al-detail-time">${esc(dtStr)}</span>
+        <span class="al-detail-device">${esc(dev)}</span>`;
+      if (isPortalAdmin) {
+        html += `<button class="al-row-delete-btn icon-btn" data-id="${esc(log.docId)}" title="このログを削除">
+          <span class="material-icons" style="font-size:16px;color:#d32f2f">delete</span>
+        </button>`;
+      }
+      html += `</div>`;
+    });
+    detailEl.innerHTML = html;
+    if (isPortalAdmin) {
+      detailEl.querySelectorAll('.al-row-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => { e.stopPropagation(); deleteAccessLog(btn.dataset.id); }));
+      detailEl.querySelectorAll('.al-user-delete-btn').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const ids = btn.dataset.ids.split(',').filter(Boolean);
+          deleteAccessLogs(ids, `「${btn.dataset.name}」の ${ids.length} 件のログ`);
+        }));
+    }
+  } catch (err) {
+    detailEl.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
   }
 }
 
