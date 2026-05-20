@@ -281,102 +281,35 @@ function awBuildReviewSection(week, container) {
   const isPublished = week.programStatus === 'published';
   const slots = week.slots || {};
   const topics = week.topics || {};
-  const items = week.items || [];
-
-  const section = document.createElement('div');
-  section.className = 'aw-inline-section';
-  section.dataset.weekId = week.id;
-
   const statusLabel = isPublished ? '公開済' : '確認待ち';
   const statusClass = isPublished ? 'aw-badge-published' : 'aw-badge-confirmed';
+  const chairName = slots['A'] || '';
 
-  const hdr = document.createElement('div');
-  hdr.className = 'aw-inline-header';
-  hdr.innerHTML = `
-    <div class="aw-header-left">
-      <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
-      <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
-      ${isPublished
-        ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>公開取消</button>`
-        : `<button class="aw-state-btn aw-state-btn-publish" data-act="publish"><span class="material-icons">publish</span>承認・公開</button>
-           <button class="aw-state-btn" data-act="back"><span class="material-icons">edit</span>差戻（担当者策定へ）</button>`
-      }
-    </div>
-  `;
-  section.appendChild(hdr);
+  // 公開後と全く同じデザインのカードを共通関数で構築。
+  // ヘッダー右側だけ差し替えて、状態バッジ + アクションボタン + 司会者を載せる。
+  const section = awBuildPublishedProgramSection({
+    week, slots, topics,
+    headerRightHtml: `
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div style="color:white;font-size:13px;font-weight:700">司会者：${esc(chairName)}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
+          ${isPublished
+            ? `<button class="aw-state-btn aw-state-btn-draft" data-act="unpublish"><span class="material-icons">undo</span>公開取消</button>`
+            : `<button class="aw-state-btn aw-state-btn-publish" data-act="publish"><span class="material-icons">publish</span>承認・公開</button>
+               <button class="aw-state-btn" data-act="back"><span class="material-icons">edit</span>差戻（担当者策定へ）</button>`
+          }
+        </div>
+      </div>
+    `,
+  });
 
-  if (week.conventionType) {
-    awApplyConventionState(section, week.conventionType);
-  } else {
-    // 読取専用のテーブル描画
-    const table = document.createElement('div');
-    table.className = 'aw-week-table aw-week-table-readonly';
-    awBuildReviewTable(items, slots, topics, table);
-    section.appendChild(table);
-  }
-
-  hdr.querySelector('[data-act="publish"]')?.addEventListener('click', () => awReviewPublishWeek(week, section));
-  hdr.querySelector('[data-act="unpublish"]')?.addEventListener('click', () => awReviewUnpublishWeek(week, section));
-  hdr.querySelector('[data-act="back"]')?.addEventListener('click', () => navigate('admin-assignment'));
+  const hdr = section.querySelector('.aw-inline-header');
+  hdr?.querySelector('[data-act="publish"]')?.addEventListener('click', () => awReviewPublishWeek(week, section));
+  hdr?.querySelector('[data-act="unpublish"]')?.addEventListener('click', () => awReviewUnpublishWeek(week, section));
+  hdr?.querySelector('[data-act="back"]')?.addEventListener('click', () => navigate('admin-assignment'));
 
   container.appendChild(section);
-}
-
-// 確認ページ用の読取専用テーブル（編集不可、担当者名のみ表示）
-function awBuildReviewTable(items, slots, topics, container) {
-  container.innerHTML = '';
-  let prevSection = '';
-  let minutesOffset = 0;
-
-  items.forEach(item => {
-    const sec = item.section;
-    if (sec !== prevSection && sec !== '開会') {
-      if (sec === 'クリスチャンとして生活する') minutesOffset = 47;
-      const hdr = document.createElement('div');
-      hdr.className = 'aw-section-header';
-      hdr.style.background = AW_SECTION_COLORS[sec] || '#333';
-      hdr.textContent = sec;
-      container.appendChild(hdr);
-      prevSection = sec;
-    }
-
-    const h = 19 + Math.floor(minutesOffset / 60);
-    const m = minutesOffset % 60;
-    const timeStr = `${h}:${m.toString().padStart(2,'0')}`;
-
-    let assigneeCells = '';
-    if (item.title === '閉会の言葉') {
-      assigneeCells = `<span class="aw-closing-note">司会者と同じ（${esc(slots['A'] || '（未割当）')}）</span>`;
-    } else if (item.codes && item.codes.length > 0) {
-      assigneeCells = item.codes.map(code => {
-        const base = awGetBase(code);
-        const name = slots[code] || slots[base] || '';
-        const shortLabels = {A:'司会者',B:'祈り',W:'祈り',E:'朗読者',H:'担当',J:'担当',L:'担当',N:'担当',I:'相手',K:'相手',M:'相手',O:'相手',V:'朗読者'};
-        const shortLabel = shortLabels[base] || '';
-        return `<div class="aw-slot aw-slot-readonly">
-          ${shortLabel ? `<label class="aw-slot-label">${esc(shortLabel)}</label>` : ''}
-          <span class="aw-slot-name${name ? '' : ' aw-slot-empty'}">${esc(name || '（未割当）')}</span>
-        </div>`;
-      }).join('');
-    }
-
-    const row = document.createElement('div');
-    row.className = 'aw-row';
-    row.innerHTML = `
-      <div class="aw-row-time">${timeStr}</div>
-      <div class="aw-row-info">
-        ${item.number ? `<span class="aw-row-num">${esc(item.number)}.</span>` : ''}
-        <span class="aw-row-title">${esc(item.title)}</span>
-        ${item.minutes ? `<span class="aw-row-min">（${esc(item.minutes)}分）</span>` : ''}
-      </div>
-      <div class="aw-row-assignees">${assigneeCells}</div>
-    `;
-    container.appendChild(row);
-    minutesOffset += item.type === 'song' ? 5 : (parseInt(item.minutes || '0') || 0);
-  });
 }
 
 async function awReviewPublishWeek(week, sectionEl) {
@@ -2046,30 +1979,43 @@ function skShowMonthSchedule() {
   });
 }
 
+// 集会ページのカードを丸ごと描画
 function skRenderMidweekCard({ week, slots, topics }, container) {
-  const thuLabel = awGetThursdayLabel(week);
+  const chairName = slots['A'] || '';
+  const section = awBuildPublishedProgramSection({
+    week, slots, topics,
+    headerRightHtml: `
+      <div style="text-align:right;color:white;font-size:13px">
+        <div style="font-weight:700">司会者：${esc(chairName)}</div>
+      </div>`,
+  });
+  container.appendChild(section);
+}
+
+// 公開状態と同じデザインで 1 週間のセクションを構築して返す共通関数。
+// headerRightHtml: ヘッダー右側のカスタム HTML（司会者バッジ / 状態バッジ + アクションボタンなど）
+function awBuildPublishedProgramSection({ week, slots, topics, headerRightHtml = '' }) {
   const items = week.items || [];
   const convention = week.conventionType || '';
   const isCircuitVisit = !!week.circuitVisit;
 
   const section = document.createElement('div');
   section.className = 'aw-inline-section';
+  section.dataset.weekId = week.id;
 
+  // ── ヘッダー ──
   const hdr = document.createElement('div');
   hdr.className = 'aw-inline-header';
-  const chairName = slots['A'] || '';
   hdr.innerHTML = `
     <div class="aw-header-left">
-      <div class="aw-inline-title">${esc(thuLabel)}</div>
+      <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
     </div>
-    <div style="text-align:right;color:white;font-size:13px">
-      <div style="font-weight:700">司会者：${esc(chairName)}</div>
-    </div>
+    ${headerRightHtml}
   `;
   section.appendChild(hdr);
 
-  // 大会の場合はグレーアウト+ラベル、プログラム非表示
+  // 大会の場合はグレーアウト + ラベル、プログラム本体は非表示
   if (convention) {
     const bodyWrap = document.createElement('div');
     bodyWrap.className = 'aw-program-body aw-conv-greyed';
@@ -2079,11 +2025,9 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
     bodyWrap.style.minHeight = '120px';
     bodyWrap.appendChild(overlay);
     section.appendChild(bodyWrap);
-    container.appendChild(section);
-    return;
+    return section;
   }
 
-  // 巡回訪問
   if (isCircuitVisit) awApplyCircuitVisit(section, true);
 
   const tableDiv = document.createElement('div');
@@ -2165,7 +2109,7 @@ function skRenderMidweekCard({ week, slots, topics }, container) {
   });
 
   section.appendChild(tableDiv);
-  container.appendChild(section);
+  return section;
 }
 
 function skRenderPublicTalkCard(pt, container) {
