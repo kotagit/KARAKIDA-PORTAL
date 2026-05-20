@@ -152,11 +152,8 @@ async function initAssignmentPage() {
 }
 
 function awGenerateAll() {
-  console.log('[AW-GEN] start: awMembers=', awMembers.length, 'awWeeks=', awWeeks.length,
-    'sel=', awAssignSelectedMonth, 'liveSlots=', Object.keys(awLiveSlots).length);
   if (awMembers.length === 0) { alert('メンバーが登録されていません'); return; }
   const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
-  console.log('[AW-GEN] filtered=', filtered.length, filtered.map(w => w.id));
   if (filtered.length === 0) { alert('表示中の月に週がありません'); return; }
 
   // 履歴のコピーを作成（週ごとに仮の履歴を積み上げる）
@@ -180,12 +177,10 @@ function awGenerateAll() {
     if (!slots) { skipped.push({ label, reason: '週が画面に描画されていません（一度別の月へ切替→戻すと解決します）' }); return; }
     const items = week.items || [];
     const allCodes = [...new Set(items.flatMap(i => i.codes || []))];
-    console.log('[AW-GEN] week=', week.id, 'items=', items.length, 'allCodes=', allCodes);
     if (allCodes.length === 0) { skipped.push({ label, reason: 'プログラム項目（items）が空です。プログラム表作成からインポートし直してください' }); return; }
 
     const meetDate = awGetMeetingDate(week) || new Date();
     const result = awRunGeneration(allCodes, awMembers, tempHistory, meetDate);
-    console.log('[AW-GEN] week=', week.id, 'result=', result);
 
     // 生成結果を仮履歴に反映（次週で同じ人が選ばれにくくする）
     Object.entries(result).forEach(([code, name]) => {
@@ -199,7 +194,9 @@ function awGenerateAll() {
       }
     });
 
-    const section = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"]`);
+    // 同じ週ID の section が複数ページ（プログラム表作成・担当者策定・確認公開）に
+    // 存在し得るため、担当者策定のリスト配下に限定する
+    const section = document.querySelector(`#assignment-create-list .aw-inline-section[data-week-id="${week.id}"]`);
     if (!section) { skipped.push({ label, reason: 'DOMにセクションが見つかりません' }); return; }
     section.querySelectorAll('.aw-slot-select').forEach(sel => {
       sel.value = slots[sel.dataset.code] || '';
@@ -207,7 +204,6 @@ function awGenerateAll() {
     awUpdateClosingNoteIn(section.querySelector('.aw-week-table'), slots);
     generated++;
   });
-  console.log('[AW-GEN] done: generated=', generated, 'skipped=', skipped.length, skipped);
   if (generated === 0) {
     const detail = skipped.length === 0
       ? '対象の週がありません'
@@ -232,8 +228,8 @@ async function awConfirmAll() {
       const thuDate = awGetThursdayDate(week) || new Date();
       await awReplaceHistory(thuDate, slots);
 
-      // バッジ更新
-      const badge = document.querySelector(`.aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
+      // バッジ更新（担当者策定リスト配下に限定）
+      const badge = document.querySelector(`#assignment-create-list .aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
       if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
       week.hasAssignmentHistory = true;
       confirmed++;
