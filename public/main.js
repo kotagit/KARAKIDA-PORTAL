@@ -200,6 +200,8 @@ async function initApp() {
         navigate('home');
 
         const userData = snap.docs[0].data();
+        // 権限ルール評価で参照するため、ログイン中のユーザ詳細を保持
+        window._currentUserData = userData;
         console.log('User data loaded:', userData.name);
         // USER_LISTにある漢字の名前等に書き換える
         userNameEl.textContent = userData.name || user.displayName || '';
@@ -218,8 +220,18 @@ async function initApp() {
         if (!isElder && statusUp.includes('EL')) isElder = true;
         if (!isAnnaigakari && statusUp.includes('AT')) isAnnaigakari = true;
 
-        const adminMenu = document.getElementById('menu-admin');
-        if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+        // 管理画面エントリーは isAdmin (WEB) または permissionRules で許可された場合に表示
+        try {
+          const permitted = await _getPermittedFeatureIds(userData);
+          const adminMenu = document.getElementById('menu-admin');
+          if (adminMenu) {
+            const allow = isAdmin || permitted.admin.has('管理画面（全体）/管理画面に入る権限');
+            adminMenu.classList.toggle('hidden', !allow);
+          }
+        } catch(e) {
+          const adminMenu = document.getElementById('menu-admin');
+          if (adminMenu) adminMenu.classList.toggle('hidden', !isAdmin);
+        }
         const portalAdminSection = document.getElementById('admin-portal-section');
         if (portalAdminSection) portalAdminSection.classList.toggle('hidden', !isPortalAdmin);
         // サーバー時刻オフセットを取得（セッションに1回）
@@ -915,12 +927,102 @@ const HOME_MENU_ITEMS = [
   { key: 'admin-config',                label: '会衆設定',                 group: '管理画面: ADMIN', selector: '#admin-manage-config' },
   { key: 'admin-permission-simulator',  label: '権限シミュレーター',       group: '管理画面: ADMIN', selector: '#admin-manage-permission-simulator' },
 ];
+// HOME_MENU_ITEMS.key → permissionRules で参照する PSIM 機能 ID（複数可）
+// admin-mwb-hub は集会予定表策定にまとまっているが、PSIM 側ではプログラム表作成
+// / 担当者策定 / S-89 作成 など複数項目に分かれている。いずれかが許可されたら表示。
+const HOME_KEY_TO_FEATURE_IDS = {
+  // ホーム > 管理画面エントリー
+  'admin': ['管理画面（全体）/管理画面に入る権限'],
+  // 管理画面: 宣教
+  'admin-pw-schedule':     ['管理画面: 宣教/公共エリア伝道取決表策定'],
+  'admin-pw':              ['管理画面: 宣教/公共エリア伝道参加者策定'],
+  'admin-field-service':   ['管理画面: 宣教/野外奉仕取決表策定'],
+  'admin-s13':             ['管理画面: 宣教/S-13 作成'],
+  // 管理画面: 集会
+  'admin-announcements':   ['管理画面: 集会/発表'],
+  'admin-mwb-hub':         ['管理画面: 集会/プログラム表作成', '管理画面: 集会/担当者策定', '管理画面: 集会/S-89 作成', '管理画面: 集会/生徒管理'],
+  'admin-public-talk':     ['管理画面: 集会/公開講演予定表策定'],
+  'admin-s99':             ['管理画面: 集会/S-99 講演一覧'],
+  // 管理画面: 部門
+  'admin-dept-annai':      ['管理画面: 部門/案内 取決め表'],
+  'admin-dept-avs':        ['管理画面: 部門/AVS 取決め表'],
+  'admin-dept-parking':    ['管理画面: 部門/駐車場 取決め表'],
+  'admin-dept-literature': ['管理画面: 部門/文書 取決め表'],
+  'admin-dept-cleaning':   ['管理画面: 部門/清掃 取決め表'],
+  // 管理画面: 会衆
+  'admin-group-members':       ['管理画面: 会衆/グループ成員表'],
+  'admin-group-emergency':     ['管理画面: 会衆/グループ成員緊急連絡先'],
+  'admin-org':                 ['管理画面: 会衆/組織表編集'],
+  'admin-report-approve':      ['管理画面: 会衆/奉仕報告記録承認'],
+  'admin-report-check':        ['管理画面: 会衆/奉仕報告提出状況'],
+  'admin-reports':             ['管理画面: 会衆/S-21 伝道者カード'],
+  'admin-attendance-monthly':  ['管理画面: 会衆/出席者数月次集計'],
+  // 管理画面: 唐木田PORTAL
+  'admin-member-edit':           ['管理画面: 唐木田PORTAL/グループ成員編集'],
+  'admin-family-groups':         ['管理画面: 唐木田PORTAL/グループ成員編集'], // 同枠扱い
+  'admin-access-log':            ['管理画面: 唐木田PORTAL/アクセスログ'],
+  'admin-config':                ['管理画面: 唐木田PORTAL/会衆設定'],
+  'admin-permission-simulator':  ['管理画面: 唐木田PORTAL/権限シミュレーター'],
+};
+
+// 現在のユーザの属性キーを収集（permissionRules 評価用）
+function _collectUserAttrKeys(userData) {
+  if (!userData) return [];
+  const keys = [];
+  // appointment
+  const apt = userData.appointment;
+  if (apt === 'elder') keys.push('appointment:elder');
+  else if (apt === 'ministerial') keys.push('appointment:ministerial');
+  else keys.push('appointment:publisher');
+  // status
+  const status = _parseStatus(userData.status);
+  status.forEach(s => keys.push(`status:${s}`));
+  // orgRoles
+  (userData.orgRoles || []).forEach(r => {
+    if (r && r.department && r.position) keys.push(`orgRoles:${r.department}|${r.position}`);
+  });
+  // deptPositions
+  Object.entries(userData.deptPositions || {}).forEach(([dept, positions]) => {
+    (positions || []).forEach(pos => keys.push(`deptPositions:${dept}:${pos}`));
+  });
+  // eligibleCodes
+  (userData.eligibleCodes || []).forEach(c => keys.push(`eligibleCodes:${c}`));
+  // gender
+  if (userData.gender) keys.push(`gender:${userData.gender}`);
+  if (userData.isWtReader)       keys.push('isWtReader:true');
+  if (userData.isPublicSpeaker)  keys.push('isPublicSpeaker:true');
+  return keys;
+}
+
+// permissionRules に基づいて、表示が許可された機能 ID のセット (user/admin) を返す
+async function _getPermittedFeatureIds(userData) {
+  const cfg = await getAppConfig();
+  const rules = cfg.permissionRules || {};
+  const keys = _collectUserAttrKeys(userData || window._currentUserData);
+  const userSet = new Set(), adminSet = new Set();
+  keys.forEach(k => {
+    const r = rules[k];
+    if (!r) return;
+    (r.user || []).forEach(id => userSet.add(id));
+    (r.admin || []).forEach(id => adminSet.add(id));
+  });
+  return { user: userSet, admin: adminSet };
+}
+
 async function applyHomeMenuVisibility() {
   const cfg = await getAppConfig();
   const vis = cfg.homeMenuVisibility || {};
+  const permitted = await _getPermittedFeatureIds(window._currentUserData);
   // 1) 各メニュー項目を非表示/表示
   HOME_MENU_ITEMS.forEach(item => {
-    const show = vis[item.key] !== false;
+    let show = vis[item.key] !== false;
+    // 管理画面サブ項目 (admin-* キー) は permissionRules でも追加ゲート:
+    //   isAdmin (WEB) または該当機能 ID が許可セットに含まれる場合のみ表示
+    if (show && HOME_KEY_TO_FEATURE_IDS[item.key]) {
+      const featureIds = HOME_KEY_TO_FEATURE_IDS[item.key];
+      const allowedByRule = featureIds.some(id => permitted.admin.has(id));
+      show = isAdmin || allowedByRule;
+    }
     document.querySelectorAll(item.selector).forEach(el => {
       el.classList.toggle('home-hidden-by-settings', !show);
       el.classList.remove('home-greyed-by-settings');
