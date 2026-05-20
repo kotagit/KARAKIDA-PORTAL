@@ -2351,14 +2351,16 @@ function awBuildProgramSection(week, container) {
       }
     } catch(err) { alert('保存エラー: ' + err.message); }
     awApplyCircuitVisit(section, on);
+    dateRow.style.display = on ? '' : 'none';
   });
   section.appendChild(hdr);
 
-  // 日付編集行
+  // 日付編集行（巡回訪問時のみ表示 — 通常週は会衆設定の曜日から算出される）
   const meetDate = awGetMeetingDate(week);
   const dateVal = meetDate ? awDateStr(meetDate) : '';
   const dateRow = document.createElement('div');
   dateRow.className = 'aw-date-edit-row';
+  dateRow.style.display = isCircuitVisit ? '' : 'none';
   dateRow.innerHTML = `
     <label class="aw-date-label"><span class="material-icons" style="font-size:16px;vertical-align:middle">event</span> 集会日</label>
     <input type="date" class="aw-date-input" value="${dateVal}">
