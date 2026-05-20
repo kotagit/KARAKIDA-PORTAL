@@ -6873,8 +6873,18 @@ function renderDeptEditTable() {
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
   let lastDept = '';
+  function pushElderStudentRow() {
+    rows.push({
+      kind: 'check',
+      label: '生活と奉仕の集会の生徒',
+      sectionCls: 'meb-grp-org',
+      get: m => !!(meBulkCurrentValue(m, 'isLifeMeetingStudent') ?? m.isLifeMeetingStudent),
+      set: (m, on) => meBulkRecordChange(m.docId, 'isLifeMeetingStudent', on)
+    });
+  }
   ORG_DEPARTMENTS.forEach(d => {
     if (d.section !== lastSection) {
+      if (lastSection === '長老団') pushElderStudentRow();
       const cls = d.section === '奉仕委員会' ? 'meb-grp-org-svc'
                 : d.section === '長老団' ? 'meb-grp-org-elder'
                 : d.section === '開拓者' ? 'meb-grp-org-pioneer'
@@ -6907,6 +6917,7 @@ function renderDeptEditTable() {
       });
     });
   });
+  if (lastSection === '長老団') pushElderStudentRow();
 
   // システム
   addSection('システム', 'meb-grp-status');
