@@ -2670,6 +2670,11 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   font-size: 10px; margin-right: 6px; display: inline-block;
 }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-svc td     { background: #ede7f6; color: #4527a0; }
+.me-bulk-table tbody tr.meb-section-row.meb-grp-org-svc-sub td {
+  background: #f3e5f5; color: #6a1b9a;
+  border-top: 1px solid #d1c4e9;
+  padding-left: 28px; font-size: 11px;
+}
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-elder td   { background: #fce4ec; color: #ad1457; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-pioneer td { background: #fff3e0; color: #e65100; }
 .me-bulk-table tbody tr.meb-section-row.meb-grp-org-group td   { background: #e0f2f1; color: #00695c; }

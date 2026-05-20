@@ -6495,10 +6495,9 @@ const ORG_DEPARTMENTS = [
   { id:'secretary', label:'書記',     section:'奉仕委員会', type:'supervisor', order:2 },
   { id:'svc_ov',    label:'奉仕監督', section:'奉仕委員会', type:'supervisor', order:3 },
 
-  // === 奉仕委員会・配下部門 ===
+  // === 奉仕委員会・配下部門（parent で 調整者/書記/奉仕監督 の管轄を表す） ===
   { id:'annai',          label:'案内',                section:'奉仕委員会', type:'sub', parent:'coord',     order:1 },
   { id:'stage_av',       label:'AVS', section:'奉仕委員会', type:'sub', parent:'coord',     order:2 },
-  { id:'public_talk',    label:'公開講演調整者',         section:'奉仕委員会', type:'sub', parent:'coord',     order:3 },
   { id:'account',        label:'会計',                section:'奉仕委員会', type:'sub', parent:'secretary', order:1 },
   { id:'donate_support', label:'donate.jw.orgサポート', section:'奉仕委員会', type:'sub', parent:'secretary', order:2 },
   { id:'territory',      label:'区域',                section:'奉仕委員会', type:'sub', parent:'svc_ov',    order:1 },
@@ -6510,12 +6509,13 @@ const ORG_DEPARTMENTS = [
   { id:'wt_chair',       label:'ものみの塔研究司会者',     section:'長老団', type:'elder', order:1 },
   { id:'life_meeting',   label:'生活と奉仕の集会の監督',    section:'長老団', type:'elder', order:2 },
   { id:'assistant_adv',  label:'補助助言者',              section:'長老団', type:'elder', order:3 },
-  { id:'hall_committee', label:'王国会館管理委員会',       section:'長老団', type:'elder', order:4 },
-  { id:'jw_domain',      label:'JW.ORGドメイン管理者',     section:'長老団', type:'elder', order:5 },
-  { id:'jw_support',     label:'JW.ORGユーザーサポート',   section:'長老団', type:'elder', order:6 },
-  { id:'digital_team',   label:'電子化チーム',            section:'長老団', type:'elder', order:7 },
-  { id:'cleaning_coord', label:'清掃調整者',              section:'長老団', type:'elder', order:8 },
-  { id:'parking',        label:'駐車場',                 section:'長老団', type:'elder', order:9 },
+  { id:'public_talk',    label:'公開講演調整者',           section:'長老団', type:'elder', order:4 },
+  { id:'hall_committee', label:'王国会館管理委員会',       section:'長老団', type:'elder', order:5 },
+  { id:'jw_domain',      label:'JW.ORGドメイン管理者',     section:'長老団', type:'elder', order:6 },
+  { id:'jw_support',     label:'JW.ORGユーザーサポート',   section:'長老団', type:'elder', order:7 },
+  { id:'digital_team',   label:'電子化チーム',            section:'長老団', type:'elder', order:8 },
+  { id:'cleaning_coord', label:'清掃調整者',              section:'長老団', type:'elder', order:9 },
+  { id:'parking',        label:'駐車場',                 section:'長老団', type:'elder', order:10 },
 
   // === 開拓者 ===
   { id:'pioneer_regular', label:'正規開拓者', section:'開拓者', type:'pioneer', order:1 },
@@ -6863,6 +6863,8 @@ function renderDeptEditTable() {
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
   let lastDept = '';
+  let lastParent = '';
+  const SVC_PARENT_LABELS = { coord: '調整者管轄', secretary: '書記管轄', svc_ov: '奉仕監督管轄' };
   ORG_DEPARTMENTS.forEach(d => {
     // 開拓者セクションは資格タグ内の「正規開拓者」と重複するためスキップ
     if (d.section === '開拓者') return;
@@ -6874,6 +6876,16 @@ function renderDeptEditTable() {
       addSection(d.section, cls);
       lastSection = d.section;
       lastDept = '';
+      lastParent = '';
+    }
+    // 奉仕委員会 配下部門は parent ごとに「○○管轄」サブセクションを挿入
+    if (d.section === '奉仕委員会' && d.type === 'sub' && d.parent !== lastParent) {
+      const parentLabel = SVC_PARENT_LABELS[d.parent];
+      if (parentLabel) {
+        addSection(parentLabel, 'meb-grp-org-svc-sub');
+        lastDept = '';
+      }
+      lastParent = d.parent;
     }
     getOrgPositions(d).forEach((pos, pi) => {
       const isFirstOfDept = (d.label !== lastDept);
