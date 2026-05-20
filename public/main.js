@@ -2817,27 +2817,32 @@ async function initServiceReportForm() {
       };
       if (isOther) reportData.submittedBy = memberUserName || '';
 
-      // 同じ氏名・同じ年・同じ月の既存レポートを削除（承認済/承認待ち両方）
-      // 新しいタイムスタンプで上書きし、再度承認待ちとする
+      // 同じ氏名・同じ月の既存レポートを取得（承認済/承認待ち両方）
+      // year フィールドが一致するもの、または year が未設定（レガシー）のものを削除対象に。
+      // 新しいタイムスタンプで上書きし、再度承認待ちとする。
       const [existingApproved, existingDraft] = await Promise.all([
         db.collection('PREACHING_REPORT')
           .where('name', '==', submitName)
-          .where('year', '==', year)
           .where('month', '==', month).get(),
         db.collection('PREACHING_REPORT_DRAFTS')
           .where('name', '==', submitName)
-          .where('year', '==', year)
           .where('month', '==', month).get(),
       ]);
-      const batch = db.batch();
-      existingApproved.forEach(d => batch.delete(d.ref));
-      existingDraft.forEach(d => batch.delete(d.ref));
-      if (!existingApproved.empty || !existingDraft.empty) {
+      const yearMatch = d => {
+        const y = d.data().year;
+        return typeof y !== 'number' || y === year;
+      };
+      const approvedToDelete = existingApproved.docs.filter(yearMatch);
+      const draftToDelete = existingDraft.docs.filter(yearMatch);
+      if (approvedToDelete.length || draftToDelete.length) {
+        const batch = db.batch();
+        approvedToDelete.forEach(d => batch.delete(d.ref));
+        draftToDelete.forEach(d => batch.delete(d.ref));
         await batch.commit();
       }
 
       await db.collection('PREACHING_REPORT_DRAFTS').add(reportData);
-      const overwriteMsg = (!existingApproved.empty || !existingDraft.empty)
+      const overwriteMsg = (approvedToDelete.length || draftToDelete.length)
         ? '既存の同年同月の報告を上書きし、承認待ちにしました'
         : '送信しました（管理者の承認後に反映されます）';
       alert(overwriteMsg);
