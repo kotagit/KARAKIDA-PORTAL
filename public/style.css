@@ -2187,6 +2187,53 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 }
 .pw-assign-select:focus { outline: none; border-color: var(--primary); }
 .pw-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.pw-cancel-btn, .pw-manual-add-btn {
+  background: transparent; border: 1px solid var(--border);
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; transition: background 0.12s, border-color 0.12s;
+}
+.pw-cancel-btn:hover { background: #ffebee; border-color: #d32f2f; }
+.pw-cancel-btn .material-icons { font-size: 18px; color: #d32f2f; }
+.pw-manual-add-btn:hover { background: #e8f5e9; border-color: #2e7d32; }
+.pw-manual-add-btn .material-icons { font-size: 18px; color: #2e7d32; }
+
+/* 手動追加モーダル */
+.pw-manual-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1500;
+}
+.pw-manual-overlay.hidden { display: none; }
+.pw-manual-modal {
+  background: white; border-radius: 12px;
+  width: min(420px, 92vw); max-height: 80vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.pw-manual-header {
+  padding: 14px 18px; background: var(--primary); color: white;
+  font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pw-manual-close {
+  background: transparent; border: none; color: white; cursor: pointer;
+  display: flex; align-items: center;
+}
+.pw-manual-search {
+  margin: 12px 16px 8px; padding: 8px 12px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+}
+.pw-manual-list { padding: 0 8px 12px; overflow-y: auto; flex: 1; }
+.pw-manual-item {
+  width: 100%; text-align: left; padding: 10px 12px;
+  background: white; border: 1px solid var(--border); border-radius: 8px;
+  margin: 4px 0; cursor: pointer; font-family: inherit;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+}
+.pw-manual-item:hover { background: #e3f2fd; border-color: var(--primary); }
+.pw-manual-name { font-weight: 700; font-size: 14px; }
+.pw-manual-group { font-size: 12px; color: var(--text-light); }
 
 /* ── 組織タブ ── */
 .org-tab-bar {

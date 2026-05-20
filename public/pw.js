@@ -488,14 +488,27 @@ function buildPWRow(label, fp, key, currentVal, applicants) {
     options += `<option value="${esc(n)}"${sel}>${esc(n)}${esc(locSuffix)}</option>`;
   });
 
-  const safeKey = key.replace(/\s/g, '_');
+  const slotK = esc(pwCurrentSlot.slotKey);
+  const fpE = esc(fp);
+  const keyE = esc(key);
+  const cancelBtn = currentVal
+    ? `<button class="pw-cancel-btn" title="キャンセル"
+         onclick="onPWSelectChange('${slotK}','${fpE}','${keyE}','')">
+         <span class="material-icons">close</span>
+       </button>`
+    : '';
   return `
     <div class="pw-assign-row">
       <span class="pw-assign-label">${esc(label)}</span>
       <select class="pw-assign-select"
-        onchange="onPWSelectChange('${esc(pwCurrentSlot.slotKey)}','${esc(fp)}','${esc(key)}',this.value)">
+        onchange="onPWSelectChange('${slotK}','${fpE}','${keyE}',this.value)">
         ${options}
       </select>
+      ${cancelBtn}
+      <button class="pw-manual-add-btn" title="USER_LIST から手動追加"
+        onclick="pwOpenManualAddModal('${slotK}','${fpE}','${keyE}')">
+        <span class="material-icons">person_add</span>
+      </button>
     </div>`;
 }
 
@@ -524,6 +537,86 @@ function onPWSelectChange(slotKey, fp, key, value) {
   }
   // 重複排除のため再描画
   renderPWAssignment(pwCurrentSlot);
+}
+
+// ── 手動追加モーダル（USER_LIST から成員を選んで割当に入れる）
+let _pwManualCtx = null;
+async function pwOpenManualAddModal(slotKey, fp, key) {
+  _pwManualCtx = { slotKey, fp, key };
+  let modal = document.getElementById('pw-manual-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'pw-manual-modal';
+    modal.className = 'pw-manual-overlay hidden';
+    modal.innerHTML = `
+      <div class="pw-manual-modal">
+        <div class="pw-manual-header">
+          <span>手動追加（USER_LIST から選択）</span>
+          <button class="pw-manual-close" onclick="pwCloseManualAddModal()"><span class="material-icons">close</span></button>
+        </div>
+        <input type="search" id="pw-manual-search" class="pw-manual-search" placeholder="名前で絞り込み">
+        <div id="pw-manual-list" class="pw-manual-list"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) pwCloseManualAddModal(); });
+    document.getElementById('pw-manual-search').addEventListener('input', pwRenderManualList);
+  }
+  modal.classList.remove('hidden');
+  await pwRenderManualList();
+}
+function pwCloseManualAddModal() {
+  const modal = document.getElementById('pw-manual-modal');
+  if (modal) modal.classList.add('hidden');
+  _pwManualCtx = null;
+}
+async function pwRenderManualList() {
+  const listEl = document.getElementById('pw-manual-list');
+  if (!listEl) return;
+  const q = String(document.getElementById('pw-manual-search')?.value || '').toLowerCase().trim();
+  let users = [];
+  try { users = await getUserListCached(); } catch(e) { listEl.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(e.message) + '</div>'; return; }
+  const filtered = users
+    .filter(u => u.name)
+    .filter(u => !q || (u.name + ' ' + (u.furigana || '') + ' ' + (u.group || '')).toLowerCase().includes(q))
+    .sort((a, b) => String(a.furigana || a.name).localeCompare(String(b.furigana || b.name), 'ja'));
+  if (filtered.length === 0) { listEl.innerHTML = '<div class="empty-state">該当する成員がいません</div>'; return; }
+  listEl.innerHTML = filtered.map(u =>
+    `<button class="pw-manual-item" onclick="pwManualPick('${esc(u.name)}')">
+       <span class="pw-manual-name">${esc(u.name)}</span>
+       <span class="pw-manual-group">${esc(u.group || '')}</span>
+     </button>`).join('');
+}
+async function pwManualPick(name) {
+  if (!_pwManualCtx || !name) { pwCloseManualAddModal(); return; }
+  const { slotKey, fp, key } = _pwManualCtx;
+  // PUBLIC_WITNESSING に manual:true で申込みレコードを追加（任意。後で集計区別可）
+  try {
+    const slot = pwCurrentSlot;
+    if (slot) {
+      await db.collection('PUBLIC_WITNESSING').add({
+        name,
+        day: slot.dateStr,
+        dayofweek: slot.weekday,
+        starttime: slot.time,
+        place: slot.placesArr.join('、'),
+        preferredLocation: (slot.fullPlaceParentMap || {})[fp] || fp,
+        role: key === '司会者' ? '司会者（カート有）' : '参加者',
+        manual: true,
+        timestamp: firebase.firestore.Timestamp.now(),
+      });
+      // 申込者キャッシュにも追加（今回画面でドロップダウンに乗せるため）
+      if (!slot.allApplicants.includes(name)) slot.allApplicants.push(name);
+      if (key === '司会者' && !slot.conductorApplicants.includes(name)) slot.conductorApplicants.push(name);
+      slot.applicantLocMap = slot.applicantLocMap || {};
+      if (!slot.applicantLocMap[name]) slot.applicantLocMap[name] = (slot.fullPlaceParentMap || {})[fp] || fp;
+    }
+  } catch(e) {
+    alert('手動追加エラー: ' + e.message);
+    return;
+  }
+  // 割当てに反映
+  onPWSelectChange(slotKey, fp, key, name);
+  pwCloseManualAddModal();
 }
 
 // ── Firestore に保存
