@@ -2998,10 +2998,10 @@ async function loadPwApply() {
 
       card.innerHTML = `
         <div class="pwa-row-main" style="display:flex;align-items:center;gap:10px;width:100%">
-          <div class="pw-when-block">
-            <span class="pw-date-tag pw-date-tag-inline">${esc(dateLabel)}</span>
-            <span class="pw-slot-time">${esc(item.startTime)}</span>
-          </div>
+          <span class="pw-date-tag pw-date-tag-inline pw-when-tag">
+            <span class="pw-when-date">${esc(dateLabel)}</span>
+            <span class="pw-when-time">${esc(item.startTime)}</span>
+          </span>
           <div class="pw-places-stack">${placeBadges}</div>
           <span class="pwa-check"><span class="material-icons">check_circle_outline</span></span>
         </div>
