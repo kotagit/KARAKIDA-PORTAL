@@ -2374,6 +2374,12 @@ function awComputeStepProgress() {
 function awRenderStepBar(containerId, currentStep) {
   const el = document.getElementById(containerId);
   if (!el) return;
+  // ページタイトル横の年月ラベルを更新
+  const monthLabel = awSharedMonth
+    ? ` — ${awSharedMonth.year}年${awSharedMonth.month + 1}月`
+    : '';
+  ['aw-program-month-label','aw-assign-month-label','aw-review-month-label','aw-s89-month-label']
+    .forEach(id => { const e = document.getElementById(id); if (e) e.textContent = monthLabel; });
   const p = awComputeStepProgress();
   const reviewWaiting = p.withHistory - p.published;
   // 各ステップは前段が「全週完了」してから次が解放される

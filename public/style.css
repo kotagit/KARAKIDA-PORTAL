@@ -751,6 +751,12 @@ body {
 }
 .aw-toolbar-btn-accent:hover { background: var(--primary-dark); color: white; }
 .aw-toolbar-btn-accent .material-icons { color: white; }
+/* 自動生成（緑系） */
+#aw-generate-all-btn {
+  background: #2e7d32; color: white; border-color: #2e7d32;
+}
+#aw-generate-all-btn:hover { background: #1b5e20; color: white; border-color: #1b5e20; }
+#aw-generate-all-btn .material-icons { color: white; }
 
 /* ── 割当管理 ── */
 .aw-week-row { cursor: pointer; transition: background 0.15s; }
@@ -874,6 +880,10 @@ body {
 }
 .aw-back-btn:hover { background: rgba(255,255,255,0.35); }
 .aw-back-btn .material-icons { font-size: 20px; }
+.aw-page-month {
+  font-size: 0.78em; font-weight: 600; opacity: 0.85;
+  margin-left: 8px; letter-spacing: 0.02em;
+}
 
 .aw-list-section-label {
   font-size: 12px; font-weight: bold; color: var(--text-light);
