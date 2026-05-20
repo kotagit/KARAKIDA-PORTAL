@@ -313,14 +313,24 @@ function awRenderReviewPage() {
 
 function awUpdateReviewStateBadge(filteredWeeks) {
   const badge = document.getElementById('aw-review-state-badge');
-  if (!badge) return;
+  const pdfBtn = document.getElementById('review-print-pdf-btn');
+  const publishBtn = document.getElementById('review-publish-all-btn');
   const targets = filteredWeeks.filter(w => !w.conventionType);
+
   if (targets.length === 0) {
-    badge.style.display = 'none';
+    if (badge) badge.style.display = 'none';
+    if (pdfBtn) pdfBtn.style.display = 'none';
+    if (publishBtn) publishBtn.style.display = '';
     return;
   }
   const allPublished = targets.every(w => w.programStatus === 'published');
   const nonePublished = targets.every(w => w.programStatus !== 'published');
+
+  // PDF ダウンロードは全週公開後のみ。公開ボタンは未公開がある間だけ表示。
+  if (pdfBtn)     pdfBtn.style.display     = allPublished ? '' : 'none';
+  if (publishBtn) publishBtn.style.display = allPublished ? 'none' : '';
+
+  if (!badge) return;
   badge.style.display = '';
   if (allPublished) {
     badge.textContent = '確定（公開中）';
