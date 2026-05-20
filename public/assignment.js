@@ -228,15 +228,46 @@ async function awConfirmAll() {
       const thuDate = awGetThursdayDate(week) || new Date();
       await awReplaceHistory(thuDate, slots);
 
-      // バッジ更新（担当者策定リスト配下に限定）
-      const badge = document.querySelector(`#assignment-create-list .aw-inline-section[data-week-id="${week.id}"] .aw-status-badge`);
-      if (badge) { badge.className = 'aw-status-badge aw-badge-confirmed'; badge.textContent = '確定済'; }
       week.hasAssignmentHistory = true;
       confirmed++;
     }
     await awLoadHistory();
+    // 全体ステータスバッジを更新（編集モード切替も含む）
+    awRefreshAssignToolbarState();
     alert(`${confirmed}週分を確定しました`);
   } catch(e) { alert('確定エラー: ' + e.message); }
+}
+
+function awRefreshAssignToolbarState() {
+  const filtered = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
+  const targets = filtered.filter(w => !w.conventionType);
+  const allConfirmed = targets.length > 0 && targets.every(w => w.hasAssignmentHistory);
+  const list = document.getElementById('assignment-create-list');
+  if (list) list.classList.toggle('aw-program-list-locked', allConfirmed);
+  const generateBtn = document.getElementById('aw-generate-all-btn');
+  const confirmAllBtn = document.getElementById('aw-confirm-all-btn');
+  const editAllBtn = document.getElementById('aw-assignment-edit-all-btn');
+  if (generateBtn)   generateBtn.style.display   = allConfirmed ? 'none' : '';
+  if (confirmAllBtn) confirmAllBtn.style.display = allConfirmed ? 'none' : '';
+  if (editAllBtn)    editAllBtn.style.display    = allConfirmed ? '' : 'none';
+  const badge = document.getElementById('aw-assign-state-badge');
+  if (badge) {
+    if (allConfirmed) {
+      const allPublished = targets.every(w => w.programStatus === 'published');
+      badge.style.display = '';
+      if (allPublished) {
+        badge.textContent = '確定（公開中）';
+        badge.className = 'aw-program-state-badge aw-pstate-published';
+      } else {
+        badge.textContent = '確定（確認・公開待ち）';
+        badge.className = 'aw-program-state-badge aw-pstate-await-publish';
+      }
+    } else {
+      badge.style.display = 'none';
+      badge.textContent = '';
+      badge.className = 'aw-program-state-badge';
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -848,20 +879,8 @@ function awRenderCreateList() {
   }
   filtered.forEach(week => awBuildWeekSection(week, list));
 
-  // 月内の非大会週がすべて担当者確定済みなら dim & ロック（編集モード）
-  const targets = filtered.filter(w => !w.conventionType);
-  const allConfirmed = targets.length > 0 && targets.every(w => w.hasAssignmentHistory);
-  list.classList.toggle('aw-program-list-locked', allConfirmed);
-
-  // ツールバーボタンの表示切替
-  // 初回策定時 (未確定週あり): 自動生成 + 全確定 を表示、編集 を非表示
-  // 編集モード (全週確定済): 自動生成 + 全確定 を非表示、編集 を表示
-  const generateBtn = document.getElementById('aw-generate-all-btn');
-  const confirmAllBtn = document.getElementById('aw-confirm-all-btn');
-  const editAllBtn = document.getElementById('aw-assignment-edit-all-btn');
-  if (generateBtn)   generateBtn.style.display   = allConfirmed ? 'none' : '';
-  if (confirmAllBtn) confirmAllBtn.style.display = allConfirmed ? 'none' : '';
-  if (editAllBtn)    editAllBtn.style.display    = allConfirmed ? '' : 'none';
+  // 月内の非大会週の確定状態に応じてツールバーボタンとステータスバッジを更新
+  awRefreshAssignToolbarState();
 }
 
 // 週の集会日の Date を返す（customMeetDate優先、なければ曜日計算）
@@ -910,9 +929,6 @@ function awGetMeetingLabel(week) {
 function awGetThursdayLabel(week) { return awGetMeetingLabel(week); }
 
 function awBuildWeekSection(week, container) {
-  const hasHistory = week.hasAssignmentHistory;
-  const statusLabel = hasHistory ? '確定済' : '未策定';
-  const statusClass = hasHistory ? 'aw-badge-confirmed' : 'aw-badge-none';
   const slots  = Object.assign({}, week.slots  || {});
   const topics = Object.assign({}, week.topics || {});
   const items  = week.items || [];
@@ -932,9 +948,6 @@ function awBuildWeekSection(week, container) {
     <div class="aw-header-left">
       <div class="aw-inline-title">${esc(awGetThursdayLabel(week))}</div>
       <div class="aw-inline-sub">${esc(week.bibleChapter || '')}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="aw-status-badge ${statusClass}">${statusLabel}</span>
     </div>
   `;
   section.appendChild(hdr);
