@@ -367,6 +367,8 @@ function navigate(page, pushHistory) {
     }
   } else if (page === 'admin') {
     backBtn._backTarget = 'home';
+    // 管理画面でも会衆設定によるサブ項目の表示制御を反映
+    applyHomeMenuVisibility().catch(() => {});
   } else {
     backBtn._backTarget = 'home';
   }
@@ -872,6 +874,41 @@ const HOME_MENU_ITEMS = [
   { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
   { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
   { key: 'admin',   label: '管理画面（要 ADMIN 権限）', group: 'その他', selector: '#menu-admin' },
+
+  // 管理画面 サブ項目 — 宣教
+  { key: 'admin-pw-schedule',     label: '公共エリア伝道取決表策定',   group: '管理画面: 宣教',  selector: '#admin-manage-pw-schedule' },
+  { key: 'admin-pw',              label: '公共エリア伝道参加者策定',   group: '管理画面: 宣教',  selector: '#admin-manage-pw' },
+  { key: 'admin-field-service',   label: '野外奉仕取決表策定',         group: '管理画面: 宣教',  selector: '#admin-manage-field-service' },
+  { key: 'admin-s13',             label: 'S-13 作成',                  group: '管理画面: 宣教',  selector: '#admin-manage-s13' },
+
+  // 管理画面 サブ項目 — 集会
+  { key: 'admin-announcements',   label: '発表（編集）',               group: '管理画面: 集会',  selector: '#admin-manage-announcements' },
+  { key: 'admin-mwb-hub',         label: '進行管理',                   group: '管理画面: 集会',  selector: '#admin-manage-mwb-hub' },
+  { key: 'admin-public-talk',     label: '公開講演予定表策定',         group: '管理画面: 集会',  selector: '#admin-manage-public-talk' },
+  { key: 'admin-s99',             label: 'S-99 講演一覧',              group: '管理画面: 集会',  selector: '#admin-manage-s99' },
+
+  // 管理画面 サブ項目 — 部門
+  { key: 'admin-dept-annai',      label: '案内 取決め表',              group: '管理画面: 部門',  selector: '#admin-manage-dept-annai' },
+  { key: 'admin-dept-avs',        label: 'AVS 取決め表',               group: '管理画面: 部門',  selector: '#admin-manage-dept-avs' },
+  { key: 'admin-dept-parking',    label: '駐車場 取決め表',            group: '管理画面: 部門',  selector: '#admin-manage-dept-parking' },
+  { key: 'admin-dept-literature', label: '文書 取決め表',              group: '管理画面: 部門',  selector: '#admin-manage-dept-literature' },
+  { key: 'admin-dept-cleaning',   label: '清掃 取決め表',              group: '管理画面: 部門',  selector: '#admin-manage-dept-cleaning' },
+
+  // 管理画面 サブ項目 — 会衆
+  { key: 'admin-group-members',       label: 'グループ成員表',             group: '管理画面: 会衆',  selector: '#admin-manage-group-members' },
+  { key: 'admin-group-emergency',     label: 'グループ成員緊急連絡先',     group: '管理画面: 会衆',  selector: '#admin-manage-group-emergency' },
+  { key: 'admin-org',                 label: '組織表編集',                 group: '管理画面: 会衆',  selector: '#admin-manage-org' },
+  { key: 'admin-report-approve',      label: '奉仕報告記録承認',           group: '管理画面: 会衆',  selector: '#admin-manage-report-approve' },
+  { key: 'admin-report-check',        label: '奉仕報告提出状況',           group: '管理画面: 会衆',  selector: '#admin-manage-report-check' },
+  { key: 'admin-reports',             label: 'S-21 伝道者カード',          group: '管理画面: 会衆',  selector: '#admin-manage-reports' },
+  { key: 'admin-attendance-monthly',  label: '出席者数月次集計',           group: '管理画面: 会衆',  selector: '#admin-manage-attendance-monthly' },
+
+  // 管理画面 サブ項目 — ADMIN（唐木田PORTAL）
+  { key: 'admin-member-edit',           label: 'グループ成員編集',         group: '管理画面: ADMIN', selector: '#admin-manage-member-edit' },
+  { key: 'admin-family-groups',         label: '家族グループ管理',         group: '管理画面: ADMIN', selector: '#admin-manage-family-groups' },
+  { key: 'admin-access-log',            label: 'アクセスログ',             group: '管理画面: ADMIN', selector: '#admin-manage-access-log' },
+  { key: 'admin-config',                label: '会衆設定',                 group: '管理画面: ADMIN', selector: '#admin-manage-config' },
+  { key: 'admin-permission-simulator',  label: '権限シミュレーター',       group: '管理画面: ADMIN', selector: '#admin-manage-permission-simulator' },
 ];
 async function applyHomeMenuVisibility() {
   const cfg = await getAppConfig();
