@@ -1336,6 +1336,19 @@ body {
 .sr-emergency-row a { color: var(--primary); text-decoration: none; }
 .sr-field { overflow: hidden; }
 .sr-input-wrap { flex: 1; min-width: 0; overflow: hidden; }
+.sr-tag-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.sr-tag {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 6px 12px; min-height: 30px;
+  background: #f5f5f5; color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px;
+  cursor: pointer; font-family: inherit;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.sr-tag:hover { background: #eee; }
+.sr-tag.sr-tag-active {
+  background: var(--primary); color: white; border-color: var(--primary);
+}
 .sr-input-wrap input, .sr-input-wrap select, .sr-input-wrap textarea {
   width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid var(--border);
   border-radius: 8px; font-size: 15px; font-family: inherit; box-sizing: border-box;
