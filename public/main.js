@@ -7920,14 +7920,56 @@ function _psimGetFeatures() {
 
 // 現在編集中の属性キー（例: 'appointment:elder'）
 let _psimRuleEditState = { category: 'appointment', value: '', user: [], admin: [] };
+// ルール編集タブの内側タブ
+let _psimEditorCtxTab = 'user'; // 'user' | 'admin'
+
+// 属性キーから「その属性のみを持つ仮想ユーザ」を組み立ててシミュレーターの
+// 状態オブジェクトとして返す
+function _psimBuildStateForAttr(category, value) {
+  const s = { appointment: '', orgRoleKeys: [], status: [] };
+  if (category === 'appointment') {
+    s.appointment = (value === 'publisher') ? '' : value;
+  } else if (category === 'status') {
+    s.status = [value];
+  } else if (category === 'orgRoles') {
+    s.orgRoleKeys = [value];
+  }
+  // それ以外のカテゴリ（deptPositions / eligibleCodes / gender / isWtReader /
+  // isPublicSpeaker）は psimDeriveFlags に直接影響しないため、デフォルト状態。
+  return s;
+}
+
+// 現状のシミュレーター挙動を評価し、表示される機能 ID の配列を返す
+function _psimEvalDefaultFeatures(category, value) {
+  const state = _psimBuildStateForAttr(category, value);
+  const flags = psimDeriveFlags(state);
+  const userList = [], adminList = [];
+  PSIM_FEATURES.forEach(g => {
+    if (g.cond && !g.cond(flags)) return; // グループ条件が満たされない
+    g.items.forEach(it => {
+      if (typeof it.when !== 'function' || !it.when(flags)) return;
+      const id = `${g.group}/${it.label}`;
+      if (g.group.startsWith('管理画面')) adminList.push(id);
+      else userList.push(id);
+    });
+  });
+  return { user: userList, admin: adminList };
+}
 
 async function _psimLoadCurrentRule() {
   const cfg = await getAppConfig();
   const rules = cfg.permissionRules || {};
   const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
-  const rule = rules[attrKey] || { user: [], admin: [] };
-  _psimRuleEditState.user  = Array.isArray(rule.user)  ? rule.user.slice()  : [];
-  _psimRuleEditState.admin = Array.isArray(rule.admin) ? rule.admin.slice() : [];
+  if (rules[attrKey]) {
+    // 保存済みルールを使う
+    _psimRuleEditState.user  = Array.isArray(rules[attrKey].user)  ? rules[attrKey].user.slice()  : [];
+    _psimRuleEditState.admin = Array.isArray(rules[attrKey].admin) ? rules[attrKey].admin.slice() : [];
+  } else {
+    // 未保存: 現状のシミュレーター挙動を初期値として展開
+    const seed = _psimEvalDefaultFeatures(_psimRuleEditState.category, _psimRuleEditState.value);
+    _psimRuleEditState.user  = seed.user;
+    _psimRuleEditState.admin = seed.admin;
+  }
 }
 
 function _renderPsimRuleEditor(container) {
@@ -7968,14 +8010,29 @@ function _renderPsimRuleEditor(container) {
   html += `<span style="font-size:12px;color:#888;margin-left:8px">属性キー: <code>${esc(attrKey)}</code></span>`;
   html += '</div>';
 
-  // 機能チェックリスト 2 セクション
-  function renderFeatureSection(title, feats, checkedList) {
-    let s = `<div class="psim-rule-section"><div class="psim-rule-section-title">${esc(title)}</div>`;
+  // 内側タブ: ホーム画面 / 管理画面
+  const userCount  = _psimRuleEditState.user.length;
+  const adminCount = _psimRuleEditState.admin.length;
+  html += '<div class="psim-ctx-tabs" style="display:flex;gap:0;border-bottom:2px solid #ddd;margin-bottom:12px;">';
+  [['user', `📱 ホーム画面 (${userCount})`], ['admin', `⚙️ 管理画面 (${adminCount})`]].forEach(([t, label]) => {
+    const active = (t === _psimEditorCtxTab);
+    html += `<button class="psim-ctx-tab" data-ctx-tab="${t}" style="padding:8px 16px;border:none;background:${active?'#047CBC':'transparent'};color:${active?'#fff':'#666'};font-weight:${active?'700':'400'};cursor:pointer;border-radius:4px 4px 0 0">${esc(label)}</button>`;
+  });
+  html += '</div>';
+
+  // 機能チェックリスト（選択中タブのみ描画）
+  function renderFeatureSection(feats, checkedList) {
+    let s = '<div class="psim-rule-section">';
     // グループでまとめる
     const groups = {};
     feats.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
     Object.keys(groups).forEach(g => {
-      s += `<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:3px">${esc(g)}</div>`;
+      s += '<div style="margin-bottom:10px">';
+      s += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#555;margin-bottom:4px">';
+      s += `<span>${esc(g)}</span>`;
+      s += `<button class="psim-grp-all"  data-group="${esc(g)}" style="font-size:11px;padding:1px 8px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer">全て選択</button>`;
+      s += `<button class="psim-grp-none" data-group="${esc(g)}" style="font-size:11px;padding:1px 8px;border:1px solid #ccc;background:#fff;border-radius:3px;cursor:pointer">全て解除</button>`;
+      s += '</div>';
       s += '<div style="display:flex;flex-wrap:wrap;gap:4px 14px;padding-left:8px">';
       groups[g].forEach(f => {
         const checked = checkedList.includes(f.id) ? ' checked' : '';
@@ -7990,8 +8047,11 @@ function _renderPsimRuleEditor(container) {
     s += '</div>';
     return s;
   }
-  html += renderFeatureSection('ユーザ画面に表示する機能', userFeatures, _psimRuleEditState.user);
-  html += renderFeatureSection('管理画面に表示する機能', adminFeatures, _psimRuleEditState.admin);
+  if (_psimEditorCtxTab === 'admin') {
+    html += renderFeatureSection(adminFeatures, _psimRuleEditState.admin);
+  } else {
+    html += renderFeatureSection(userFeatures, _psimRuleEditState.user);
+  }
 
   html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center">';
   html += '<button class="btn-primary" id="psim-rule-save" style="padding:8px 24px">この属性のルールを保存</button>';
@@ -8022,7 +8082,37 @@ function _renderPsimRuleEditor(container) {
       const i = list.indexOf(fid);
       if (cb.checked && i === -1) list.push(fid);
       else if (!cb.checked && i !== -1) list.splice(i, 1);
+      // タブのカウント表示を更新するため再描画
+      _renderPsimRuleEditor(container);
     });
+  });
+  // 内側タブ切替
+  container.querySelectorAll('.psim-ctx-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _psimEditorCtxTab = btn.dataset.ctxTab;
+      _renderPsimRuleEditor(container);
+    });
+  });
+  // グループ単位の一括ボタン
+  function _bulkToggleGroup(groupName, on) {
+    const ctx = _psimEditorCtxTab;
+    const list = (ctx === 'admin') ? _psimRuleEditState.admin : _psimRuleEditState.user;
+    const feats = features.filter(f => f.context === ctx && f.group === groupName);
+    if (on) {
+      feats.forEach(f => { if (!list.includes(f.id)) list.push(f.id); });
+    } else {
+      const ids = new Set(feats.map(f => f.id));
+      const filtered = list.filter(id => !ids.has(id));
+      if (ctx === 'admin') _psimRuleEditState.admin = filtered;
+      else _psimRuleEditState.user = filtered;
+    }
+    _renderPsimRuleEditor(container);
+  }
+  container.querySelectorAll('.psim-grp-all').forEach(btn => {
+    btn.addEventListener('click', () => _bulkToggleGroup(btn.dataset.group, true));
+  });
+  container.querySelectorAll('.psim-grp-none').forEach(btn => {
+    btn.addEventListener('click', () => _bulkToggleGroup(btn.dataset.group, false));
   });
   container.querySelector('#psim-rule-save')?.addEventListener('click', async () => {
     const attrKey = `${_psimRuleEditState.category}:${_psimRuleEditState.value}`;
