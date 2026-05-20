@@ -2156,8 +2156,6 @@ function skRenderPublicTalkCard(pt, container) {
 // ══════════════════════════════════════════════
 
 async function initProgramPage() {
-  // ページに入るたびに編集セッションをリセット → 確定状態なら初期表示は dim
-  awProgramEditModeMonth = null;
   const list = document.getElementById('program-list');
   if (list) list.innerHTML = '<div class="loading">読み込み中...</div>';
   try {
@@ -2485,10 +2483,6 @@ function awComputeProgramOverallState(filteredWeeks) {
   return 'awaitingAssignment';
 }
 
-// 「編集」を押した月を覚えておく（同月内で再入場した時も編集ボタンを出すため）
-// awConfirmAllPrograms 成功時にクリア
-let awProgramEditModeMonth = null;
-
 function awUpdateProgramToolbarState(filteredWeeks) {
   const state = awComputeProgramOverallState(filteredWeeks);
   const confirmBtn = document.getElementById('aw-program-confirm-all-btn');
@@ -2497,14 +2491,9 @@ function awUpdateProgramToolbarState(filteredWeeks) {
   const list = document.getElementById('program-list');
 
   const isLocked = state !== 'editing';
-  const isEditSessionActive = !!(awProgramEditModeMonth && awSharedMonth &&
-    awProgramEditModeMonth.year === awSharedMonth.year &&
-    awProgramEditModeMonth.month === awSharedMonth.month);
 
-  // 確定ボタン: 未確定週がある (state=editing) または 編集セッション中（=save の役割）
-  if (confirmBtn) confirmBtn.style.display = (state === 'editing' || isEditSessionActive) ? '' : 'none';
-  // 編集ボタン: ロック状態かつ編集セッション非アクティブ（=確定ビュー）でのみ表示
-  if (editBtn) editBtn.style.display = (isLocked && !isEditSessionActive) ? '' : 'none';
+  if (confirmBtn) confirmBtn.style.display = isLocked ? 'none' : '';
+  if (editBtn)    editBtn.style.display    = isLocked ? '' : 'none';
 
   if (badge) {
     const map = {
@@ -2524,14 +2513,48 @@ function awUpdateProgramToolbarState(filteredWeeks) {
     }
   }
 
-  if (list) list.classList.toggle('aw-program-list-locked', isLocked && !isEditSessionActive);
+  if (list) list.classList.toggle('aw-program-list-locked', isLocked);
 }
 
-async function awEditAllPrograms() {
+// 「編集」押下時: その月の週一覧モーダルを開く → 週を選ぶと既存の
+// スケジュールエディタへ遷移し、項目名/時間/主題の編集 + 行の追加/削除が可能。
+function awEditAllPrograms() {
   if (!awSharedMonth) return;
-  // 編集セッション ON（データは変更しない）— ページ再入場時にリセットされ確定ビューに戻る
-  awProgramEditModeMonth = { year: awSharedMonth.year, month: awSharedMonth.month };
-  awRenderProgramList();
+  const weeks = awFilterWeeksByMonth(awWeeks, awSharedMonth).filter(w => !w.conventionType);
+  if (weeks.length === 0) {
+    alert('編集できる週がありません');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'aw-week-picker-overlay';
+  const buttons = weeks.map(w =>
+    `<button class="aw-week-picker-btn" data-week-id="${esc(w.id)}">
+       <span class="aw-week-picker-date">${esc(awGetThursdayLabel(w))}</span>
+       <span class="aw-week-picker-sub">${esc(w.bibleChapter || '')}</span>
+     </button>`
+  ).join('');
+  overlay.innerHTML = `
+    <div class="aw-week-picker-modal">
+      <div class="aw-week-picker-title">編集する週を選んでください</div>
+      <div class="aw-week-picker-list">${buttons}</div>
+      <div class="aw-week-picker-actions">
+        <button class="aw-week-picker-cancel">キャンセル</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('.aw-week-picker-cancel').addEventListener('click', close);
+  overlay.querySelectorAll('.aw-week-picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const wid = btn.dataset.weekId;
+      close();
+      awOpenScheduleEditor(wid);
+    });
+  });
 }
 
 async function awConfirmAllPrograms() {
@@ -2550,8 +2573,6 @@ async function awConfirmAllPrograms() {
       week.topics = Object.assign({}, topics);
       count++;
     }
-    // 確定したので編集セッションを終了
-    awProgramEditModeMonth = null;
     awRenderProgramList();
     alert(`${count}週分のプログラムを確定しました`);
   } catch(e) { alert('確定エラー: ' + e.message); }
