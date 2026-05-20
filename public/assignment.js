@@ -784,10 +784,20 @@ function awRenderCreateList() {
   }
   filtered.forEach(week => awBuildWeekSection(week, list));
 
-  // 月内の非大会週がすべて担当者確定済みなら dim & ロック
+  // 月内の非大会週がすべて担当者確定済みなら dim & ロック（編集モード）
   const targets = filtered.filter(w => !w.conventionType);
   const allConfirmed = targets.length > 0 && targets.every(w => w.hasAssignmentHistory);
   list.classList.toggle('aw-program-list-locked', allConfirmed);
+
+  // ツールバーボタンの表示切替
+  // 初回策定時 (未確定週あり): 自動生成 + 全確定 を表示、編集 を非表示
+  // 編集モード (全週確定済): 自動生成 + 全確定 を非表示、編集 を表示
+  const generateBtn = document.getElementById('aw-generate-all-btn');
+  const confirmAllBtn = document.getElementById('aw-confirm-all-btn');
+  const editAllBtn = document.getElementById('aw-assignment-edit-all-btn');
+  if (generateBtn)   generateBtn.style.display   = allConfirmed ? 'none' : '';
+  if (confirmAllBtn) confirmAllBtn.style.display = allConfirmed ? 'none' : '';
+  if (editAllBtn)    editAllBtn.style.display    = allConfirmed ? '' : 'none';
 }
 
 // 週の集会日の Date を返す（customMeetDate優先、なければ曜日計算）
@@ -2773,8 +2783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('click', awEditAllPrograms);
 
   // 週詳細ボタン
-  document.getElementById('aw-generate-btn')?.addEventListener('click', awGenerateAssignments);
-  document.getElementById('aw-confirm-btn') ?.addEventListener('click', awConfirmAssignment);
+  document.getElementById('aw-confirm-btn')?.addEventListener('click', awConfirmAssignment);
 
   // ZIPインポート
   awInitImport();
