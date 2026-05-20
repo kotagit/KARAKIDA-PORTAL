@@ -2552,18 +2552,25 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-bulk-table thead .meb-org-dept-pioneer { background: #ffe0b2; color: #e65100; }
 .me-bulk-table thead .meb-org-dept-group   { background: #b2dfdb; color: #00695c; }
 
-/* 部門情報モード: 分割レイアウト */
+/* 部門情報モード: 上下分割レイアウト（編集テーブル＝上、プレビュー＝下） */
 .me-dept-split {
-  display: flex; gap: 0; height: calc(100vh - 220px);
+  display: flex; flex-direction: column; gap: 0;
 }
 .me-dept-edit-pane {
-  flex: 1 1 auto; min-width: 0; overflow: auto;
+  flex: 1 1 auto; min-width: 0; overflow: auto; max-height: calc(100vh - 320px);
 }
 .me-dept-preview-pane {
-  flex: 0 0 420px; border-left: 2px solid #ddd; overflow-y: auto; background: #fff;
+  flex: 0 0 auto; border-top: 2px solid #ddd; background: #fff;
+  margin-top: 16px;
 }
 .me-dept-preview-inner {
-  padding: 8px; font-size: 11px;
+  padding: 12px; font-size: 11px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px;
+  align-items: start;
+}
+.me-dept-preview-section { min-width: 0; }
+@media (max-width: 900px) {
+  .me-dept-preview-inner { grid-template-columns: 1fr; }
 }
 .me-dept-preview-inner h4 {
   margin: 12px 0 6px; padding: 4px 8px;

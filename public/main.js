@@ -7203,6 +7203,7 @@ function renderDeptPreview() {
   let html = '';
 
   // 組織表プレビュー
+  html += '<div class="me-dept-preview-section">';
   html += '<h4>組織表</h4>';
   const supervisors = ORG_DEPARTMENTS.filter(d => d.type === 'supervisor').sort((a,b) => a.order - b.order);
   const subDepts = ORG_DEPARTMENTS.filter(d => d.type === 'sub').sort((a,b) => a.order - b.order);
@@ -7260,7 +7261,10 @@ function renderDeptPreview() {
   });
   html += '</tbody></table>';
 
+  html += '</div>'; // /me-dept-preview-section (組織表)
+
   // グループ成員表プレビュー（横4列）
+  html += '<div class="me-dept-preview-section">';
   html += '<h4>グループ成員表</h4>';
   html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
   const groups = ORG_DEPARTMENTS.filter(d => d.type === 'group').sort((a,b) => a.order - b.order);
@@ -7277,7 +7281,8 @@ function renderDeptPreview() {
     allNames.forEach(n => { html += '<div style="font-size:11px;line-height:1.6;">' + esc(n) + '</div>'; });
     html += '</div>';
   });
-  html += '</div>';
+  html += '</div>'; // /grid 4cols
+  html += '</div>'; // /me-dept-preview-section (グループ成員表)
 
   el.innerHTML = html;
 }
