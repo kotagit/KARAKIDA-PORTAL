@@ -2532,7 +2532,7 @@ function awUpdateProgramToolbarState(filteredWeeks) {
 // 「編集」押下時: その月の週一覧モーダルを開く → 週を選ぶと既存の
 // スケジュールエディタへ遷移し、項目名/時間/主題の編集 + 行の追加/削除が可能。
 // 共通: 月内の週一覧モーダルを開き、選ばれた週で callback を呼ぶ
-function awOpenWeekPickerModal({ title, weeks, onPick }) {
+function awOpenWeekPickerModal({ title, weeks, onPick, extraActions = [] }) {
   if (!weeks || weeks.length === 0) {
     alert('編集できる週がありません');
     return;
@@ -2545,11 +2545,15 @@ function awOpenWeekPickerModal({ title, weeks, onPick }) {
        <span class="aw-week-picker-sub">${esc(w.bibleChapter || '')}</span>
      </button>`
   ).join('');
+  const extraBtnHtml = extraActions.map((a, i) =>
+    `<button class="aw-week-picker-extra ${esc(a.className || '')}" data-extra-idx="${i}">${esc(a.label)}</button>`
+  ).join('');
   overlay.innerHTML = `
     <div class="aw-week-picker-modal">
       <div class="aw-week-picker-title">${esc(title)}</div>
       <div class="aw-week-picker-list">${buttons}</div>
       <div class="aw-week-picker-actions">
+        ${extraBtnHtml}
         <button class="aw-week-picker-cancel">キャンセル</button>
       </div>
     </div>
@@ -2566,6 +2570,15 @@ function awOpenWeekPickerModal({ title, weeks, onPick }) {
       onPick(wid);
     });
   });
+  overlay.querySelectorAll('.aw-week-picker-extra').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.extraIdx);
+      const action = extraActions[idx];
+      if (!action) return;
+      const proceedAfter = await action.onClick();
+      if (proceedAfter !== false) close();
+    });
+  });
 }
 
 function awEditAllPrograms() {
@@ -2575,7 +2588,35 @@ function awEditAllPrograms() {
     title: '編集する週を選んでください',
     weeks,
     onPick: awOpenScheduleEditor,
+    extraActions: [
+      { label: '全削除', className: 'aw-week-picker-danger', onClick: awDeleteAllProgramsInMonth },
+    ],
   });
+}
+
+async function awDeleteAllProgramsInMonth() {
+  if (!awSharedMonth) return false;
+  const targets = awFilterWeeksByMonth(awWeeks, awSharedMonth);
+  if (targets.length === 0) { alert('削除する週がありません'); return false; }
+  const monthLabel = `${awSharedMonth.year}年${awSharedMonth.month + 1}月`;
+  if (!(await customConfirm(
+    `⚠️ ${monthLabel} の全 ${targets.length} 週分のプログラムを削除しますか？\n\n` +
+    `・項目データ・担当者割当・公開状態がすべて消えます\n` +
+    `・元に戻すには ZIP の再インポートが必要です`
+  ))) return false;
+  let count = 0;
+  try {
+    for (const week of targets) {
+      await db.collection('mwbWeeks').doc(week.id).delete();
+      count++;
+    }
+    // ローカルキャッシュからも削除
+    const targetIds = new Set(targets.map(w => w.id));
+    awWeeks = awWeeks.filter(w => !targetIds.has(w.id));
+    awRenderProgramList();
+    alert(`${count}週分を削除しました`);
+    return true;
+  } catch(e) { alert('削除エラー: ' + e.message); return false; }
 }
 
 function awEditAllAssignments() {
