@@ -216,9 +216,14 @@ function awGenerateAll() {
 }
 
 async function awConfirmAll() {
-  if (!(await customConfirm('表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。'))) return;
-  let confirmed = 0;
   const targetWeeks = awFilterWeeksByMonth(awWeeks, awAssignSelectedMonth);
+  const hasPublished = targetWeeks.some(w => !w.conventionType && w.programStatus === 'published');
+  const confirmMsg = hasPublished
+    ? '⚠️ 公開済の週が含まれています\n\n担当者を変更すると：\n・該当週の公開状態は取消され、③確認・公開からやり直しになります\n\n表示中の全週の割当を確定しますか？'
+    : '表示中の全週の割当を確定しますか？\nassignmentHistoryに記録されます。';
+  if (!(await customConfirm(confirmMsg))) return;
+  let confirmed = 0;
+  let reverted = 0;
   try {
     for (const week of targetWeeks) {
       if (week.conventionType) continue;
@@ -228,13 +233,25 @@ async function awConfirmAll() {
       const thuDate = awGetThursdayDate(week) || new Date();
       await awReplaceHistory(thuDate, slots);
 
+      // 公開済の週は確認・公開フローを再度通すために confirmed に戻す
+      if (week.programStatus === 'published') {
+        await db.collection('mwbWeeks').doc(week.id).set({
+          programStatus: 'confirmed',
+        }, { merge: true });
+        week.programStatus = 'confirmed';
+        reverted++;
+      }
+
       week.hasAssignmentHistory = true;
       confirmed++;
     }
     await awLoadHistory();
     // 全体ステータスバッジを更新（編集モード切替も含む）
     awRefreshAssignToolbarState();
-    alert(`${confirmed}週分を確定しました`);
+    const msg = reverted > 0
+      ? `${confirmed}週分を確定しました。\n${reverted}週分は公開取消されたので、③確認・公開で再公開してください。`
+      : `${confirmed}週分を確定しました`;
+    alert(msg);
   } catch(e) { alert('確定エラー: ' + e.message); }
 }
 
@@ -1802,19 +1819,33 @@ async function awReplaceHistory(thuDate, slotsObj) {
 
 async function awConfirmAssignment() {
   if (!awCurrentWeekId) return;
-  if (!(await customConfirm('割当を確定しますか？\nassignmentHistoryに記録されます。'))) return;
+  const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
+  const wasPublished = currentWeekObj && currentWeekObj.programStatus === 'published';
+  const confirmMsg = wasPublished
+    ? '⚠️ この週は公開済です\n\n担当者を変更すると：\n・公開状態は取消され、③確認・公開からやり直しになります\n\n確定しますか？'
+    : '割当を確定しますか？\nassignmentHistoryに記録されます。';
+  if (!(await customConfirm(confirmMsg))) return;
 
   try {
-    const currentWeekObj = awWeeks.find(w => w.id === awCurrentWeekId);
     const thuDate = (currentWeekObj && awGetThursdayDate(currentWeekObj)) || new Date();
 
     // assignmentHistoryに直接書き込み（重複防止で既存削除→新規書き込み）
     await awReplaceHistory(thuDate, awCurrentSlots);
 
+    // 公開済みだった週は確認・公開フローを再度通すために confirmed に戻す
+    if (wasPublished && currentWeekObj) {
+      await db.collection('mwbWeeks').doc(currentWeekObj.id).set({
+        programStatus: 'confirmed',
+      }, { merge: true });
+      currentWeekObj.programStatus = 'confirmed';
+    }
+
     await awLoadHistory();
 
     if (currentWeekObj) currentWeekObj.hasAssignmentHistory = true;
-    alert('確定しました');
+    alert(wasPublished
+      ? '確定しました。公開状態が取消されたので、③確認・公開で再度公開してください。'
+      : '確定しました');
   } catch(e) {
     alert('確定エラー: ' + e.message);
   }
