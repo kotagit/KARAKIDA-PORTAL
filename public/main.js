@@ -6858,33 +6858,7 @@ function renderDeptEditTable() {
     }
   });
 
-  // 奉仕場所（annai/avs/parking/cleaning は組織表タブ内へ移動済み）
-  addSection('奉仕場所', 'meb-grp-pos');
-  const DEPT_ID_TO_LABEL = { annai:'案内', avs:'AV', parking:'駐車場', cleaning:'清掃' };
-  const POS_MOVED_TO_ORG = new Set(['annai', 'avs', 'parking', 'cleaning']);
-  ME_POSITION_DEFS.filter(p => !POS_MOVED_TO_ORG.has(p.dept)).forEach(p => {
-    rows.push({
-      kind: 'check',
-      label: p.label,
-      subLabel: DEPT_ID_TO_LABEL[p.dept] || p.dept,
-      sectionCls: 'meb-grp-pos',
-      get: m => {
-        const o = meBulkCurrentValue(m, 'deptPositions') || {};
-        return Array.isArray(o[p.dept]) && o[p.dept].includes(p.pos);
-      },
-      set: (m, on) => {
-        const cur = meBulkCurrentValue(m, 'deptPositions') || {};
-        const newObj = { ...cur };
-        const arr = Array.isArray(newObj[p.dept]) ? newObj[p.dept].slice() : [];
-        const idx = arr.indexOf(p.pos);
-        if (on && idx === -1) arr.push(p.pos);
-        else if (!on && idx !== -1) arr.splice(idx, 1);
-        if (arr.length === 0) delete newObj[p.dept];
-        else newObj[p.dept] = arr;
-        meBulkRecordChange(m.docId, 'deptPositions', newObj);
-      }
-    });
-  });
+  // 奉仕場所は廃止（annai/avs/parking/cleaning は組織表タブ内へ移動済み）
 
   // 組織表役職: section/dept/position の階層
   let lastSection = '';
