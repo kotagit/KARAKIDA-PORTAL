@@ -3535,11 +3535,22 @@ function renderReportCheck() {
       const r = item.report;
       if (r) {
         const isEv = r.role === '伝道者';
-        const activity = isEv ? (r.participation || '-') : (r.hours != null ? r.hours + '時間' : '-');
+        // 伝道者: 参加 (はい/いいえ)、開拓者: 時間（数字のみ、単位なし）
+        let activity = '-';
+        let activityCls = 'rpt-cell-sm';
+        if (isEv) {
+          activity = r.participation || '-';
+          if (r.participation === 'いいえ') {
+            activityCls += ' rpt-warn';
+            activity = '⚠ ' + activity;
+          }
+        } else if (r.hours != null) {
+          activity = String(r.hours);
+        }
         html += '<tr>';
         html += '<td>' + esc(item.name) + '</td>';
         html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
-        html += '<td class="rpt-cell-sm">' + esc(activity) + '</td>';
+        html += '<td class="' + activityCls + '">' + esc(activity) + '</td>';
         html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
         html += '<td><span class="rpt-badge-done">✓ 提出済</span></td>';
         html += '</tr>';
