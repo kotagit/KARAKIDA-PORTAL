@@ -375,6 +375,8 @@ function navigate(page, pushHistory) {
       backBtn._backTarget = 'admin-mwb-hub';
     } else if (page === 'admin-report-card') {
       backBtn._backTarget = 'admin-reports';
+    } else if (page === 'admin-pw-assignment') {
+      backBtn._backTarget = 'admin-pw';
     } else {
       backBtn._backTarget = 'admin';
     }
