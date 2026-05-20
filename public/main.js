@@ -2921,7 +2921,8 @@ async function loadSrGroupList() {
 
 // ── 公共エリア伝道申込み ────────────────────────
 const PW_ROLES = ['参加者', '司会者（カート有）', 'カート運搬車', '司会者（カート無）'];
-const PW_LOCATIONS = ['唐木田駅', '堀之内駅', '唐木田駅＞堀之内駅', '堀之内駅＞唐木田駅'];
+// 場所表記は item.places と揃えるため「駅」抜きで定義する。
+const PW_LOCATIONS = ['唐木田', '堀之内', '唐木田＞堀之内', '堀之内＞唐木田'];
 let pwApplySelected = {};  // key → { role, location }
 
 async function loadPwApply() {
@@ -3133,7 +3134,7 @@ async function pwApplySubmit(items) {
     const item = items.find(i => i.key === key);
     if (!item) return;
     const sel = pwApplySelected[key];
-    msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '〜' + item.endTime + '\n';
+    msg += item.date + ' (' + item.weekday + ') ' + item.startTime + '\n';
     // 場所が複数あるときだけ表示（単一の場合は location と重複するため省略）
     const parts = [];
     if (item.places && item.places.length > 1) {
