@@ -1389,8 +1389,9 @@ const LINK_TITLE_MONTH_SET = new Set(['発表と確認事項']);
 function _buildMonthOptions(selected = '') {
   const now = new Date();
   let html = '<option value="">月を選択</option>';
-  for (let i = 0; i < 13; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+  // 今の年の 1 月から翌年 12 月まで（計 24 ヶ月）
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(now.getFullYear(), i, 1);
     const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
     html += `<option value="${label}"${selected === label ? ' selected' : ''}>${label}</option>`;
   }
