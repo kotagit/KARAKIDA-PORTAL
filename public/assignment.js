@@ -2717,10 +2717,10 @@ async function awConfirmEditProgram(week) {
 
 // 月未選択時のフォールバック（ハブへ戻るボタン）
 function awBackToHubEmpty() {
-  return '<div class="empty-state" style="padding:32px"><span class="material-icons">event_busy</span>月が選択されていません<br><button class="btn-primary" style="margin-top:16px" onclick="navigate(\'admin-mwb-hub\')">進行管理に戻って月を選択</button></div>';
+  return '<div class="empty-state" style="padding:32px"><span class="material-icons">event_busy</span>月が選択されていません<br><button class="btn-primary" style="margin-top:16px" onclick="navigate(\'admin-mwb-hub\')">集会予定表策定に戻って月を選択</button></div>';
 }
 
-// ── 生活と奉仕の集会 進行管理ハブ ────────────
+// ── 生活と奉仕の集会 集会予定表策定ハブ ────────────
 async function initMwbHubPage() {
   // ハブに戻るたびに月選択をリセット（毎回プルダウンから選ぶ運用）
   awSharedMonth = null;
@@ -2798,7 +2798,7 @@ function awRenderMwbHubMonthDropdown(months) {
 // ── イベント登録（DOMContentLoaded） ──────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 管理画面カード（進行管理ハブへの単一エントリー）
+  // 管理画面カード（集会予定表策定ハブへの単一エントリー）
   document.getElementById('admin-manage-mwb-hub')
     ?.addEventListener('click', () => navigate('admin-mwb-hub'));
   document.getElementById('review-publish-all-btn')
