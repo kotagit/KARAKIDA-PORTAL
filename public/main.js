@@ -6544,43 +6544,68 @@ async function loadAccessLog() {
       db.collection('LOGIN_LOG').orderBy('loginAt', 'desc').limit(500).get(),
       getUserListCached(),
     ]);
-    const userMap = {};
-    snap.forEach(doc => {
-      const d = doc.data();
-      const key = (d.email || d.name || 'unknown').toLowerCase();
-      if (!userMap[key]) userMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
-      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
-      userMap[key].logs.push({ docId: doc.id, dt, ua: d.userAgent || '' });
+
+    const normEmail = e => String(e || '').trim().toLowerCase();
+    const normName  = n => String(n || '').trim();
+
+    // USER_LIST を email / name でインデックス化（同じ成員に複数ログを集約するため）
+    const memberByEmail = {};
+    const memberByName = {};
+    const memberEntries = [];
+    userList.forEach(m => {
+      const name = normName(m.name);
+      if (!name) return;
+      const email = normEmail(m.email);
+      const entry = {
+        name,
+        email: m.email || '',
+        furigana: m.furigana || name,
+        group: m.group || '',
+        logs: [],
+      };
+      memberEntries.push(entry);
+      if (email) memberByEmail[email] = entry;
+      memberByName[name] = entry;
     });
 
-    // USER_LIST のメンバーをマージ：ログが無い人は「履歴なし」エントリを追加
-    const noHistoryUsers = [];
-    userList.forEach(m => {
-      const name = String(m.name || '').trim();
-      if (!name) return;
-      const email = String(m.email || '').trim().toLowerCase();
-      const key = email || name.toLowerCase();
-      if (userMap[key]) {
-        // ログあり：USER_LIST の正式名で上書き
-        userMap[key].name = name;
-        if (!userMap[key].email && email) userMap[key].email = m.email;
+    // LOGIN_LOG をマッチング：email → name の順で USER_LIST 成員に紐付け
+    const orphanMap = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      const logEmail = normEmail(d.email);
+      const logName  = normName(d.name);
+      const dt = d.loginAt?.toDate ? d.loginAt.toDate() : null;
+      const log = { docId: doc.id, dt, ua: d.userAgent || '' };
+
+      let target = (logEmail && memberByEmail[logEmail]) || (logName && memberByName[logName]) || null;
+      if (target) {
+        target.logs.push(log);
       } else {
-        // ログなし
-        noHistoryUsers.push({ name, email: m.email || '', furigana: m.furigana || name, logs: [], noHistory: true });
+        // USER_LIST に居ないユーザのログ（退会者など）
+        const key = logEmail || logName || 'unknown';
+        if (!orphanMap[key]) orphanMap[key] = { name: d.name || '不明', email: d.email || '', logs: [] };
+        orphanMap[key].logs.push(log);
       }
     });
 
-    const users = Object.values(userMap).sort((a, b) => {
-      const ta = a.logs[0]?.dt?.getTime() || 0;
-      const tb = b.logs[0]?.dt?.getTime() || 0;
-      return tb - ta;
-    });
-    // 履歴なし成員はふりがな昇順
-    noHistoryUsers.sort((a, b) => String(a.furigana).localeCompare(String(b.furigana), 'ja'));
-    users.push(...noHistoryUsers);
+    // 成員: グループ順 → ふりがな順（履歴あり/なし混在）
+    const members = memberEntries
+      .map(m => ({ ...m, noHistory: m.logs.length === 0 }))
+      .sort((a, b) => {
+        const ga = String(a.group || 'zzz');
+        const gb = String(b.group || 'zzz');
+        if (ga !== gb) return ga.localeCompare(gb, 'ja');
+        return String(a.furigana).localeCompare(String(b.furigana), 'ja');
+      });
+    // 退会者などのオーファンログは末尾にまとめる（最新ログイン降順）
+    const orphans = Object.values(orphanMap)
+      .map(o => ({ ...o, isOrphan: true }))
+      .sort((a, b) => (b.logs[0]?.dt?.getTime() || 0) - (a.logs[0]?.dt?.getTime() || 0));
+
+    const users = [...members, ...orphans];
 
     if (users.length === 0) {
-      view.innerHTML = '<div class="empty-state">ログがありません</div>';
+      view.innerHTML = '<div class="empty-state">成員もログも見つかりません</div>';
       return;
     }
 
@@ -6598,7 +6623,20 @@ async function loadAccessLog() {
     }
 
     html += '<div class="access-log-list">';
+    let lastGroup = null;
     users.forEach((u, idx) => {
+      // グループ見出し（成員のみ、オーファンログには付けない）
+      if (!u.isOrphan) {
+        const grp = u.group || '未分類';
+        if (grp !== lastGroup) {
+          html += `<div class="access-log-group-header">${esc(grp)}</div>`;
+          lastGroup = grp;
+        }
+      } else if (lastGroup !== '__orphan__') {
+        html += `<div class="access-log-group-header access-log-group-orphan">USER_LIST 外</div>`;
+        lastGroup = '__orphan__';
+      }
+
       if (u.noHistory) {
         html += `<div class="access-log-card access-log-no-history">`;
         html += `<div class="access-log-main">`;

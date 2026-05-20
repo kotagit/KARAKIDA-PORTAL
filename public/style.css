@@ -2219,6 +2219,12 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
   background: #fff; border: 1px solid #f8bbd0; border-radius: 12px;
   padding: 3px 10px; display: inline-block;
 }
+.access-log-group-header {
+  background: var(--primary); color: #fff;
+  font-size: 13px; font-weight: 700;
+  padding: 6px 16px; letter-spacing: 0.04em;
+}
+.access-log-group-orphan { background: #757575; }
 .al-detail {
   margin-top: 8px; padding: 8px 0 0; border-top: 1px solid #f0f0f0;
 }
