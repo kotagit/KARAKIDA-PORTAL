@@ -3542,6 +3542,13 @@ details[open] > .psim-prev-group-title::before { transform: rotate(90deg); }
 .aw-pstate-published     { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; }
 
 .aw-program-list-locked { opacity: 0.6; }
+.aw-program-list-locked input,
+.aw-program-list-locked select,
+.aw-program-list-locked textarea,
+.aw-program-list-locked button {
+  pointer-events: none;
+}
+.aw-program-list-locked label { cursor: not-allowed; }
 
 /* ── 週選択モーダル（編集ボタン押下時） ── */
 .aw-week-picker-overlay {

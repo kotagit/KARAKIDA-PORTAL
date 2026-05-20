@@ -172,7 +172,7 @@ function awGenerateAll() {
   const skipped = []; // [{label, reason}]
   filtered.forEach(week => {
     const label = awGetMeetingLabel(week);
-    if (week.conventionType) { skipped.push({ label, reason: `大会週（${week.conventionType}）` }); return; }
+    if (week.conventionType) { skipped.push({ label, reason: `${week.conventionType}の週` }); return; }
     const slots = awLiveSlots[week.id];
     if (!slots) { skipped.push({ label, reason: '週が画面に描画されていません（一度別の月へ切替→戻すと解決します）' }); return; }
     const items = week.items || [];
@@ -2298,6 +2298,7 @@ function awBuildProgramSection(week, container) {
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="巡回大会" ${convention === '巡回大会' ? 'checked' : ''}> 巡回大会</label>
       <label class="aw-conv-check"><input type="checkbox" name="conv" value="地区大会" ${convention === '地区大会' ? 'checked' : ''}> 地区大会</label>
+      <label class="aw-conv-check"><input type="checkbox" name="conv" value="記念式" ${convention === '記念式' ? 'checked' : ''}> 記念式</label>
       <label class="aw-conv-check"><input type="checkbox" name="cvvisit" ${isCircuitVisit ? 'checked' : ''}> 巡回訪問</label>
     </div>
   `;
