@@ -1949,7 +1949,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .pioneer-group-row:last-child { border-bottom: none; }
 .pioneer-group-label {
   min-width: 90px; max-width: 90px;
-  background: var(--primary); color: #fff;
+  background: #a5d6a7; color: #1a1a1a;
   font-size: 12px; font-weight: 700;
   padding: 8px 10px; display: flex; align-items: center;
   word-break: break-all;
