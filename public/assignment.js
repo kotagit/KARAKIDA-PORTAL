@@ -2603,18 +2603,35 @@ async function awConfirmEditProgram(week) {
   }
 }
 
+// ── 生活と奉仕の集会 進行管理ハブ ────────────
+async function initMwbHubPage() {
+  const stepEl = document.getElementById('mwb-hub-step-bar');
+  if (stepEl) stepEl.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    await awLoadCodes();
+    await awLoadWeeks();
+    awRenderMwbHub();
+  } catch(e) {
+    if (stepEl) stepEl.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
+  }
+}
+
+function awRenderMwbHub() {
+  const months = awExtractMonths(awWeeks);
+  awEnsureSharedMonth(months);
+  awRenderMonthTiles('mwb-hub-month-selector', months, awSharedMonth, (y, m) => {
+    awSetSharedMonth(y, m);
+    awRenderMwbHub();
+  });
+  awRenderStepBar('mwb-hub-step-bar', 0);
+}
+
 // ── イベント登録（DOMContentLoaded） ──────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 管理画面カード
-  document.getElementById('admin-manage-program')
-    ?.addEventListener('click', () => navigate('admin-program'));
-  document.getElementById('admin-manage-assignment')
-    ?.addEventListener('click', () => navigate('admin-assignment'));
-  document.getElementById('admin-manage-assignment-review')
-    ?.addEventListener('click', () => navigate('admin-assignment-review'));
-  document.getElementById('admin-manage-s89')
-    ?.addEventListener('click', () => navigate('admin-s89'));
+  // 管理画面カード（進行管理ハブへの単一エントリー）
+  document.getElementById('admin-manage-mwb-hub')
+    ?.addEventListener('click', () => navigate('admin-mwb-hub'));
   document.getElementById('review-publish-all-btn')
     ?.addEventListener('click', awReviewPublishAll);
 

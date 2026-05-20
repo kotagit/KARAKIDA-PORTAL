@@ -83,6 +83,7 @@ const PAGE_TITLES = {
   'admin-field-service': '野外奉仕取決表',
   'senkyo-field': '野外奉仕取決表',
   'pw-apply': '公共エリア伝道申込み',
+  'admin-mwb-hub': '生活と奉仕の集会 進行管理',
   'admin-program': 'プログラム表作成',
   'admin-assignment': '担当者策定', 'admin-assignment-week': '割当編集',
   'admin-assignment-history': '割当履歴',
@@ -350,10 +351,13 @@ function navigate(page, pushHistory) {
   } else if (page.startsWith('admin-')) {
     const assignSubs = ['admin-assignment-history','admin-assignment-week'];
     const programSubs = ['admin-schedule-editor'];
+    const mwbHubChildren = ['admin-program','admin-assignment','admin-assignment-review','admin-s89'];
     if (assignSubs.includes(page)) {
       backBtn._backTarget = 'admin-assignment';
     } else if (programSubs.includes(page)) {
       backBtn._backTarget = 'admin-program';
+    } else if (mwbHubChildren.includes(page)) {
+      backBtn._backTarget = 'admin-mwb-hub';
     } else if (page === 'admin-report-card') {
       backBtn._backTarget = 'admin-reports';
     } else {
@@ -389,6 +393,7 @@ function navigate(page, pushHistory) {
   if (page === 'area-info')             initAreaInfoForm();
   if (page === 'service-report')        initServiceReportForm();
   if (page === 'pw-apply')              loadPwApply();
+  if (page === 'admin-mwb-hub')              initMwbHubPage();
   if (page === 'admin-program')              initProgramPage();
   if (page === 'admin-assignment')           initAssignmentPage();
   if (page === 'admin-assignment-history')   initHistoryPage();

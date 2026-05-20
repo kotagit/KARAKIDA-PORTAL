@@ -268,20 +268,8 @@
             <span class="material-icons admin-role-icon">menu_book</span>
             <span class="admin-role-name">生活と奉仕の集会の監督</span>
           </div>
-          <div class="admin-list-row" id="admin-manage-program">
-            <span class="admin-row-label">プログラム表作成</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" id="admin-manage-assignment">
-            <span class="admin-row-label">担当者策定</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" id="admin-manage-assignment-review">
-            <span class="admin-row-label">確認・公開</span>
-            <span class="material-icons admin-row-chevron">chevron_right</span>
-          </div>
-          <div class="admin-list-row" id="admin-manage-s89">
-            <span class="admin-row-label">S-89 作成</span>
+          <div class="admin-list-row" id="admin-manage-mwb-hub">
+            <span class="admin-row-label">進行管理</span>
             <span class="material-icons admin-row-chevron">chevron_right</span>
           </div>
           <div class="admin-list-row" id="admin-manage-family-groups">
@@ -1131,10 +1119,26 @@
       </div>
     </section>
 
+    <!-- 生活と奉仕の集会 進行管理ハブ -->
+    <section id="page-admin-mwb-hub" class="page">
+      <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
+        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <h2 style="margin:0">生活と奉仕の集会 進行管理</h2>
+      </div>
+      <div class="page-content">
+        <div id="mwb-hub-month-selector"></div>
+        <div id="mwb-hub-step-bar"></div>
+        <div class="mwb-hub-help">
+          <span class="material-icons">info</span>
+          月を選んでステップカードをクリックしてください。
+        </div>
+      </div>
+    </section>
+
     <!-- プログラム表作成 -->
     <section id="page-admin-program" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <button onclick="navigate('admin-mwb-hub')" class="aw-back-btn" title="進行管理に戻る"><span class="material-icons">arrow_back</span></button>
         <h2 style="margin:0">プログラム表作成</h2>
       </div>
       <div class="page-content">
@@ -1166,7 +1170,7 @@
     <!-- 担当者策定 -->
     <section id="page-admin-assignment" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <button onclick="navigate('admin-mwb-hub')" class="aw-back-btn" title="進行管理に戻る"><span class="material-icons">arrow_back</span></button>
         <h2 style="margin:0">担当者策定</h2>
       </div>
       <div class="page-content">
@@ -1199,7 +1203,7 @@
     <!-- 確認・公開 -->
     <section id="page-admin-assignment-review" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <button onclick="navigate('admin-mwb-hub')" class="aw-back-btn" title="進行管理に戻る"><span class="material-icons">arrow_back</span></button>
         <h2 style="margin:0">確認・公開</h2>
       </div>
       <div class="page-content">
@@ -1220,7 +1224,7 @@
     <!-- S-89生成 -->
     <section id="page-admin-s89" class="page">
       <div class="page-banner banner-admin" style="display:flex;align-items:center;gap:10px">
-        <button onclick="navigate('admin')" class="aw-back-btn" title="管理画面に戻る"><span class="material-icons">arrow_back</span></button>
+        <button onclick="navigate('admin-mwb-hub')" class="aw-back-btn" title="進行管理に戻る"><span class="material-icons">arrow_back</span></button>
         <h2 style="margin:0">S-89 生成</h2>
       </div>
       <div class="page-content">
