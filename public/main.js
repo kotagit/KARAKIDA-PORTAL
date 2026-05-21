@@ -2597,8 +2597,13 @@ async function loadFormResultsPW() {
   if (!view) return;
   view.innerHTML = '<div class="loading">読み込み中...</div>';
   const NOTICE_HTML = '<div class="frh-notice">※これは申込履歴です。最終的な取決めへの参加可否は取決め策定者が決定します。</div>';
+  const myName = (memberUserName || '').trim();
+  if (!myName) {
+    view.innerHTML = NOTICE_HTML + '<div class="empty-state">ユーザー情報が取得できませんでした</div>';
+    return;
+  }
   try {
-    const snap = await db.collection('PUBLIC_WITNESSING').get();
+    const snap = await db.collection('PUBLIC_WITNESSING').where('name', '==', myName).get();
     const items = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
     items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
     if (items.length === 0) {
@@ -2634,10 +2639,15 @@ async function loadFormResultsSR() {
   const view = document.getElementById('form-results-sr-view');
   if (!view) return;
   view.innerHTML = '<div class="loading">読み込み中...</div>';
+  const myName = (memberUserName || '').trim();
+  if (!myName) {
+    view.innerHTML = '<div class="empty-state">ユーザー情報が取得できませんでした</div>';
+    return;
+  }
   try {
     const [approvedSnap, draftSnap] = await Promise.all([
-      db.collection('PREACHING_REPORT').get(),
-      db.collection('PREACHING_REPORT_DRAFTS').get(),
+      db.collection('PREACHING_REPORT').where('name', '==', myName).get(),
+      db.collection('PREACHING_REPORT_DRAFTS').where('name', '==', myName).get(),
     ]);
     const items = [];
     approvedSnap.forEach(d => items.push({ docId: d.id, status: 'approved', ...d.data() }));
