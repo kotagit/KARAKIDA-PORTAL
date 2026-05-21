@@ -878,6 +878,23 @@ body {
 }
 
 /* コード別 担当回数バーチャート */
+.ahc-buttons {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+}
+.ahc-btn {
+  min-width: 44px; padding: 6px 10px;
+  background: #f5f5f5; color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
+  font-family: inherit;
+}
+.ahc-btn:hover { background: #eee; border-color: var(--primary); }
+.ahc-btn.ahc-btn-active {
+  background: var(--primary); color: white; border-color: var(--primary);
+}
+.ahc-row.ahc-row-zero .ahc-name { color: var(--text-light); }
+.ahc-row.ahc-row-zero .ahc-count { color: var(--text-light); font-weight: 600; }
+
 .ahc-section {
   background: white; border: 1px solid var(--border); border-radius: 10px;
   margin-bottom: 12px; overflow: hidden;

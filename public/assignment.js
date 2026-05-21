@@ -763,7 +763,7 @@ async function initHistoryPage() {
   if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
   if (byCodeList)  byCodeList.innerHTML  = '<div class="loading">読み込み中...</div>';
   try {
-    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadHistoryWeeks()]);
+    await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadMembers(), awLoadHistoryWeeks()]);
     awRenderHistoryByCode();
     awRenderElderList();
     awRenderHistoryList();
@@ -772,7 +772,11 @@ async function initHistoryPage() {
   }
 }
 
-// コード別 担当回数バーチャート（直近1年）
+// コード別 担当回数バーチャート（直近1年・コード選択式）
+let _ahcSelectedCode = null;
+let _ahcByCode = {};
+let _ahcCodes  = [];
+
 function awRenderHistoryByCode() {
   const container = document.getElementById('assignment-by-code-list');
   if (!container) return;
@@ -780,50 +784,96 @@ function awRenderHistoryByCode() {
   cutoff.setFullYear(cutoff.getFullYear() - 1);
   const cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth()+1).padStart(2,'0') + '-' + String(cutoff.getDate()).padStart(2,'0');
 
-  // code → memberName → count
-  const byCode = {};
+  // 直近1年の集計: code → memberName → count
+  _ahcByCode = {};
   awHistoryWeeks.forEach(({ date, records }) => {
-    if (date < cutoffStr) return; // 1年より前は除外
+    if (date < cutoffStr) return;
     records.forEach(({ memberName, code }) => {
       if (!code || !memberName) return;
-      if (!byCode[code]) byCode[code] = {};
-      byCode[code][memberName] = (byCode[code][memberName] || 0) + 1;
+      if (!_ahcByCode[code]) _ahcByCode[code] = {};
+      _ahcByCode[code][memberName] = (_ahcByCode[code][memberName] || 0) + 1;
     });
   });
 
-  const codes = Object.keys(byCode).sort((a, b) => a.localeCompare(b));
-  if (codes.length === 0) {
-    container.innerHTML = '<div class="empty-state">直近1年の履歴がありません</div>';
+  // 表示対象のコード：履歴に出てきたもの ∪ awCodes（カタログ）
+  const codeSet = new Set();
+  Object.keys(_ahcByCode).forEach(c => codeSet.add(c));
+  Object.keys(awCodes || {}).forEach(c => codeSet.add(c));
+  _ahcCodes = [...codeSet].sort((a, b) => a.localeCompare(b));
+
+  if (_ahcCodes.length === 0) {
+    container.innerHTML = '<div class="empty-state">表示できるコードがありません</div>';
     return;
   }
+  if (!_ahcSelectedCode || !_ahcCodes.includes(_ahcSelectedCode)) {
+    _ahcSelectedCode = _ahcCodes[0];
+  }
 
-  let html = '';
-  codes.forEach(code => {
-    const members = Object.entries(byCode[code])
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-    const total = members.reduce((s, m) => s + m.count, 0);
-    const maxCount = members[0]?.count || 1;
-    const base = awGetBase(code);
-    const label = awCodes[code] || awCodes[base] || '';
-    html += `<div class="ahc-section">
+  // ボタン群 + 詳細領域
+  const btnHtml = _ahcCodes.map(c => {
+    const active = c === _ahcSelectedCode ? ' ahc-btn-active' : '';
+    return `<button class="ahc-btn${active}" data-code="${esc(c)}">${esc(c)}</button>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="ahc-buttons">${btnHtml}</div>
+    <div id="ahc-detail"></div>
+  `;
+  container.querySelectorAll('.ahc-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      _ahcSelectedCode = b.dataset.code;
+      container.querySelectorAll('.ahc-btn').forEach(x => x.classList.remove('ahc-btn-active'));
+      b.classList.add('ahc-btn-active');
+      awRenderHistoryByCodeDetail();
+    });
+  });
+  awRenderHistoryByCodeDetail();
+}
+
+function awRenderHistoryByCodeDetail() {
+  const detail = document.getElementById('ahc-detail');
+  if (!detail) return;
+  const code = _ahcSelectedCode;
+  if (!code) { detail.innerHTML = ''; return; }
+  const base = awGetBase(code);
+  const label = awCodes[code] || awCodes[base] || '';
+
+  // base コードに資格を持つ全成員
+  const eligible = (awMembers || [])
+    .filter(m => Array.isArray(m.eligibleCodes) && m.eligibleCodes.includes(base) && m.name);
+  if (eligible.length === 0) {
+    detail.innerHTML = `<div class="ahc-section">
       <div class="ahc-section-header">
         <span class="ahc-code">${esc(code)}</span>
         ${label ? `<span class="ahc-label">${esc(label)}</span>` : ''}
-        <span class="ahc-total">計 ${total} 件</span>
       </div>
-      <div class="ahc-rows">`;
-    members.forEach(m => {
-      const pct = Math.round((m.count / maxCount) * 100);
-      html += `<div class="ahc-row">
-        <span class="ahc-name">${esc(m.name)}</span>
-        <div class="ahc-bar-wrap"><div class="ahc-bar" style="width:${pct}%"></div></div>
-        <span class="ahc-count">${m.count}</span>
-      </div>`;
-    });
-    html += '</div></div>';
+      <div class="empty-state" style="padding:16px">このコードを担当できる成員がいません</div>
+    </div>`;
+    return;
+  }
+  const counts = _ahcByCode[code] || {};
+  const rows = eligible.map(m => ({ name: m.name, count: counts[m.name] || 0 }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const maxCount = Math.max(1, rows[0]?.count || 0);
+
+  let html = `<div class="ahc-section">
+    <div class="ahc-section-header">
+      <span class="ahc-code">${esc(code)}</span>
+      ${label ? `<span class="ahc-label">${esc(label)}</span>` : ''}
+      <span class="ahc-total">資格者 ${rows.length} 名 / 実績 計 ${total} 件</span>
+    </div>
+    <div class="ahc-rows">`;
+  rows.forEach(r => {
+    const pct = Math.round((r.count / maxCount) * 100);
+    const empty = r.count === 0 ? ' ahc-row-zero' : '';
+    html += `<div class="ahc-row${empty}">
+      <span class="ahc-name">${esc(r.name)}</span>
+      <div class="ahc-bar-wrap"><div class="ahc-bar" style="width:${pct}%"></div></div>
+      <span class="ahc-count">${r.count}</span>
+    </div>`;
   });
-  container.innerHTML = html;
+  html += '</div></div>';
+  detail.innerHTML = html;
 }
 
 function awRenderElderList() {
