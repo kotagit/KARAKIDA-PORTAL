@@ -3605,14 +3605,23 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
   const view = document.getElementById(targetViewId || 'rpt-card-view');
 
   // ヘッダー情報（1回だけ）
+  const fmtYMD = (s) => {
+    if (!s) return '-';
+    const p = String(s).split(/[\/\-]/);
+    if (p.length !== 3) return s;
+    const y = parseInt(p[0]), m = parseInt(p[1]), d = parseInt(p[2]);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return s;
+    return y + '年' + m + '月' + d + '日';
+  };
+
   let html = '<div class="s21-card">';
   html += '<div class="s21-header">';
   html += '<div class="s21-title">伝道者記録カード（S-21）</div>';
   const roleLabel = displayRole(member);
   html += '<table class="s21-info-table">';
   html += '<tr><td class="s21-info-label">氏名</td><td class="s21-info-value">' + esc(member.name) + '</td><td class="s21-info-label">性別</td><td class="s21-info-value">' + esc(displayGender(member.gender)) + '</td></tr>';
-  html += '<tr><td class="s21-info-label">生年月日</td><td class="s21-info-value" colspan="3">' + esc(member.birthDate || '-') + '</td></tr>';
-  html += '<tr><td class="s21-info-label">バプテスマ日</td><td class="s21-info-value" colspan="3">' + esc(member.baptismDate || '-') + '</td></tr>';
+  html += '<tr><td class="s21-info-label">生年月日</td><td class="s21-info-value" colspan="3">' + esc(fmtYMD(member.birthDate)) + '</td></tr>';
+  html += '<tr><td class="s21-info-label">バプテスマ日</td><td class="s21-info-value" colspan="3">' + esc(fmtYMD(member.baptismDate)) + '</td></tr>';
   html += '<tr><td class="s21-info-label">立場</td><td class="s21-info-value">' + esc(roleLabel) + '</td><td class="s21-info-label">希望</td><td class="s21-info-value">' + esc(member.hope || '-') + '</td></tr>';
   html += '<tr><td class="s21-info-label">グループ</td><td class="s21-info-value" colspan="3">' + esc(member.group || '-') + '</td></tr>';
   html += '</table></div>';
