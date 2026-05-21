@@ -301,6 +301,84 @@ loginBtn.addEventListener('click', () => {
 
 logoutBtn.addEventListener('click', () => auth.signOut());
 
+// ── メールリンク認証 ───────────────────────────
+const emailLoginBtn    = document.getElementById('login-email-btn');
+const emailLoginModal  = document.getElementById('email-login-modal');
+const emailLoginInput  = document.getElementById('email-login-input');
+const emailLoginMsg    = document.getElementById('email-login-msg');
+const emailLoginSend   = document.getElementById('email-login-send');
+const emailLoginCancel = document.getElementById('email-login-cancel');
+
+function _emailMsg(text, kind) {
+  if (!emailLoginMsg) return;
+  emailLoginMsg.textContent = text;
+  emailLoginMsg.className = 'email-login-msg' + (kind ? ' is-' + kind : '');
+}
+
+emailLoginBtn?.addEventListener('click', () => {
+  if (!emailLoginModal) return;
+  emailLoginModal.classList.remove('hidden');
+  _emailMsg('', '');
+  emailLoginInput.value = localStorage.getItem('emailForSignIn') || '';
+  setTimeout(() => emailLoginInput.focus(), 0);
+});
+emailLoginCancel?.addEventListener('click', () => emailLoginModal?.classList.add('hidden'));
+emailLoginModal?.addEventListener('click', (e) => {
+  if (e.target === emailLoginModal) emailLoginModal.classList.add('hidden');
+});
+
+emailLoginSend?.addEventListener('click', async () => {
+  const email = String(emailLoginInput.value || '').trim();
+  if (!email || !email.includes('@')) {
+    _emailMsg('有効なメールアドレスを入力してください', 'error');
+    return;
+  }
+  emailLoginSend.disabled = true;
+  _emailMsg('送信中...', '');
+  try {
+    // USER_LIST に登録されているメアドかどうかを事前チェック
+    const lower = email.toLowerCase();
+    let snap = await db.collection('USER_LIST').where('mail', '==', lower).limit(1).get();
+    if (snap.empty) snap = await db.collection('USER_LIST').where('mail', '==', email).limit(1).get();
+    if (snap.empty) {
+      _emailMsg('このメールアドレスは登録されていません。管理者にお問い合わせください。', 'error');
+      return;
+    }
+    const actionCodeSettings = {
+      url: location.origin + '/?signin=1',
+      handleCodeInApp: true,
+    };
+    await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+    localStorage.setItem('emailForSignIn', email);
+    _emailMsg('メールを送りました。受信トレイのリンクをタップしてください（迷惑メールも確認）。', 'ok');
+    setTimeout(() => emailLoginModal?.classList.add('hidden'), 4000);
+  } catch (err) {
+    console.error('sendSignInLinkToEmail error:', err);
+    _emailMsg('送信エラー: ' + (err?.message || err), 'error');
+  } finally {
+    emailLoginSend.disabled = false;
+  }
+});
+
+// 起動時：メールリンクで戻ってきた場合は自動ログイン
+async function _handleEmailLinkSignIn() {
+  if (!auth.isSignInWithEmailLink(window.location.href)) return;
+  let email = localStorage.getItem('emailForSignIn');
+  if (!email) email = window.prompt('ログインに使用したメールアドレスを再入力してください');
+  if (!email) return;
+  try {
+    await auth.signInWithEmailLink(email, window.location.href);
+    localStorage.removeItem('emailForSignIn');
+    // 戻り先 URL をクリーンに
+    const clean = location.origin + location.pathname;
+    window.history.replaceState({}, '', clean);
+  } catch (err) {
+    console.error('signInWithEmailLink error:', err);
+    if (loginError) loginError.textContent = 'メールリンクログインエラー: ' + (err?.message || err);
+  }
+}
+_handleEmailLinkSignIn();
+
 // アプリ起動
 initApp();
 
