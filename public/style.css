@@ -2365,7 +2365,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .group-member-list { padding: 0; }
 .group-member-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
+  padding: 4px 16px; border-bottom: 1px solid #f0f0f0;
 }
 .group-member-row:last-child { border-bottom: none; }
 .group-member-icon { font-size: 22px; color: #bbb; flex-shrink: 0; }
