@@ -503,6 +503,10 @@ document.getElementById('admin-manage-attendance')?.addEventListener('click', ()
   openAttendanceModal(null);
 });
 
+document.getElementById('admin-manage-assignment-history')?.addEventListener('click', () => {
+  navigate('admin-assignment-history');
+});
+
 document.getElementById('admin-manage-attendance-monthly')?.addEventListener('click', () => {
   navigate('admin-attendance-monthly');
 });
