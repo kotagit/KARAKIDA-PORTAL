@@ -3517,19 +3517,34 @@ async function loadAdminReportCard() {
 }
 
 // 正規開拓者向け: 今奉仕年度の目標時間(600h)進捗ウィジェット
+// 備考欄から特別な奉仕時間 (LDC 4, PSS2, CA4 等) を抽出。英字2文字以上の直後の数字を合計
+function extractSpecialServiceHours(remarks) {
+  if (!remarks) return 0;
+  let total = 0;
+  const re = /[A-Za-z]{2,}\s*(\d+(?:\.\d+)?)/g;
+  let m;
+  while ((m = re.exec(String(remarks))) !== null) {
+    total += Number(m[1]);
+  }
+  return total;
+}
+
 function renderPioneerGoalWidget(reportMap) {
   const GOAL = 600;
 
-  // 当年度の hours 合計
-  let achieved = 0;
+  // 当年度の hours 合計 + 備考の特別な奉仕時間
+  let hoursSum = 0;
+  let specialSum = 0;
   SERVICE_YEAR_MONTHS.forEach(mo => {
     const r = reportMap && reportMap[mo];
-    if (r && r.hours != null) {
+    if (!r) return;
+    if (r.hours != null) {
       const h = Number(r.hours);
-      if (!isNaN(h)) achieved += h;
+      if (!isNaN(h)) hoursSum += h;
     }
+    specialSum += extractSpecialServiceHours(r.remarks);
   });
-  achieved = Math.round(achieved * 10) / 10;
+  let achieved = Math.round((hoursSum + specialSum) * 10) / 10;
 
   // 経過月数 (現在月時点で完了済みの奉仕月数)
   // 9月開始 = 1ヶ月経過, 翌8月末 = 12ヶ月経過
@@ -3566,6 +3581,11 @@ function renderPioneerGoalWidget(reportMap) {
   }
   h += '</div>';
   h += '<div class="s21-goal-bar-wrap"><div class="s21-goal-bar ' + barClass + '" style="width:' + pct + '%"></div></div>';
+  if (specialSum > 0) {
+    const sp = Math.round(specialSum * 10) / 10;
+    const hr = Math.round(hoursSum * 10) / 10;
+    h += '<div class="s21-goal-sub">内訳: 時間 ' + hr + ' h + 特別 ' + sp + ' h</div>';
+  }
   h += '<div class="s21-goal-sub">';
   h += '経過 ' + elapsed + '/12ヶ月 ・ 想定 ' + expected + ' h';
   if (!isDone) {
@@ -3626,6 +3646,7 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
 
   let totalStudy = 0, totalHours = 0, countStudy = 0, countHours = 0;
   let participationCount = 0;
+  let totalSpecial = 0;
 
   SERVICE_YEAR_MONTHS.forEach(mo => {
     const r = reportMap[mo] || null;
@@ -3642,6 +3663,7 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
       if (r.participation === 'はい') participationCount++;
       if (r.bibleStudy != null) { totalStudy += Number(r.bibleStudy); countStudy++; }
       if (r.hours != null) { totalHours += Number(r.hours); countHours++; }
+      totalSpecial += extractSpecialServiceHours(r.remarks);
 
       html += '<tr>';
       html += '<td class="s21-month">' + moLabel + '</td>';
@@ -3664,13 +3686,14 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
   // 合計・平均行（0 のときは空白で表示）
   const fmtZero = v => (v > 0 ? v : '');
   const fmtAvg = (sum, cnt) => (cnt && sum > 0 ? (sum / cnt).toFixed(1) : '');
+  const totalSpecialRounded = Math.round(totalSpecial * 10) / 10;
   html += '<tr class="s21-total-row">';
   html += '<td class="s21-month">合計</td>';
   html += '<td class="s21-cell">' + fmtZero(participationCount) + '</td>';
   html += '<td class="s21-cell">' + fmtZero(totalStudy) + '</td>';
   html += '<td class="s21-cell"></td>';
   html += '<td class="s21-cell">' + fmtZero(totalHours) + '</td>';
-  html += '<td class="s21-cell"></td>';
+  html += '<td class="s21-cell">' + (totalSpecialRounded > 0 ? totalSpecialRounded : '') + '</td>';
   html += '</tr>';
   html += '<tr class="s21-avg-row">';
   html += '<td class="s21-month">平均</td>';
