@@ -903,10 +903,13 @@ const HOME_MENU_ITEMS = [
   { key: 'soshiki', label: '組織',     group: 'その他', selector: '[data-page="soshiki"]' },
   { key: 'gyoji',   label: 'イベント', group: 'その他', selector: '[data-page="gyoji"]' },
   // 情報
-  { key: 'jouhou',          label: '情報（親メニュー）',   group: '情報', selector: '#home-acc-jouhou' },
-  { key: 'jouhou-card',     label: '伝道者カード',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-card"]' },
-  { key: 'jouhou-contact',  label: '会衆登録情報',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-contact"]' },
-  { key: 'jouhou-renraku',  label: '連絡先情報',           group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-renraku"]' },
+  { key: 'jouhou',              label: '情報（親メニュー）',                       group: '情報', selector: '#home-acc-jouhou' },
+  { key: 'jouhou-card',         label: '伝道者カード',                             group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-card"]' },
+  { key: 'jouhou-contact',      label: '会衆登録情報',                             group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-contact"]' },
+  { key: 'jouhou-renraku',      label: '連絡先情報',                               group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-renraku"]' },
+  { key: 'jouhou-form-results', label: 'フォーム提出結果（親）',                   group: '情報', selector: '#home-acc-form-results' },
+  { key: 'form-results-pw',     label: 'フォーム提出結果: 公共エリア伝道',         group: '情報', selector: '#home-acc-jouhou [data-page="form-results-pw"]' },
+  { key: 'form-results-sr',     label: 'フォーム提出結果: 奉仕報告',               group: '情報', selector: '#home-acc-jouhou [data-page="form-results-sr"]' },
   { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
   { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
   { key: 'admin',   label: '管理画面（要 ADMIN 権限）', group: 'その他', selector: '#menu-admin' },
@@ -918,10 +921,11 @@ const HOME_MENU_ITEMS = [
   { key: 'admin-s13',             label: 'S-13 作成',                  group: '管理画面: 宣教',  selector: '#admin-manage-s13' },
 
   // 管理画面 サブ項目 — 集会
-  { key: 'admin-announcements',   label: '発表（編集）',               group: '管理画面: 集会',  selector: '#admin-manage-announcements' },
-  { key: 'admin-mwb-hub',         label: '集会予定表策定',                   group: '管理画面: 集会',  selector: '#admin-manage-mwb-hub' },
-  { key: 'admin-public-talk',     label: '公開講演予定表策定',         group: '管理画面: 集会',  selector: '#admin-manage-public-talk' },
-  { key: 'admin-s99',             label: 'S-99 講演一覧',              group: '管理画面: 集会',  selector: '#admin-manage-s99' },
+  { key: 'admin-announcements',       label: '発表（編集）',               group: '管理画面: 集会',  selector: '#admin-manage-announcements' },
+  { key: 'admin-mwb-hub',             label: '集会予定表策定',             group: '管理画面: 集会',  selector: '#admin-manage-mwb-hub' },
+  { key: 'admin-assignment-history',  label: '担当者割当履歴',             group: '管理画面: 集会',  selector: '#admin-manage-assignment-history' },
+  { key: 'admin-public-talk',         label: '公開講演予定表策定',         group: '管理画面: 集会',  selector: '#admin-manage-public-talk' },
+  { key: 'admin-s99',                 label: 'S-99 講演一覧',              group: '管理画面: 集会',  selector: '#admin-manage-s99' },
 
   // 管理画面 サブ項目 — 部門
   { key: 'admin-dept-annai',      label: '案内 取決め表',              group: '管理画面: 部門',  selector: '#admin-manage-dept-annai' },
@@ -958,10 +962,11 @@ const HOME_KEY_TO_FEATURE_IDS = {
   'admin-field-service':   ['管理画面: 宣教/野外奉仕取決表策定'],
   'admin-s13':             ['管理画面: 宣教/S-13 作成'],
   // 管理画面: 集会
-  'admin-announcements':   ['管理画面: 集会/発表'],
-  'admin-mwb-hub':         ['管理画面: 集会/プログラム表作成', '管理画面: 集会/担当者策定', '管理画面: 集会/S-89 作成', '管理画面: 集会/生徒管理'],
-  'admin-public-talk':     ['管理画面: 集会/公開講演予定表策定'],
-  'admin-s99':             ['管理画面: 集会/S-99 講演一覧'],
+  'admin-announcements':      ['管理画面: 集会/発表'],
+  'admin-mwb-hub':            ['管理画面: 集会/プログラム表作成', '管理画面: 集会/担当者策定', '管理画面: 集会/S-89 作成', '管理画面: 集会/生徒管理'],
+  'admin-assignment-history': ['管理画面: 集会/担当者割当履歴'],
+  'admin-public-talk':        ['管理画面: 集会/公開講演予定表策定'],
+  'admin-s99':                ['管理画面: 集会/S-99 講演一覧'],
   // 管理画面: 部門
   'admin-dept-annai':      ['管理画面: 部門/案内 取決め表'],
   'admin-dept-avs':        ['管理画面: 部門/AVS 取決め表'],
@@ -978,10 +983,13 @@ const HOME_KEY_TO_FEATURE_IDS = {
   'admin-attendance-monthly':  ['管理画面: 会衆/出席者数月次集計'],
   // 管理画面: 唐木田PORTAL
   'admin-member-edit':           ['管理画面: 唐木田PORTAL/グループ成員編集'],
-  'admin-family-groups':         ['管理画面: 唐木田PORTAL/グループ成員編集'], // 同枠扱い
+  'admin-family-groups':         ['管理画面: 唐木田PORTAL/家族グループ管理'],
   'admin-access-log':            ['管理画面: 唐木田PORTAL/アクセスログ'],
   'admin-config':                ['管理画面: 唐木田PORTAL/会衆設定'],
   'admin-permission-simulator':  ['管理画面: 唐木田PORTAL/権限シミュレーター'],
+  // 情報 > フォーム提出結果
+  'form-results-pw':             ['情報ページ/フォーム提出結果（公共エリア伝道）'],
+  'form-results-sr':             ['情報ページ/フォーム提出結果（奉仕報告）'],
 };
 
 // 現在のユーザの属性キーを収集（permissionRules 評価用）
@@ -8603,9 +8611,11 @@ const PSIM_FEATURES = [
     { label: '講演希望番号', when: f => f.isElder, hint: '要 長老' },
   ]},
   { group: '情報ページ', items: [
-    { label: '会衆登録情報', when: f => true },
-    { label: '連絡先情報',   when: f => true },
-    { label: '伝道者カード', when: f => true },
+    { label: '伝道者カード',                       when: f => true },
+    { label: '会衆登録情報',                       when: f => true },
+    { label: '連絡先情報',                         when: f => true },
+    { label: 'フォーム提出結果（公共エリア伝道）', when: f => true },
+    { label: 'フォーム提出結果（奉仕報告）',       when: f => true },
   ]},
   { group: '管理画面（全体）', items: [
     { label: '管理画面に入る権限', when: f => f.isAdmin, hint: '要 WEB' },
@@ -8622,6 +8632,7 @@ const PSIM_FEATURES = [
     { label: '担当者策定',      when: f => true },
     { label: 'S-89 作成',       when: f => true },
     { label: '生徒管理',        when: f => true },
+    { label: '担当者割当履歴',  when: f => true },
     { label: '公開講演予定表策定', when: f => true },
     { label: 'S-99 講演一覧',   when: f => true },
   ]},
@@ -8643,6 +8654,7 @@ const PSIM_FEATURES = [
   ]},
   { group: '管理画面: 唐木田PORTAL', cond: f => f.isAdmin && f.isPortalAdmin, items: [
     { label: 'グループ成員編集',  when: f => f.isPortalAdmin, hint: '要 ADMIN' },
+    { label: '家族グループ管理',  when: f => f.isPortalAdmin, hint: '要 ADMIN' },
     { label: 'アクセスログ',      when: f => f.isPortalAdmin, hint: '要 ADMIN' },
     { label: '会衆設定',          when: f => f.isPortalAdmin, hint: '要 ADMIN' },
     { label: '権限シミュレーター', when: f => f.isPortalAdmin, hint: '要 ADMIN' },
