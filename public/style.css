@@ -3510,6 +3510,13 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .home-accordion .home-acc-item:hover {
   background: #eaf4fb;
 }
+/* ネストアコーディオン（フォーム提出結果） */
+.home-accordion.open .home-acc-body { max-height: 600px; }
+.home-acc-nested.home-accordion { background: #f7fbfe; }
+.home-acc-nested.home-accordion.open .home-acc-body { max-height: 400px; }
+.home-acc-sub-header { background: #f7fbfe; cursor: pointer; }
+.home-acc-sub-item { padding-left: 52px !important; background: #eef6fc !important; }
+.home-acc-sub-item:hover { background: #dceefa !important; }
 
 /* ── 権限シミュレーター ── */
 .psim-wrap { max-width: 900px; margin: 0 auto; }
