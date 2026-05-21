@@ -1032,6 +1032,42 @@ const HOME_MENU_ITEMS = [
 // admin-mwb-hub は集会予定表策定にまとまっているが、PSIM 側ではプログラム表作成
 // / 担当者策定 / S-89 作成 など複数項目に分かれている。いずれかが許可されたら表示。
 const HOME_KEY_TO_FEATURE_IDS = {
+  // ホーム上位タイル
+  'hatsuhy': ['ホーム画面（上位タイル）/発表'],
+  'senkyo':  ['ホーム画面（上位タイル）/宣教'],
+  'shukai':  ['ホーム画面（上位タイル）/集会'],
+  'shinsei': ['ホーム画面（上位タイル）/フォーム'],
+  'soshiki': ['ホーム画面（上位タイル）/組織'],
+  'gyoji':   ['ホーム画面（上位タイル）/イベント'],
+  'jouhou':  ['ホーム画面（上位タイル）/情報'],
+  'keikaku': ['ホーム画面（上位タイル）/計画'],
+  'saigai':  ['ホーム画面（上位タイル）/災害対応'],
+  // ホーム > 宣教アコーディオン
+  'senkyo-mycard':   ['ホーム > 宣教アコーディオン/個人の区域カード'],
+  'senkyo-all':      ['ホーム > 宣教アコーディオン/全ての区域カード'],
+  'senkyo-autolock': ['ホーム > 宣教アコーディオン/オートロック区域'],
+  'senkyo-night':    ['ホーム > 宣教アコーディオン/夜間区域'],
+  'senkyo-field':    ['ホーム > 宣教アコーディオン/野外奉仕取決表'],
+  'senkyo-public':   ['ホーム > 宣教アコーディオン/公共エリア伝道'],
+  // ホーム > 集会アコーディオン
+  'shukai-public-talk': ['ホーム > 集会アコーディオン/公開講演（週末の集会）'],
+  'shukai-midweek':     ['ホーム > 集会アコーディオン/週中の集会'],
+  'shukai-cleaning':    ['ホーム > 集会アコーディオン/王国会館の清掃'],
+  // ホーム > 部門アコーディオン
+  'bumon-annai':      ['ホーム > 部門アコーディオン/案内部門'],
+  'bumon-avs':        ['ホーム > 部門アコーディオン/AVS部門'],
+  'bumon-parking':    ['ホーム > 部門アコーディオン/駐車場部門'],
+  'bumon-literature': ['ホーム > 部門アコーディオン/文書部門'],
+  // ホーム > フォームアコーディオン
+  'shinsei-pw-apply':        ['ホーム > フォームアコーディオン/公共エリア伝道申込み'],
+  'shinsei-service-report':  ['ホーム > フォームアコーディオン/奉仕報告'],
+  'shinsei-area-info':       ['ホーム > フォームアコーディオン/区域情報登録'],
+  'shinsei-member-info':     ['ホーム > フォームアコーディオン/成員情報登録'],
+  'shinsei-attendance-form': ['ホーム > フォームアコーディオン/出席人数登録'],
+  // 情報ページ サブ項目
+  'jouhou-card':    ['情報ページ/伝道者カード'],
+  'jouhou-contact': ['情報ページ/会衆登録情報'],
+  'jouhou-renraku': ['情報ページ/連絡先情報'],
   // ホーム > 管理画面エントリー
   'admin': ['管理画面（全体）/管理画面に入る権限'],
   // 管理画面: 宣教
@@ -1105,13 +1141,15 @@ async function _getPermittedFeatureIds(userData) {
   const rules = cfg.permissionRules || {};
   const keys = _collectUserAttrKeys(userData || window._currentUserData);
   const userSet = new Set(), adminSet = new Set();
+  let hasAnyRule = false;
   keys.forEach(k => {
     const r = rules[k];
     if (!r) return;
+    hasAnyRule = true;
     (r.user || []).forEach(id => userSet.add(id));
     (r.admin || []).forEach(id => adminSet.add(id));
   });
-  return { user: userSet, admin: adminSet };
+  return { user: userSet, admin: adminSet, hasAnyRule };
 }
 
 async function applyHomeMenuVisibility() {
@@ -1119,13 +1157,15 @@ async function applyHomeMenuVisibility() {
   const vis = cfg.homeMenuVisibility || {};
   const permitted = await _getPermittedFeatureIds(window._currentUserData);
   // 1) 各メニュー項目を非表示/表示
+  // permissionRules によるゲート:
+  //   - 該当ユーザーが持つ属性に 1 件でもルールが定義されている (hasAnyRule) 場合のみ厳密適用
+  //   - ルールが一切無いユーザーは安全側でフォールバック (homeMenuVisibility のみで判定)
   HOME_MENU_ITEMS.forEach(item => {
     let show = vis[item.key] !== false;
-    // 管理画面サブ項目 (admin-* キー) は permissionRules でも追加ゲート:
-    //   isAdmin (WEB) または該当機能 ID が許可セットに含まれる場合のみ表示
-    if (show && HOME_KEY_TO_FEATURE_IDS[item.key]) {
+    if (show && permitted.hasAnyRule && HOME_KEY_TO_FEATURE_IDS[item.key]) {
       const featureIds = HOME_KEY_TO_FEATURE_IDS[item.key];
-      const allowedByRule = featureIds.some(id => permitted.admin.has(id));
+      const allowedByRule = featureIds.some(id =>
+        permitted.admin.has(id) || permitted.user.has(id));
       show = isAdmin || allowedByRule;
     }
     document.querySelectorAll(item.selector).forEach(el => {
