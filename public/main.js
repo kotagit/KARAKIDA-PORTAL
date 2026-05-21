@@ -2395,7 +2395,15 @@ async function loadJouhouRenraku() {
       if (rec.phone)     h += '<div class="renraku-detail"><span class="material-icons">smartphone</span><a href="tel:' + esc(rec.phone) + '">' + esc(rec.phone) + '</a></div>';
       if (rec.homePhone) h += '<div class="renraku-detail"><span class="material-icons">phone</span><a href="tel:' + esc(rec.homePhone) + '">' + esc(rec.homePhone) + '</a></div>';
       if (rec.mail)      h += '<div class="renraku-detail"><span class="material-icons">mail</span><a href="mailto:' + esc(rec.mail) + '">' + esc(rec.mail) + '</a></div>';
-      if (rec.address)   h += '<div class="renraku-detail"><span class="material-icons">home</span>' + esc(rec.address) + '</div>';
+      if (rec.address) {
+        const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(rec.address);
+        h += '<div class="renraku-detail">' +
+          '<span class="material-icons">home</span>' +
+          '<span class="renraku-address">' + esc(rec.address) + '</span>' +
+          '<a class="renraku-map-link" href="' + esc(mapUrl) + '" target="_blank" rel="noopener" title="Google Mapで開く">' +
+          '<span class="material-icons">map</span></a>' +
+          '</div>';
+      }
       h += '</div>';
       return h;
     }
