@@ -2505,15 +2505,16 @@ async function loadFormResultsPW() {
   const view = document.getElementById('form-results-pw-view');
   if (!view) return;
   view.innerHTML = '<div class="loading">読み込み中...</div>';
+  const NOTICE_HTML = '<div class="frh-notice">※これは申込履歴です。最終的な取決めへの参加可否は取決め策定者が決定します。</div>';
   try {
     const snap = await db.collection('PUBLIC_WITNESSING').get();
     const items = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
     items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
     if (items.length === 0) {
-      view.innerHTML = '<div class="empty-state"><span class="material-icons">inbox</span>提出履歴がありません</div>';
+      view.innerHTML = NOTICE_HTML + '<div class="empty-state"><span class="material-icons">inbox</span>提出履歴がありません</div>';
       return;
     }
-    let html = `<div class="frh-count">${items.length}件</div><div class="frh-list">`;
+    let html = NOTICE_HTML + `<div class="frh-count">${items.length}件</div><div class="frh-list">`;
     items.forEach(d => {
       const ts = d.timestamp?.toDate ? d.timestamp.toDate() : null;
       const tsStr = ts ? `${ts.getFullYear()}/${String(ts.getMonth()+1).padStart(2,'0')}/${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
