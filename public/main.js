@@ -527,6 +527,15 @@ document.querySelectorAll('[data-page]').forEach(item => {
   });
 });
 
+// ネストアコーディオン（情報 > フォーム提出結果）
+['form-results'].forEach(key => {
+  const hdr = document.getElementById(`home-acc-${key}-header`);
+  if (hdr) hdr.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById(`home-acc-${key}`)?.classList.toggle('open');
+  });
+});
+
 // フォームアコーディオン：固定項目 + Firestore動的リンク
 let _homeShinseiLoaded = false;
 async function loadHomeShinseiLinks() {
