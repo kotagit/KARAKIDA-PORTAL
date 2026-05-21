@@ -4007,7 +4007,7 @@ function renderReportCheck() {
             activity = '⚠ ' + activity;
           }
         } else if (r.hours != null) {
-          activity = String(r.hours);
+          activity = Number(r.hours) > 0 ? String(r.hours) : '';
         }
         // ステータスバッジ + 承認待ちなら承認ボタン
         let statusCell = '';
@@ -4024,7 +4024,7 @@ function renderReportCheck() {
         html += '<td>' + nameCell + '</td>';
         html += '<td class="rpt-cell-sm">' + esc(r.role) + '</td>';
         html += '<td class="' + activityCls + '">' + esc(activity) + '</td>';
-        html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null ? r.bibleStudy : '-') + '</td>';
+        html += '<td class="rpt-cell-sm">' + (r.bibleStudy != null && Number(r.bibleStudy) > 0 ? r.bibleStudy : '') + '</td>';
         html += '<td>' + statusCell + '</td>';
         html += '</tr>';
         if (r.remarks) {
