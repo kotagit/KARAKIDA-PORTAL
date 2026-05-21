@@ -3533,10 +3533,12 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .me-orgrole-fields .me-or-parent  { flex: 1; min-width: 100px; }
 
 /* ── ホームメニューのアコーディオン ── */
-.home-accordion .home-acc-chevron {
+.home-accordion > .home-acc-header .home-acc-chevron,
+.home-accordion > .home-acc-sub-header .home-acc-chevron {
   transition: transform 0.2s;
 }
-.home-accordion.open .home-acc-chevron {
+.home-accordion.open > .home-acc-header .home-acc-chevron,
+.home-accordion.open > .home-acc-sub-header .home-acc-chevron {
   transform: rotate(180deg);
 }
 .home-accordion > .home-acc-body {
