@@ -3533,11 +3533,14 @@ function renderPioneerGoalWidget(reportMap) {
   const GOAL = 600;
 
   // 当年度の hours 合計 + 備考の特別な奉仕時間
+  // 経過月数は実際に報告がある月数で計算
   let hoursSum = 0;
   let specialSum = 0;
+  let reportedMonths = 0;
   SERVICE_YEAR_MONTHS.forEach(mo => {
     const r = reportMap && reportMap[mo];
     if (!r) return;
+    reportedMonths++;
     if (r.hours != null) {
       const h = Number(r.hours);
       if (!isNaN(h)) hoursSum += h;
@@ -3546,14 +3549,8 @@ function renderPioneerGoalWidget(reportMap) {
   });
   let achieved = Math.round((hoursSum + specialSum) * 10) / 10;
 
-  // 経過月数 (現在月時点で完了済みの奉仕月数)
-  // 9月開始 = 1ヶ月経過, 翌8月末 = 12ヶ月経過
-  const now = new Date();
-  const m0 = now.getMonth(); // 0=Jan ... 8=Sep ... 11=Dec
-  let elapsed;
-  if (m0 >= 8) elapsed = m0 - 7;        // 9月→1, 10月→2, 11月→3, 12月→4
-  else elapsed = m0 + 5;                // 1月→5, 2月→6, ... 8月→12
-  elapsed = Math.min(12, Math.max(0, elapsed));
+  // 経過月数 = 報告済み月数 (例: 9月〜4月の報告がある場合は 8 ヶ月)
+  const elapsed = Math.min(12, reportedMonths);
 
   const isDone = achieved >= GOAL;
   const remaining = Math.max(0, GOAL - achieved);
