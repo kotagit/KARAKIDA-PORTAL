@@ -72,6 +72,7 @@ const PAGE_TITLES = {
   senkyo: '宣教', shukai: '集会', shinsei: 'フォーム',
   soshiki: '組織', gyoji: '行事', saigai: '災害対応',
   jouhou: '情報', 'jouhou-contact': '会衆登録情報', 'jouhou-renraku': '連絡先情報', 'jouhou-card': '伝道者カード',
+  'form-results-pw': '公共エリア伝道 提出履歴', 'form-results-sr': '奉仕報告 提出履歴',
   admin: '管理画面', 'admin-announcements': '発表管理',
   'member-info': '成員情報登録',
   'area-info': '区域情報登録',
@@ -407,6 +408,8 @@ function navigate(page, pushHistory) {
   if (page === 'jouhou-contact')        loadJouhouContact();
   if (page === 'jouhou-renraku')       loadJouhouRenraku();
   if (page === 'jouhou-card')           loadJouhouCard();
+  if (page === 'form-results-pw')       loadFormResultsPW();
+  if (page === 'form-results-sr')       loadFormResultsSR();
   if (page === 'admin-announcements') loadAdminAnnouncements();
   if (page === 'member-info')           loadMemberInfoForm();
   if (page === 'area-info')             initAreaInfoForm();
@@ -2490,6 +2493,98 @@ async function loadJouhouContact() {
       });
     }
 
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+// ── 情報：フォーム提出結果 ────────────────────────────
+async function loadFormResultsPW() {
+  const view = document.getElementById('form-results-pw-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const snap = await db.collection('PUBLIC_WITNESSING').get();
+    const items = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+    if (items.length === 0) {
+      view.innerHTML = '<div class="empty-state"><span class="material-icons">inbox</span>提出履歴がありません</div>';
+      return;
+    }
+    let html = `<div class="frh-count">${items.length}件</div><div class="frh-list">`;
+    items.forEach(d => {
+      const ts = d.timestamp?.toDate ? d.timestamp.toDate() : null;
+      const tsStr = ts ? `${ts.getFullYear()}/${String(ts.getMonth()+1).padStart(2,'0')}/${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
+      const manual = d.manual ? '<span class="frh-badge frh-badge-manual">手動追加</span>' : '';
+      html += `<div class="frh-card">
+        <div class="frh-card-top">
+          <span class="frh-name">${esc(d.name || '不明')}</span>
+          ${manual}
+          <span class="frh-ts">${esc(tsStr)}</span>
+        </div>
+        <div class="frh-card-body">
+          <span class="frh-pill">${esc(d.day || '')}(${esc(d.dayofweek || '')}) ${esc(d.starttime || '')}</span>
+          ${d.role ? `<span class="frh-pill frh-pill-role">${esc(d.role)}</span>` : ''}
+          ${d.preferredLocation ? `<span class="frh-pill frh-pill-loc">${esc(d.preferredLocation)}</span>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    view.innerHTML = html;
+  } catch (err) {
+    view.innerHTML = '<div class="empty-state">読み込みエラー: ' + esc(err.message) + '</div>';
+  }
+}
+
+async function loadFormResultsSR() {
+  const view = document.getElementById('form-results-sr-view');
+  if (!view) return;
+  view.innerHTML = '<div class="loading">読み込み中...</div>';
+  try {
+    const [approvedSnap, draftSnap] = await Promise.all([
+      db.collection('PREACHING_REPORT').get(),
+      db.collection('PREACHING_REPORT_DRAFTS').get(),
+    ]);
+    const items = [];
+    approvedSnap.forEach(d => items.push({ docId: d.id, status: 'approved', ...d.data() }));
+    draftSnap.forEach(d => items.push({ docId: d.id, status: 'pending', ...d.data() }));
+    items.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+    if (items.length === 0) {
+      view.innerHTML = '<div class="empty-state"><span class="material-icons">inbox</span>提出履歴がありません</div>';
+      return;
+    }
+    let html = `<div class="frh-count">${items.length}件（承認待ち含む）</div><div class="frh-list">`;
+    items.forEach(d => {
+      const ts = d.timestamp?.toDate ? d.timestamp.toDate() : null;
+      const tsStr = ts ? `${ts.getFullYear()}/${String(ts.getMonth()+1).padStart(2,'0')}/${String(ts.getDate()).padStart(2,'0')} ${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
+      const statusBadge = d.status === 'approved'
+        ? '<span class="frh-badge frh-badge-approved">提出済</span>'
+        : '<span class="frh-badge frh-badge-pending">承認待ち</span>';
+      const proxy = d.submittedBy ? `<span class="frh-proxy">代理: ${esc(d.submittedBy)}</span>` : '';
+      const isEv = d.role === '伝道者';
+      const activity = isEv ? `参加: ${esc(d.participation || '-')}` : `${d.hours || 0}時間`;
+      const special = d.specialService
+        ? `<span class="frh-pill frh-pill-special">${esc(d.specialService === 'その他' ? `その他（${d.specialServiceOther || ''}）` : d.specialService)}${d.specialHours ? ` ${d.specialHours}h` : ''}</span>`
+        : '';
+      html += `<div class="frh-card">
+        <div class="frh-card-top">
+          <span class="frh-name">${esc(d.name || '不明')}</span>
+          ${statusBadge}
+          ${proxy}
+          <span class="frh-ts">${esc(tsStr)}</span>
+        </div>
+        <div class="frh-card-body">
+          <span class="frh-pill">${esc(d.year || '')}年${esc(d.month || '')}月</span>
+          <span class="frh-pill frh-pill-role">${esc(d.role || '')}</span>
+          <span class="frh-pill">${esc(activity)}</span>
+          <span class="frh-pill">研究: ${d.bibleStudy ?? 0}</span>
+          ${special}
+        </div>
+        ${d.remarks ? `<div class="frh-remarks">${esc(d.remarks)}</div>` : ''}
+      </div>`;
+    });
     html += '</div>';
     view.innerHTML = html;
   } catch (err) {
