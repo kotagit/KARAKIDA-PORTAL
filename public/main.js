@@ -982,9 +982,9 @@ const HOME_MENU_ITEMS = [
   { key: 'gyoji',   label: 'イベント', group: 'その他', selector: '[data-page="gyoji"]' },
   // 情報
   { key: 'jouhou',          label: '情報（親メニュー）',   group: '情報', selector: '#home-acc-jouhou' },
+  { key: 'jouhou-card',     label: '伝道者カード',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-card"]' },
   { key: 'jouhou-contact',  label: '会衆登録情報',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-contact"]' },
   { key: 'jouhou-renraku',  label: '連絡先情報',           group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-renraku"]' },
-  { key: 'jouhou-card',     label: '伝道者カード',         group: '情報', selector: '#home-acc-jouhou [data-page="jouhou-card"]' },
   { key: 'keikaku', label: '計画',     group: 'その他', selector: '[data-page="keikaku"]' },
   { key: 'saigai',  label: '災害対応', group: 'その他', selector: '[data-page="saigai"]' },
   { key: 'admin',   label: '管理画面（要 ADMIN 権限）', group: 'その他', selector: '#menu-admin' },
