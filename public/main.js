@@ -365,7 +365,8 @@ function navigate(page, pushHistory) {
   } else if (page === 'member-info' || page === 'area-info' || page === 'service-report' || page === 'pw-apply' || page === 'attendance-form') {
     backBtn._backTarget = (_prevPage === 'home') ? 'home' : 'shinsei';
   } else if (page.startsWith('admin-')) {
-    const assignSubs = ['admin-assignment-history','admin-assignment-week'];
+    // 担当者割当履歴は管理画面トップから直接アクセスするようになったので admin に戻す
+    const assignSubs = ['admin-assignment-week'];
     const programSubs = ['admin-schedule-editor'];
     const mwbHubChildren = ['admin-program','admin-assignment','admin-assignment-review','admin-s89'];
     if (assignSubs.includes(page)) {
