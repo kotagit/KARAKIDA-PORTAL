@@ -3557,8 +3557,9 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
     if (r) {
       const partIcon = r.participation === 'はい' ? '✓' : (r.participation === 'いいえ' ? '✗' : '-');
       const partClass = r.participation === 'はい' ? 's21-yes' : (r.participation === 'いいえ' ? 's21-no' : '');
-      const study = r.bibleStudy != null ? r.bibleStudy : '-';
-      const hours = r.hours != null ? r.hours : '-';
+      // 0 や空は空白扱い、それ以外は数値を表示
+      const study = (r.bibleStudy != null && Number(r.bibleStudy) > 0) ? r.bibleStudy : '';
+      const hours = (r.hours != null && Number(r.hours) > 0) ? r.hours : '';
       const aux = r.auxiliary || r.role || '';
       const isAux = aux.includes('補助');
 
@@ -3584,21 +3585,23 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
     }
   });
 
-  // 合計・平均行
+  // 合計・平均行（0 のときは空白で表示）
+  const fmtZero = v => (v > 0 ? v : '');
+  const fmtAvg = (sum, cnt) => (cnt && sum > 0 ? (sum / cnt).toFixed(1) : '');
   html += '<tr class="s21-total-row">';
   html += '<td class="s21-month">合計</td>';
-  html += '<td class="s21-cell">' + participationCount + '</td>';
-  html += '<td class="s21-cell">' + totalStudy + '</td>';
+  html += '<td class="s21-cell">' + fmtZero(participationCount) + '</td>';
+  html += '<td class="s21-cell">' + fmtZero(totalStudy) + '</td>';
   html += '<td class="s21-cell"></td>';
-  html += '<td class="s21-cell">' + totalHours + '</td>';
+  html += '<td class="s21-cell">' + fmtZero(totalHours) + '</td>';
   html += '<td class="s21-cell"></td>';
   html += '</tr>';
   html += '<tr class="s21-avg-row">';
   html += '<td class="s21-month">平均</td>';
   html += '<td class="s21-cell"></td>';
-  html += '<td class="s21-cell">' + (countStudy ? (totalStudy / countStudy).toFixed(1) : '-') + '</td>';
+  html += '<td class="s21-cell">' + fmtAvg(totalStudy, countStudy) + '</td>';
   html += '<td class="s21-cell"></td>';
-  html += '<td class="s21-cell">' + (countHours ? (totalHours / countHours).toFixed(1) : '-') + '</td>';
+  html += '<td class="s21-cell">' + fmtAvg(totalHours, countHours) + '</td>';
   html += '<td class="s21-cell"></td>';
   html += '</tr>';
 
