@@ -877,6 +877,35 @@ body {
   border-bottom: 1px solid var(--border); margin-bottom: 4px;
 }
 
+/* コード別 担当回数バーチャート */
+.ahc-section {
+  background: white; border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: 12px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.ahc-section-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: #f0f7fc; border-bottom: 1px solid #e1ecf5;
+}
+.ahc-code {
+  font-weight: 800; color: var(--primary-dark); font-size: 14px;
+  background: white; border: 1px solid var(--primary); border-radius: 6px;
+  padding: 2px 8px; min-width: 38px; text-align: center;
+}
+.ahc-label { font-size: 13px; color: var(--text); font-weight: 600; }
+.ahc-total { font-size: 12px; color: var(--text-light); margin-left: auto; }
+.ahc-rows { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ahc-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.ahc-name { width: 100px; flex-shrink: 0; font-weight: 600; color: var(--text); }
+.ahc-bar-wrap {
+  flex: 1; height: 14px; background: #eef3f7; border-radius: 7px; overflow: hidden;
+}
+.ahc-bar {
+  height: 100%; background: linear-gradient(90deg, var(--primary), #1e96d8);
+  border-radius: 7px;
+}
+.ahc-count { width: 36px; text-align: right; font-weight: 700; color: var(--primary-dark); }
+
 .aw-back-btn {
   background: rgba(255,255,255,0.2); border: none; border-radius: 50%;
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;

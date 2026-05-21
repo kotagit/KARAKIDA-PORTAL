@@ -758,15 +758,72 @@ const AW_ELDER_MS_CODES = new Set(['A','B','C','D','E','F','G','Q','R','S','T','
 async function initHistoryPage() {
   const elderList   = document.getElementById('assignment-elder-list');
   const historyList = document.getElementById('assignment-history-list');
+  const byCodeList  = document.getElementById('assignment-by-code-list');
   if (elderList)   elderList.innerHTML   = '<div class="loading">読み込み中...</div>';
   if (historyList) historyList.innerHTML = '<div class="loading">読み込み中...</div>';
+  if (byCodeList)  byCodeList.innerHTML  = '<div class="loading">読み込み中...</div>';
   try {
     await Promise.all([awInitMeetingDay(), awLoadCodes(), awLoadHistoryWeeks()]);
+    awRenderHistoryByCode();
     awRenderElderList();
     awRenderHistoryList();
   } catch(e) {
     if (elderList) elderList.innerHTML = '<div class="loading">エラー: ' + esc(e.message) + '</div>';
   }
+}
+
+// コード別 担当回数バーチャート（直近1年）
+function awRenderHistoryByCode() {
+  const container = document.getElementById('assignment-by-code-list');
+  if (!container) return;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
+  const cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth()+1).padStart(2,'0') + '-' + String(cutoff.getDate()).padStart(2,'0');
+
+  // code → memberName → count
+  const byCode = {};
+  awHistoryWeeks.forEach(({ date, records }) => {
+    if (date < cutoffStr) return; // 1年より前は除外
+    records.forEach(({ memberName, code }) => {
+      if (!code || !memberName) return;
+      if (!byCode[code]) byCode[code] = {};
+      byCode[code][memberName] = (byCode[code][memberName] || 0) + 1;
+    });
+  });
+
+  const codes = Object.keys(byCode).sort((a, b) => a.localeCompare(b));
+  if (codes.length === 0) {
+    container.innerHTML = '<div class="empty-state">直近1年の履歴がありません</div>';
+    return;
+  }
+
+  let html = '';
+  codes.forEach(code => {
+    const members = Object.entries(byCode[code])
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+    const total = members.reduce((s, m) => s + m.count, 0);
+    const maxCount = members[0]?.count || 1;
+    const base = awGetBase(code);
+    const label = awCodes[code] || awCodes[base] || '';
+    html += `<div class="ahc-section">
+      <div class="ahc-section-header">
+        <span class="ahc-code">${esc(code)}</span>
+        ${label ? `<span class="ahc-label">${esc(label)}</span>` : ''}
+        <span class="ahc-total">計 ${total} 件</span>
+      </div>
+      <div class="ahc-rows">`;
+    members.forEach(m => {
+      const pct = Math.round((m.count / maxCount) * 100);
+      html += `<div class="ahc-row">
+        <span class="ahc-name">${esc(m.name)}</span>
+        <div class="ahc-bar-wrap"><div class="ahc-bar" style="width:${pct}%"></div></div>
+        <span class="ahc-count">${m.count}</span>
+      </div>`;
+    });
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
 }
 
 function awRenderElderList() {
