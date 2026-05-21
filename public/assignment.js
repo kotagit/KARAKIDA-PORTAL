@@ -72,7 +72,21 @@ async function awLoadMembers() {
       else if (isMs) position = '援助奉仕者';
       else if (data.gender === '男') position = '生徒男';
       else if (data.gender === '女') position = '生徒女';
-      return { ...data, status: arr, position, _isInactive: arr.includes('inactive') };
+      // eligibleCodes は string/array 混在の可能性があるので必ず配列に正規化
+      let ec = data.eligibleCodes;
+      if (Array.isArray(ec)) {
+        // ok
+      } else if (typeof ec === 'string' && ec) {
+        try {
+          const parsed = JSON.parse(ec);
+          ec = Array.isArray(parsed) ? parsed : ec.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+        } catch(_) {
+          ec = ec.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+        }
+      } else {
+        ec = [];
+      }
+      return { ...data, status: arr, position, eligibleCodes: ec, _isInactive: arr.includes('inactive') };
     })
     .filter(m => !m._isInactive && m.name);
   awMembers.sort((a,b) => (a.furigana||a.name||'').localeCompare(b.furigana||b.name||'', 'ja'));
@@ -772,10 +786,11 @@ async function initHistoryPage() {
   }
 }
 
-// コード別 担当回数バーチャート（直近1年・コード選択式）
-let _ahcSelectedCode = null;
-let _ahcByCode = {};
-let _ahcCodes  = [];
+// コード別 担当回数バーチャート（直近1年・base コード選択式）
+// H_2 / H_3 のような suffix 付きコードは base 'H' に集約してカウントする。
+let _ahcSelectedBase = null;
+let _ahcByBase = {};
+let _ahcBases  = [];
 
 function awRenderHistoryByCode() {
   const container = document.getElementById('assignment-by-code-list');
@@ -784,35 +799,37 @@ function awRenderHistoryByCode() {
   cutoff.setFullYear(cutoff.getFullYear() - 1);
   const cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth()+1).padStart(2,'0') + '-' + String(cutoff.getDate()).padStart(2,'0');
 
-  // 直近1年の集計: code → memberName → count
-  _ahcByCode = {};
+  // 直近1年の集計: base → memberName → count（suffix は base に合算）
+  _ahcByBase = {};
   awHistoryWeeks.forEach(({ date, records }) => {
     if (date < cutoffStr) return;
     records.forEach(({ memberName, code }) => {
       if (!code || !memberName) return;
-      if (!_ahcByCode[code]) _ahcByCode[code] = {};
-      _ahcByCode[code][memberName] = (_ahcByCode[code][memberName] || 0) + 1;
+      const base = awGetBase(code);
+      if (!_ahcByBase[base]) _ahcByBase[base] = {};
+      _ahcByBase[base][memberName] = (_ahcByBase[base][memberName] || 0) + 1;
     });
   });
 
-  // 表示対象のコード：履歴に出てきたもの ∪ awCodes（カタログ）
-  const codeSet = new Set();
-  Object.keys(_ahcByCode).forEach(c => codeSet.add(c));
-  Object.keys(awCodes || {}).forEach(c => codeSet.add(c));
-  _ahcCodes = [...codeSet].sort((a, b) => a.localeCompare(b));
+  // ボタン用 base コード集合：履歴・カタログ・全成員 eligibleCodes を統合
+  const baseSet = new Set();
+  Object.keys(_ahcByBase).forEach(b => baseSet.add(b));
+  Object.keys(awCodes || {}).forEach(c => baseSet.add(awGetBase(c)));
+  (awMembers || []).forEach(m => (m.eligibleCodes || []).forEach(c => baseSet.add(awGetBase(c))));
+  _ahcBases = [...baseSet].filter(Boolean).sort((a, b) => a.localeCompare(b));
 
-  if (_ahcCodes.length === 0) {
+  if (_ahcBases.length === 0) {
     container.innerHTML = '<div class="empty-state">表示できるコードがありません</div>';
     return;
   }
-  if (!_ahcSelectedCode || !_ahcCodes.includes(_ahcSelectedCode)) {
-    _ahcSelectedCode = _ahcCodes[0];
+  if (!_ahcSelectedBase || !_ahcBases.includes(_ahcSelectedBase)) {
+    _ahcSelectedBase = _ahcBases[0];
   }
 
   // ボタン群 + 詳細領域
-  const btnHtml = _ahcCodes.map(c => {
-    const active = c === _ahcSelectedCode ? ' ahc-btn-active' : '';
-    return `<button class="ahc-btn${active}" data-code="${esc(c)}">${esc(c)}</button>`;
+  const btnHtml = _ahcBases.map(b => {
+    const active = b === _ahcSelectedBase ? ' ahc-btn-active' : '';
+    return `<button class="ahc-btn${active}" data-base="${esc(b)}">${esc(b)}</button>`;
   }).join('');
   container.innerHTML = `
     <div class="ahc-buttons">${btnHtml}</div>
@@ -820,7 +837,7 @@ function awRenderHistoryByCode() {
   `;
   container.querySelectorAll('.ahc-btn').forEach(b => {
     b.addEventListener('click', () => {
-      _ahcSelectedCode = b.dataset.code;
+      _ahcSelectedBase = b.dataset.base;
       container.querySelectorAll('.ahc-btn').forEach(x => x.classList.remove('ahc-btn-active'));
       b.classList.add('ahc-btn-active');
       awRenderHistoryByCodeDetail();
@@ -832,10 +849,9 @@ function awRenderHistoryByCode() {
 function awRenderHistoryByCodeDetail() {
   const detail = document.getElementById('ahc-detail');
   if (!detail) return;
-  const code = _ahcSelectedCode;
-  if (!code) { detail.innerHTML = ''; return; }
-  const base = awGetBase(code);
-  const label = awCodes[code] || awCodes[base] || '';
+  const base = _ahcSelectedBase;
+  if (!base) { detail.innerHTML = ''; return; }
+  const label = awCodes[base] || '';
 
   // base コードに資格を持つ全成員
   const eligible = (awMembers || [])
@@ -843,14 +859,14 @@ function awRenderHistoryByCodeDetail() {
   if (eligible.length === 0) {
     detail.innerHTML = `<div class="ahc-section">
       <div class="ahc-section-header">
-        <span class="ahc-code">${esc(code)}</span>
+        <span class="ahc-code">${esc(base)}</span>
         ${label ? `<span class="ahc-label">${esc(label)}</span>` : ''}
       </div>
       <div class="empty-state" style="padding:16px">このコードを担当できる成員がいません</div>
     </div>`;
     return;
   }
-  const counts = _ahcByCode[code] || {};
+  const counts = _ahcByBase[base] || {};
   const rows = eligible.map(m => ({ name: m.name, count: counts[m.name] || 0 }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
   const total = rows.reduce((s, r) => s + r.count, 0);
@@ -858,7 +874,7 @@ function awRenderHistoryByCodeDetail() {
 
   let html = `<div class="ahc-section">
     <div class="ahc-section-header">
-      <span class="ahc-code">${esc(code)}</span>
+      <span class="ahc-code">${esc(base)}</span>
       ${label ? `<span class="ahc-label">${esc(label)}</span>` : ''}
       <span class="ahc-total">資格者 ${rows.length} 名 / 実績 計 ${total} 件</span>
     </div>
