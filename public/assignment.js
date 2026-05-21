@@ -27,6 +27,7 @@ let awCurrentSlots    = {};
 let awIsHistoryView   = false;
 let awEditorWeekId    = null;
 let awEditorItems     = [];
+let awEditorTopics    = {};
 function awGetMeetingDayNum() {
   return awMeetingDayCache;
 }
@@ -1987,6 +1988,7 @@ async function awOpenScheduleEditor(weekId) {
   if (!snap.exists) return;
   const data = snap.data();
   awEditorItems = JSON.parse(JSON.stringify(data.items || []));
+  awEditorTopics = data.topics ? JSON.parse(JSON.stringify(data.topics)) : {};
 
   const week = awWeeks.find(w => w.id === weekId);
   const titleEl = document.getElementById('aw-editor-title');
@@ -2091,6 +2093,7 @@ function awRenderEditorList() {
     row.querySelector('.aw-editor-min').oninput    = e => { item.minutes = e.target.value; awRenderEditorList(); };
     row.querySelector('.aw-editor-code').onchange  = e => {
       item.codes = e.target.value ? [e.target.value] : [];
+      awRenderEditorList();
     };
     row.querySelector('.aw-up').onclick = () => {
       if (idx > 0) { [awEditorItems[idx-1], awEditorItems[idx]] = [awEditorItems[idx], awEditorItems[idx-1]]; awRenderEditorList(); }
@@ -2103,6 +2106,26 @@ function awRenderEditorList() {
     };
 
     list.appendChild(row);
+
+    // T:会衆の必要 など T 系コードの行には主題入力欄を直下に追加
+    const itemCodes = item.codes || [];
+    const isTopicItem = itemCodes.some(c => awGetBase(c) === 'T')
+      || (item.title && item.title.includes('会衆で考えたいこと'));
+    if (isTopicItem) {
+      const tc = itemCodes.find(c => awGetBase(c) === 'T');
+      const topicKey = tc ? 'T' : awGetBase(itemCodes[0] || 'T');
+      const topicRow = document.createElement('div');
+      topicRow.className = 'aw-editor-topic-row';
+      topicRow.innerHTML = `
+        <label class="aw-editor-topic-label">主題</label>
+        <input class="aw-editor-topic-input" type="text"
+          placeholder="主題を入力" value="${esc(awEditorTopics[topicKey] || '')}">
+      `;
+      topicRow.querySelector('.aw-editor-topic-input').addEventListener('input', (e) => {
+        awEditorTopics[topicKey] = e.target.value;
+      });
+      list.appendChild(topicRow);
+    }
   });
 
   // 末尾挿入ボタン
@@ -2126,7 +2149,20 @@ async function awSaveEditorItems() {
     const cvVisit = !!document.getElementById('aw-editor-cvvisit')?.checked;
     const meetDate = (document.getElementById('aw-editor-meetdate')?.value || '').trim();
 
-    const update = { items: awEditorItems };
+    // 現在の items に対応する T 系コードのみ主題を残す
+    const validTopicKeys = new Set();
+    awEditorItems.forEach(it => {
+      (it.codes || []).forEach(c => {
+        if (awGetBase(c) === 'T') validTopicKeys.add('T');
+        else validTopicKeys.add(awGetBase(c));
+      });
+    });
+    const cleanTopics = {};
+    Object.entries(awEditorTopics).forEach(([k, v]) => {
+      if (validTopicKeys.has(k) && v && v.trim()) cleanTopics[k] = v;
+    });
+
+    const update = { items: awEditorItems, topics: cleanTopics };
     const FV = firebase.firestore.FieldValue;
     update.conventionType = conv ? conv : FV.delete();
     update.circuitVisit   = cvVisit ? true : FV.delete();
@@ -2137,6 +2173,7 @@ async function awSaveEditorItems() {
     const week = awWeeks.find(w => w.id === awEditorWeekId);
     if (week) {
       week.items = JSON.parse(JSON.stringify(awEditorItems));
+      week.topics = JSON.parse(JSON.stringify(cleanTopics));
       if (conv) week.conventionType = conv; else delete week.conventionType;
       if (cvVisit) week.circuitVisit = true; else delete week.circuitVisit;
       if (cvVisit && meetDate) week.customMeetDate = meetDate; else delete week.customMeetDate;
