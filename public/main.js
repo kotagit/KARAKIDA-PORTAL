@@ -3352,6 +3352,8 @@ async function loadAdminReports() {
         hope: String(data.hope || '').trim(),
         phone: String(data.phone || '').trim(),
         homePhone: String(data.homePhone || '').trim(),
+        appointment: data.appointment,
+        orgRoles: data.orgRoles,
         emergencyContacts: ec.filter(c => c && (c.name || c.phone)),
       });
     });
@@ -3514,6 +3516,71 @@ async function loadAdminReportCard() {
   }
 }
 
+// 正規開拓者向け: 今奉仕年度の目標時間(600h)進捗ウィジェット
+function renderPioneerGoalWidget(reportMap) {
+  const GOAL = 600;
+
+  // 当年度の hours 合計
+  let achieved = 0;
+  SERVICE_YEAR_MONTHS.forEach(mo => {
+    const r = reportMap && reportMap[mo];
+    if (r && r.hours != null) {
+      const h = Number(r.hours);
+      if (!isNaN(h)) achieved += h;
+    }
+  });
+  achieved = Math.round(achieved * 10) / 10;
+
+  // 経過月数 (現在月時点で完了済みの奉仕月数)
+  // 9月開始 = 1ヶ月経過, 翌8月末 = 12ヶ月経過
+  const now = new Date();
+  const m0 = now.getMonth(); // 0=Jan ... 8=Sep ... 11=Dec
+  let elapsed;
+  if (m0 >= 8) elapsed = m0 - 7;        // 9月→1, 10月→2, 11月→3, 12月→4
+  else elapsed = m0 + 5;                // 1月→5, 2月→6, ... 8月→12
+  elapsed = Math.min(12, Math.max(0, elapsed));
+
+  const isDone = achieved >= GOAL;
+  const remaining = Math.max(0, GOAL - achieved);
+  const pct = Math.min(100, Math.round((achieved / GOAL) * 100));
+  const expected = Math.round(GOAL * elapsed / 12);
+  const diff = Math.round((achieved - expected) * 10) / 10;
+  const remMonths = Math.max(0, 12 - elapsed);
+  const monthlyNeeded = remMonths > 0 ? (remaining / remMonths) : 0;
+
+  let barClass = 's21-goal-bar-green';
+  if (!isDone) {
+    if (diff < -GOAL * 0.1) barClass = 's21-goal-bar-red';
+    else if (diff < 0) barClass = 's21-goal-bar-yellow';
+  }
+
+  let h = '<div class="s21-goal">';
+  h += '<div class="s21-goal-head"><span class="material-icons s21-goal-icon">flag</span>今奉仕年度の目標時間</div>';
+  h += '<div class="s21-goal-main">';
+  h += '<span class="s21-goal-achieved">' + achieved + ' h</span>';
+  h += '<span class="s21-goal-total"> / ' + GOAL + ' h</span>';
+  if (isDone) {
+    h += '<span class="s21-goal-badge">目標達成 ✓</span>';
+  } else {
+    h += '<span class="s21-goal-remaining">残り ' + remaining + ' h</span>';
+  }
+  h += '</div>';
+  h += '<div class="s21-goal-bar-wrap"><div class="s21-goal-bar ' + barClass + '" style="width:' + pct + '%"></div></div>';
+  h += '<div class="s21-goal-sub">';
+  h += '経過 ' + elapsed + '/12ヶ月 ・ 想定 ' + expected + ' h';
+  if (!isDone) {
+    if (diff > 0) h += ' ・ <span class="s21-goal-ahead">+' + diff + ' h 先行</span>';
+    else if (diff < 0) h += ' ・ <span class="s21-goal-behind">' + diff + ' h 遅延</span>';
+    else if (elapsed > 0) h += ' ・ ペース通り';
+  }
+  h += '</div>';
+  if (!isDone && remMonths > 0) {
+    h += '<div class="s21-goal-sub">残り平均 ' + monthlyNeeded.toFixed(1) + ' h/月 で達成</div>';
+  }
+  h += '</div>';
+  return h;
+}
+
 function renderReportCard(member, reportMaps, years, targetViewId) {
   const view = document.getElementById(targetViewId || 'rpt-card-view');
 
@@ -3534,6 +3601,15 @@ function renderReportCard(member, reportMaps, years, targetViewId) {
   if (!Array.isArray(years)) {
     years = [years];
     reportMaps = [reportMaps];
+  }
+
+  // 正規開拓者: 今奉仕年度の目標時間 (600h) 進捗
+  if (typeof deriveIsRegularPioneer === 'function' && deriveIsRegularPioneer(member)) {
+    const currentSY = getServiceYear();
+    const curIdx = years.indexOf(currentSY);
+    if (curIdx >= 0) {
+      html += renderPioneerGoalWidget(reportMaps[curIdx]);
+    }
   }
 
   years.forEach((year, idx) => {
