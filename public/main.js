@@ -2401,7 +2401,7 @@ async function loadJouhouRenraku() {
           '<span class="material-icons">home</span>' +
           '<span class="renraku-address">' + esc(rec.address) + '</span>' +
           '<a class="renraku-map-link" href="' + esc(mapUrl) + '" target="_blank" rel="noopener" title="Google Mapで開く">' +
-          '<span class="material-icons">map</span></a>' +
+          '<span class="material-icons">place</span></a>' +
           '</div>';
       }
       h += '</div>';
