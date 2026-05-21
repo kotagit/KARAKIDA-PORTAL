@@ -30,7 +30,29 @@
       </svg>
       Googleアカウントでログイン
     </button>
+    <div class="login-divider"><span>または</span></div>
+    <button id="login-email-btn" class="email-login-btn">
+      <span class="material-icons">mail</span>
+      メールでログイン
+    </button>
     <p id="login-error" class="login-error"></p>
+  </div>
+</div>
+
+<!-- メールリンク送信モーダル -->
+<div id="email-login-modal" class="email-login-modal hidden">
+  <div class="email-login-modal-card">
+    <h3 style="margin:0 0 12px;font-size:16px">メールでログイン</h3>
+    <p style="font-size:13px;color:#555;margin:0 0 12px;line-height:1.5">
+      USER_LIST に登録されているメールアドレスを入力してください。<br>
+      ログイン用リンクをお送りします（リンクをタップで自動ログイン）。
+    </p>
+    <input type="email" id="email-login-input" placeholder="you@example.com" autocomplete="email">
+    <p id="email-login-msg" class="email-login-msg"></p>
+    <div class="email-login-modal-actions">
+      <button id="email-login-cancel" class="btn-secondary">キャンセル</button>
+      <button id="email-login-send" class="btn-primary">送信</button>
+    </div>
   </div>
 </div>
 
