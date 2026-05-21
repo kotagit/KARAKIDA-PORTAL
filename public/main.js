@@ -2633,6 +2633,10 @@ async function loadJouhouCard() {
       baptismDate: String(d.baptismDate || '').trim(),
       status: _parseStatus(d.status),
       hope: String(d.hope || '').trim(),
+      // 立場判定（displayRole / deriveIsElder / deriveIsPioneer）が
+      // orgRoles / appointment を参照するため必ず渡す
+      appointment: d.appointment,
+      orgRoles: d.orgRoles,
     };
 
     const year = getServiceYear();
