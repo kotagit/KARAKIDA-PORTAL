@@ -3518,6 +3518,39 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .home-acc-sub-item { padding-left: 52px !important; background: #eef6fc !important; }
 .home-acc-sub-item:hover { background: #dceefa !important; }
 
+/* フォーム提出結果（履歴） */
+.frh-count { font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+.frh-list { display: flex; flex-direction: column; gap: 10px; }
+.frh-card {
+  background: white; border-radius: 10px; padding: 12px 14px;
+  border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.frh-card-top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.frh-name { font-weight: 700; font-size: 15px; color: var(--text); }
+.frh-ts { font-size: 11px; color: var(--text-light); margin-left: auto; }
+.frh-proxy { font-size: 11px; color: var(--text-light); }
+.frh-card-body { display: flex; flex-wrap: wrap; gap: 6px; }
+.frh-pill {
+  font-size: 12px; padding: 3px 10px; border-radius: 12px;
+  background: #f0f4f8; color: var(--text); font-weight: 600;
+}
+.frh-pill-role { background: #e3f2fd; color: #1565c0; }
+.frh-pill-loc { background: #fce4ec; color: #c2185b; }
+.frh-pill-special { background: #fff3e0; color: #e65100; }
+.frh-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+}
+.frh-badge-approved { background: #c8e6c9; color: #1b5e20; }
+.frh-badge-pending  { background: #fff9c4; color: #827717; }
+.frh-badge-manual   { background: #e1bee7; color: #6a1b9a; }
+.frh-remarks {
+  margin-top: 8px; font-size: 12px; color: var(--text-light);
+  padding-left: 8px; border-left: 3px solid var(--border);
+}
+
 /* ── 権限シミュレーター ── */
 .psim-wrap { max-width: 900px; margin: 0 auto; }
 .psim-section {
