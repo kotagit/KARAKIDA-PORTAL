@@ -1792,7 +1792,7 @@ details[open] .renraku-chevron { transform: rotate(180deg); }
 .s21-cell { color: var(--text); }
 .s21-yes { color: #2e7d32; font-weight: 700; }
 .s21-no { color: #c62828; }
-.s21-remarks { text-align: left; font-size: 11px; color: var(--text-light); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s21-table td.s21-remarks { text-align: left; font-size: 11px; color: var(--text-light); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s21-empty-row td { color: #ccc; }
 .s21-total-row { border-top: 2px solid var(--primary); }
 .s21-total-row td { font-weight: 700; background: #f5f9ff; }
