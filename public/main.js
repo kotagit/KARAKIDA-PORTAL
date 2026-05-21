@@ -3769,28 +3769,29 @@ async function loadAdminReportCheck() {
   if (!view) return;
   view.innerHTML = '<div class="loading">読み込み中...</div>';
 
+  // 初期値: 今日の前の月 (例: 5/21 → 2026年 4月, 1/5 → 前年 12月)
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const defaultYear = prev.getFullYear();
+  const defaultMonth = prev.getMonth() + 1;
+
   if (yearSel && yearSel.options.length === 0) {
-    const now = new Date();
     // 年プルダウン: 当年 + 過去 2 年 (計 3 年)
-    const phY = document.createElement('option');
-    phY.value = ''; phY.textContent = '— 年 —'; phY.disabled = true; phY.selected = true;
-    yearSel.appendChild(phY);
     for (let off = 0; off < 3; off++) {
       const y = now.getFullYear() - off;
       const opt = document.createElement('option');
       opt.value = y; opt.textContent = y + '年';
+      if (y === defaultYear) opt.selected = true;
       yearSel.appendChild(opt);
     }
     yearSel.addEventListener('change', () => loadReportCheckData());
   }
   if (monthSel && monthSel.options.length === 0) {
     // 月プルダウン: 1〜12 月
-    const phM = document.createElement('option');
-    phM.value = ''; phM.textContent = '— 月 —'; phM.disabled = true; phM.selected = true;
-    monthSel.appendChild(phM);
     for (let m = 1; m <= 12; m++) {
       const opt = document.createElement('option');
       opt.value = m; opt.textContent = m + '月';
+      if (m === defaultMonth) opt.selected = true;
       monthSel.appendChild(opt);
     }
     monthSel.addEventListener('change', () => loadReportCheckData());
@@ -3800,11 +3801,6 @@ async function loadAdminReportCheck() {
     document.getElementById('rptchk-filter-none')?.addEventListener('click', () => setRptChkFilter('none'));
   }
 
-  // 年か月が未選択ならプレースホルダー文言を表示、データ読み込みは行わない
-  if (!yearSel.value || !monthSel.value) {
-    view.innerHTML = '<div class="empty-state">上のプルダウンから年と月を選択してください</div>';
-    return;
-  }
   await loadReportCheckData();
 }
 
