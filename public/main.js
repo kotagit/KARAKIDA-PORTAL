@@ -5368,11 +5368,12 @@ async function loadSenkyoPublic() {
       section.className = 'aw-inline-section pw-cols-' + allPlaces.length;
 
       const isWeekend = group.weekday === '土' || group.weekday === '日';
+      const dowHtml = `<span class="${isWeekend ? 'fs-hdr-weekend' : ''}">(${esc(group.weekday)})</span>`;
       const hdr = document.createElement('div');
       hdr.className = 'aw-inline-header';
       hdr.innerHTML = `
         <div class="aw-header-left">
-          <div class="aw-inline-title${isWeekend ? ' fs-hdr-weekend' : ''}">${esc(group.day)}(${esc(group.weekday)})　${esc(group.time)}</div>
+          <div class="aw-inline-title">${esc(group.day)}${dowHtml}　${esc(group.time)}</div>
         </div>
       `;
       section.appendChild(hdr);
