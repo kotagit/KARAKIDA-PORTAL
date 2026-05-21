@@ -4441,36 +4441,37 @@ async function _renderGroupMemberSection(groupView, userList) {
     if (data.appointment === 'elder' || arr.includes('EL') || deriveIsElder(data)) roleLabel = '長老';
     else if (data.appointment === 'ministerial' || arr.includes('MS')) roleLabel = '援助奉仕者';
     if (deriveIsPioneer(data) || arr.includes('RP') || arr.includes('AP')) roleLabel += ' / 開拓者';
+    const gr = deriveGroupRole(data);
+    const gPosition = gr?.position || '';
     users.push({
       name,
       furigana: String(data.furigana || '').trim(),
       group: String(data.group || '').trim(),
       gender: String(data.gender || '').trim(),
       roleLabel,
+      gPosition,
     });
   });
-  users.sort((a, b) => a.group.localeCompare(b.group) || (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
+  // 並び順:
+  //  1. グループの監督 (gPosition=監督)
+  //  2. グループの補佐 (gPosition=補佐)
+  //  3. 男性 (gender M/男)
+  //  4. 女性 (gender F/女)
+  //  5. それ以外
+  // 各カテゴリ内は furigana の五十音順
+  const posRank = u => {
+    if (u.gPosition === '監督') return 0;
+    if (u.gPosition === '補佐') return 1;
+    if (u.gender === 'M' || u.gender === '男') return 2;
+    if (u.gender === 'F' || u.gender === '女') return 3;
+    return 4;
+  };
   const groupMap = {};
   users.forEach(u => { if (!u.group) return; if (!groupMap[u.group]) groupMap[u.group] = []; groupMap[u.group].push(u); });
-
-  const KANA_ROWS = [
-    { tag: 'あ', chars: 'アァイィウゥエェオォあぁいぃうぅえぇおぉ' },
-    { tag: 'か', chars: 'カガキギクグケゲコゴかがきぎくぐけげこご' },
-    { tag: 'さ', chars: 'サザシジスズセゼソゾさざしじすずせぜそぞ' },
-    { tag: 'た', chars: 'タダチヂツヅテデトドたぢちつづてでとど' },
-    { tag: 'な', chars: 'ナニヌネノなにぬねの' },
-    { tag: 'は', chars: 'ハバパヒビピフブプヘベペホボポはばぱひびぴふぶぷへべぺほぼぽ' },
-    { tag: 'ま', chars: 'マミムメモまみむめも' },
-    { tag: 'や', chars: 'ヤャユュヨョやゃゆゅよょ' },
-    { tag: 'ら', chars: 'ラリルレロらりるれろ' },
-    { tag: 'わ', chars: 'ワヰヱヲンわをん' },
-  ];
-  function getKanaTag(s) {
-    if (!s) return '';
-    const ch = s.charAt(0);
-    for (const r of KANA_ROWS) { if (r.chars.includes(ch)) return r.tag; }
-    return '';
-  }
+  Object.values(groupMap).forEach(arr => {
+    arr.sort((a, b) => posRank(a) - posRank(b)
+      || (a.furigana || a.name).localeCompare(b.furigana || b.name, 'ja'));
+  });
 
   let gHtml = '';
   Object.keys(groupMap).sort((a, b) => a.localeCompare(b, 'ja')).forEach(gName => {
@@ -4478,15 +4479,12 @@ async function _renderGroupMemberSection(groupView, userList) {
     gHtml += '<div class="group-member-card">';
     gHtml += '<div class="group-member-header">' + esc(gName) + '<span class="group-member-count">' + members.length + '名</span></div>';
     gHtml += '<div class="group-member-list">';
-    let prevTag = '';
     members.forEach(m => {
-      const tag = getKanaTag(m.furigana || m.name);
-      if (tag && tag !== prevTag) {
-        gHtml += '<div class="group-member-kana-tag">' + esc(tag) + '</div>';
-        prevTag = tag;
-      }
       const gIcon = m.gender === 'M' || m.gender === '男' ? 'man' : m.gender === 'F' || m.gender === '女' ? 'woman' : 'person';
-      gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span><span class="group-member-name">' + esc(m.name) + '</span><span class="group-member-role">' + esc(m.roleLabel) + '</span></div>';
+      let posBadge = '';
+      if (m.gPosition === '監督') posBadge = '<span class="group-member-pos group-member-pos-go">監</span>';
+      else if (m.gPosition === '補佐') posBadge = '<span class="group-member-pos group-member-pos-ga">補</span>';
+      gHtml += '<div class="group-member-row"><span class="material-icons group-member-icon">' + gIcon + '</span>' + posBadge + '<span class="group-member-name">' + esc(m.name) + '</span></div>';
     });
     gHtml += '</div></div>';
   });
